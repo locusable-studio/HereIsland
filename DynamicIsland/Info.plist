@@ -8,17 +8,19 @@
 		<true/>
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
-	<string>Atoll uses Apple Music to fetch animated artwork for the lock screen wallpaper.</string>
+	<string>Here Island uses Apple Music to fetch animated artwork.</string>
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>Atoll needs audio capture permission to display the real-time music waveform visualizer.</string>
+	<string>Here Island needs audio capture permission to display the real-time music waveform visualizer.</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>Atoll needs screen recording permission to capture screenshots for the AI assistant feature.</string>
+	<string>Here Island needs screen recording permission for capture features.</string>
 	<key>SUEnableDownloaderService</key>
 	<true/>
 	<key>SUEnableInstallerLauncherService</key>
 	<true/>
+	<key>SUSendProfileInfo</key>
+	<false/>
 	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/Ebullioscopic/Atoll/main/Updates/appcast.xml</string>
+	<string></string>
 	<key>SUPublicEDKey</key>
 	<string>q2YQaJ1umGkaIJWMGN9Isj5fx/YlUtxnzHEBqFtfZcg=</string>
 	<key>UTImportedTypeDeclarations</key>

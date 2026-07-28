@@ -60,39 +60,7 @@ func maxAllowedNotchWidth() -> CGFloat {
 /// Counts the number of currently enabled standard notch tabs.
 /// Mirrors the tab-building logic in ``TabSelectionView``.
 func enabledStandardTabCount() -> Int {
-    var count = 0
-
-    // Home tab
-    if Defaults[.showStandardMediaControls] || Defaults[.showCalendar] || Defaults[.showMirror] {
-        count += 1
-    }
-
-    // Shelf tab
-    if Defaults[.dynamicShelf] {
-        count += 1
-    }
-
-    // Timer tab (only in .tab display mode)
-    if Defaults[.enableTimerFeature] && Defaults[.timerDisplayMode] == .tab {
-        count += 1
-    }
-
-    // Stats tab
-    if Defaults[.enableStatsFeature] {
-        count += 1
-    }
-
-    // Notes / Clipboard tab
-    if Defaults[.enableNotes] || (Defaults[.enableClipboardManager] && Defaults[.clipboardDisplayMode] == .separateTab) {
-        count += 1
-    }
-
-    // Terminal tab
-    if Defaults[.enableTerminalFeature] {
-        count += 1
-    }
-
-    return count
+    1
 }
 
 /// Returns the recommended minimum notch width for the given tab count.
@@ -111,7 +79,7 @@ func currentRecommendedMinimumNotchWidth() -> CGFloat {
 /// Also clamps to screen width so the notch never exceeds the display.
 /// Only adjusts when not in minimalistic mode.
 func enforceMinimumNotchWidth() {
-    guard !Defaults[.enableMinimalisticUI] else { return }
+    return
     let minWidth = currentRecommendedMinimumNotchWidth()
     let maxWidth = maxAllowedNotchWidth()
     var width = Defaults[.openNotchWidth]
@@ -134,26 +102,12 @@ let notchShadowPaddingMinimalistic: CGFloat = 12
 @MainActor
 func minimalisticOpenNotchSize(isDynamicIslandMode: Bool) -> CGSize {
     var size = minimalisticBaseOpenNotchSize
-
     if isDynamicIslandMode {
-        size.width = 340 // Reduced from 420 for a narrower pill
-        size.height = 144 // Exact height of the minimalistic music player view
+        size.height = 144
     }
-
-    if Defaults[.enableLyrics] {
+    if Defaults[.enableLyrics] && !MusicManager.shared.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         size.height += minimalisticLyricsExtraHeight
     }
-    
-    let reminderCount = ReminderLiveActivityManager.shared.activeWindowReminders.count
-    if reminderCount > 0 {
-        let reminderHeight = ReminderLiveActivityManager.additionalHeight(forRowCount: reminderCount)
-        size.height += reminderHeight
-    }
-
-    if DynamicIslandViewCoordinator.shared.timerLiveActivityEnabled && TimerManager.shared.isExternalTimerActive {
-        size.height += minimalisticTimerCountdownBlockHeight
-    }
-
     return size
 }
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 24), closed: (top: 6, bottom: 14))
@@ -208,31 +162,7 @@ func statsAdjustedNotchSize(
     isStatsTabActive: Bool,
     secondRowProgress: CGFloat
 ) -> CGSize {
-    guard isStatsTabActive, Defaults[.enableStatsFeature] else {
-        return baseSize
-    }
-
-    let enabledGraphsCount = [
-        Defaults[.showCpuGraph],
-        Defaults[.showMemoryGraph],
-        Defaults[.showGpuGraph],
-        Defaults[.showNetworkGraph],
-        Defaults[.showDiskGraph]
-    ].filter { $0 }.count
-
-    guard enabledGraphsCount >= 4 else {
-        return baseSize
-    }
-
-    let clampedProgress = max(0, min(secondRowProgress, 1))
-    guard clampedProgress > 0 else {
-        return baseSize
-    }
-
-    var adjustedSize = baseSize
-    let extraHeight = (statsSecondRowContentHeight + statsGridSpacingHeight) * clampedProgress
-    adjustedSize.height += extraHeight
-    return adjustedSize
+    baseSize
 }
 
 func notchShadowPaddingValue(isMinimalistic: Bool) -> CGFloat {
