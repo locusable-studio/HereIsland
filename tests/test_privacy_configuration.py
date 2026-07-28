@@ -4,8 +4,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ENTITLEMENTS = ROOT / "DynamicIsland" / "DynamicIsland.entitlements"
-PROJECT = ROOT / "DynamicIsland.xcodeproj" / "project.pbxproj"
+ENTITLEMENTS = ROOT / "HereIsland" / "HereIsland.entitlements"
+PROJECT = ROOT / "HereIsland.xcodeproj" / "project.pbxproj"
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 
