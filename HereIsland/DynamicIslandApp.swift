@@ -41,6 +41,10 @@ struct DynamicNotchApp: App {
 
     var body: some Scene {
         MenuBarExtra("dynamic.island", systemImage: "inset.filled.capsule", isInserted: $showMenuBarIcon) {
+            Button(String(localized: "About Here Island")) {
+                AboutWindowController.shared.openAbout()
+            }
+            Divider()
             Button(String(localized: "Settings…")) {
                 SettingsWindowController.shared.openSettings()
             }

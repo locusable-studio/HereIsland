@@ -1,10 +1,6 @@
 /*
- * Atoll (DynamicIsland)
- * Copyright (C) 2024-2026 Atoll Contributors
- *
- * Originally from boring.notch project
- * Modified and adapted for Atoll (DynamicIsland)
- * See NOTICE for details.
+ * Here Island
+ * Copyright (C) 2024-2026 Here Island Contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,23 +17,16 @@
  */
 
 import AppKit
-import Sparkle
 import SwiftUI
 
-/// Presents settings for an `LSUIElement` menu-bar app.
-///
-/// Content is a single-page SwiftUI `Form` (`SettingsView`). The window itself
-/// is a normal AppKit window because SwiftUI `Settings` / `SettingsLink` is
-/// unreliable while `LSUIElement` keeps the app in accessory mode.
-final class SettingsWindowController: NSWindowController {
-    static let shared = SettingsWindowController()
-
-    private var updaterController: SPUStandardUpdaterController?
+/// Presents the About window for an `LSUIElement` menu-bar app.
+final class AboutWindowController: NSWindowController {
+    static let shared = AboutWindowController()
 
     private init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 520),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 480),
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: true
         )
@@ -50,44 +39,32 @@ final class SettingsWindowController: NSWindowController {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func setUpdaterController(_ controller: SPUStandardUpdaterController) {
-        updaterController = controller
-        installRootView()
-    }
-
     private func configureWindow() {
         guard let window else { return }
-        window.title = String(localized: "Here Island Settings")
-        window.minSize = NSSize(width: 480, height: 400)
+        window.title = String(localized: "About Here Island")
+        window.minSize = NSSize(width: 420, height: 480)
         window.isReleasedWhenClosed = false
         window.level = .normal
         window.collectionBehavior = [.managed, .participatesInCycle]
         window.hidesOnDeactivate = false
-        window.identifier = NSUserInterfaceItemIdentifier("HereIslandSettingsWindow")
+        window.identifier = NSUserInterfaceItemIdentifier("HereIslandAboutWindow")
         window.delegate = self
-        installRootView()
+        window.contentView = NSHostingView(rootView: AboutView())
         ScreenCaptureVisibilityManager.shared.register(window, scope: .panelsOnly)
     }
 
-    private func installRootView() {
-        guard let window else { return }
-        window.contentView = NSHostingView(
-            rootView: SettingsView(updaterController: updaterController)
-        )
-    }
-
-    func openSettings() {
+    func openAbout() {
         if window == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 560, height: 520),
-                styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                contentRect: NSRect(x: 0, y: 0, width: 460, height: 480),
+                styleMask: [.titled, .closable, .miniaturizable],
                 backing: .buffered,
                 defer: false
             )
             self.window = window
             configureWindow()
         } else if window?.contentView == nil {
-            installRootView()
+            window?.contentView = NSHostingView(rootView: AboutView())
         }
 
         NSApp.setActivationPolicy(.regular)
@@ -106,10 +83,6 @@ final class SettingsWindowController: NSWindowController {
         }
     }
 
-    func showWindow() {
-        openSettings()
-    }
-
     deinit {
         if let window {
             ScreenCaptureVisibilityManager.shared.unregister(window)
@@ -117,11 +90,11 @@ final class SettingsWindowController: NSWindowController {
     }
 }
 
-extension SettingsWindowController: NSWindowDelegate {
+extension AboutWindowController: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         window?.orderOut(nil)
-        // Keep regular activation if About is still open.
-        if AboutWindowController.shared.window?.isVisible != true {
+        // Keep regular activation if Settings is still open.
+        if SettingsWindowController.shared.window?.isVisible != true {
             NSApp.setActivationPolicy(.accessory)
         }
     }
