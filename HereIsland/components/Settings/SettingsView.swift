@@ -41,18 +41,12 @@ struct SettingsView: View {
             }
 
             Section(String(localized: "Interaction")) {
-                Toggle(String(localized: "Open on hover"), isOn: $openNotchOnHover)
-                Toggle(String(localized: "Enable gestures"), isOn: $enableGestures)
                 Toggle(String(localized: "Enable haptics"), isOn: $enableHaptics)
-                Toggle(String(localized: "Use simpler close animation"), isOn: $useModernCloseAnimation)
             }
 
             Section(String(localized: "Appearance")) {
                 Toggle(String(localized: "Enable sneak peek"), isOn: $enableSneakPeek)
                 Toggle(String(localized: "Window shadow"), isOn: $enableShadow)
-            }
-
-            Section(String(localized: "Audio")) {
                 Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
             }
 
@@ -71,13 +65,10 @@ struct SettingsView: View {
     }
 
     @Default(.menubarIcon) private var menubarIcon
-    @Default(.openNotchOnHover) private var openNotchOnHover
-    @Default(.enableGestures) private var enableGestures
     @Default(.enableHaptics) private var enableHaptics
     @Default(.showOnAllDisplays) private var showOnAllDisplays
     @Default(.settingsIconInNotch) private var settingsIconInNotch
     @Default(.enableShadow) private var enableShadow
-    @Default(.useModernCloseAnimation) private var useModernCloseAnimation
     @Default(.enableSneakPeek) private var enableSneakPeek
     @Default(.enableRealTimeWaveform) private var enableRealTimeWaveform
 }

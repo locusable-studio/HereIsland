@@ -36,17 +36,11 @@ struct ContentView: View {
 
     @Default(.enableShadow) private var enableShadow
     @Default(.cornerRadiusScaling) private var cornerRadiusScaling
-    @Default(.useModernCloseAnimation) private var useModernCloseAnimation
-    @Default(.enableGestures) private var enableGestures
-    @Default(.closeGestureEnabled) private var closeGestureEnabled
-    @Default(.reverseScrollGestures) private var reverseScrollGestures
-    @Default(.openNotchOnHover) private var openNotchOnHover
     @Default(.enableHaptics) private var enableHaptics
     @Default(.coloredSpectrogram) private var coloredSpectrogram
 
     @Namespace private var albumArtNamespace
     @State private var isHovering = false
-    @State private var gestureProgress: CGFloat = 0
     @State private var hoverTask: Task<Void, Never>?
 
     private var isIslandMode: Bool {
@@ -166,18 +160,9 @@ struct ContentView: View {
             }
         }
         .onHover(perform: handleHover)
-        .onTapGesture {
-            guard vm.notchState == .closed else { return }
-            if enableHaptics {
-                NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
-            }
-            openNotch()
-        }
-        .gesture(openCloseDragGesture)
         // Match original: animation driven by state value, not withAnimation(wrong spring).
         .animation(.bouncy.speed(1.2), value: isHovering)
         .animation(vm.notchState == .open ? openSpring : closeSpring, value: vm.notchState)
-        .animation(.smooth, value: gestureProgress)
     }
 
     private var chromeBase: some View {
@@ -189,34 +174,11 @@ struct ContentView: View {
     }
 
     private var openSpring: Animation {
-        useModernCloseAnimation
-            ? .spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
-            : .spring.speed(1.2)
+        .spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
     }
 
     private var closeSpring: Animation {
-        useModernCloseAnimation
-            ? .spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
-            : .spring.speed(1.2)
-    }
-
-    private var openCloseDragGesture: some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { value in
-                guard enableGestures else { return }
-                gestureProgress = value.translation.height
-            }
-            .onEnded { value in
-                guard enableGestures else { return }
-                defer { gestureProgress = 0 }
-                if value.translation.height > 40, vm.notchState == .closed {
-                    openNotch()
-                } else if (closeGestureEnabled || reverseScrollGestures),
-                          value.translation.height < -40,
-                          vm.notchState == .open {
-                    closeNotch()
-                }
-            }
+        .spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
     }
 
     @ViewBuilder
@@ -231,8 +193,6 @@ struct ContentView: View {
                 }
             }
             .allowsHitTesting(vm.notchState == .open)
-            .blur(radius: abs(gestureProgress) > 0.3 ? min(abs(gestureProgress), 8) : 0)
-            .opacity(abs(gestureProgress) > 0.3 ? min(abs(gestureProgress * 2), 0.8) : 1)
         }
     }
 
@@ -259,7 +219,7 @@ struct ContentView: View {
 
     private var closedMusicActivity: some View {
         let height = max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
-        let wing = max(0, height + gestureProgress / 2)
+        let wing = max(0, height)
         let center = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
         return HStack(spacing: 0) {
             Image(nsImage: musicManager.albumArt)
@@ -304,7 +264,7 @@ struct ContentView: View {
         hoverTask?.cancel()
         if hovering {
             withAnimation(.bouncy.speed(1.2)) { isHovering = true }
-            guard openNotchOnHover, vm.notchState == .closed else { return }
+            guard vm.notchState == .closed else { return }
             hoverTask = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(Int(Defaults[.minimumHoverDuration] * 1000)))
                 guard !Task.isCancelled else { return }
@@ -312,7 +272,7 @@ struct ContentView: View {
             }
         } else {
             withAnimation(.bouncy.speed(1.2)) { isHovering = false }
-            guard openNotchOnHover, vm.notchState == .open else { return }
+            guard vm.notchState == .open else { return }
             hoverTask = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(400))
                 guard !Task.isCancelled else { return }
@@ -322,6 +282,10 @@ struct ContentView: View {
     }
 
     private func openNotch() {
+        guard vm.notchState == .closed else { return }
+        if enableHaptics {
+            NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+        }
         // Implicit animation via .animation(_:value: vm.notchState)
         vm.open()
     }
@@ -330,4 +294,3 @@ struct ContentView: View {
         vm.close()
     }
 }
-
