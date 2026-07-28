@@ -35,6 +35,11 @@ struct UpdateNotFoundView: View {
         Color(channel.badgeColor)
     }
 
+    private var versionLabel: String {
+        let version = Bundle.main.releaseVersionNumber ?? String(localized: "Unknown")
+        return String(localized: "Here Island \(version)")
+    }
+
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
@@ -80,7 +85,7 @@ struct UpdateNotFoundView: View {
 
             // Version info
             VStack(spacing: 6) {
-                Text(String(localized: "Here Island \(Bundle.main.releaseVersionNumber ?? String(localized: \"Unknown\"))"))
+                Text(versionLabel)
                     .font(.subheadline)
                     .foregroundStyle(.primary)
 
