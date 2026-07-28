@@ -44,7 +44,7 @@ struct CheckForUpdatesView: View {
     }
     
     var body: some View {
-        Button("Check for Updates…", action: updater.checkForUpdates)
+        Button(String(localized: "Check for Updates…"), action: updater.checkForUpdates)
             .disabled(!checkForUpdatesViewModel.canCheckForUpdates)
     }
 }
@@ -63,19 +63,19 @@ struct UpdaterSettingsView: View {
     
     var body: some View {
         Section {
-            Toggle("Automatically check for updates", isOn: $automaticallyChecksForUpdates)
+            Toggle(String(localized: "Automatically check for updates"), isOn: $automaticallyChecksForUpdates)
                 .onChange(of: automaticallyChecksForUpdates) { _, newValue in
                     updater.automaticallyChecksForUpdates = newValue
                 }
             
-            Toggle("Automatically download updates", isOn: $automaticallyDownloadsUpdates)
+            Toggle(String(localized: "Automatically download updates"), isOn: $automaticallyDownloadsUpdates)
                 .disabled(!automaticallyChecksForUpdates)
                 .onChange(of: automaticallyDownloadsUpdates) { _, newValue in
                     updater.automaticallyDownloadsUpdates = newValue
                 }
         } header: {
             HStack {
-                Text("Software updates")
+                Text(String(localized: "Software updates"))
             }
         }
     }

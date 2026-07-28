@@ -271,12 +271,8 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
-				tr,
+				"zh-Hans",
 				Base,
-				hi,
-				ta,
-				gu,
-				nl,
 			);
 			mainGroup = F54406DE2CD4987A00C7AFD9;
 			minimizedProjectReferenceProxies = 1;
@@ -567,8 +563,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_MetalCaptureEnabled = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Here Island uses AppleScripts to control Spotify, Apple Music, and Notes.";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Here Island needs Bluetooth access to detect when audio devices connect and display their battery status in the HUD.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Here Island uses AppleScript to control Spotify and Apple Music.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Here Island needs Bluetooth access for audio device features.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Show calender events inside the notch";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Need for Calendar Mode";
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need your camera for Mirror mode";
@@ -641,8 +637,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_MetalCaptureEnabled = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Here Island uses AppleScripts to control Spotify, Apple Music, and Notes.";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Here Island needs Bluetooth access to detect when audio devices connect and display their battery status in the HUD.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Here Island uses AppleScript to control Spotify and Apple Music.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Here Island needs Bluetooth access for audio device features.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Show calender events inside the notch";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "Need for Calendar Mode";
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need your camera for Mirror mode";

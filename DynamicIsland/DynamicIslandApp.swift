@@ -41,13 +41,13 @@ struct DynamicNotchApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("dynamic.island", systemImage: "mountain.2.fill", isInserted: $showMenuBarIcon) {
-            Button("Settings") {
+        MenuBarExtra("dynamic.island", systemImage: "sun.horizon", isInserted: $showMenuBarIcon) {
+            Button(String(localized: "Settings")) {
                 SettingsWindowController.shared.showWindow()
             }
             CheckForUpdatesView(updater: updaterController.updater)
             Divider()
-            Button("Restart Here Island") {
+            Button(String(localized: "Restart Here Island")) {
                 guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return }
                 let workspace = NSWorkspace.shared
                 if let appURL = workspace.urlForApplication(withBundleIdentifier: bundleIdentifier) {
@@ -57,7 +57,7 @@ struct DynamicNotchApp: App {
                 }
                 NSApplication.shared.terminate(self)
             }
-            Button("Quit", role: .destructive) {
+            Button(String(localized: "Quit"), role: .destructive) {
                 NSApplication.shared.terminate(self)
             }
             .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
@@ -67,7 +67,7 @@ struct DynamicNotchApp: App {
     @CommandsBuilder
     var commands: some Commands {
         CommandGroup(replacing: .appSettings) {
-            Button("Settings…") {
+            Button(String(localized: "Settings…")) {
                 SettingsWindowController.shared.showWindow()
             }
         }

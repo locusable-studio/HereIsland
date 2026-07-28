@@ -71,7 +71,7 @@ struct UpdateNotFoundView: View {
             }
 
             // Title
-            Text("You're up to date!")
+            Text(String(localized: "You're up to date!"))
                 .font(.title3)
                 .fontWeight(.semibold)
                 .foregroundStyle(.primary)
@@ -80,14 +80,14 @@ struct UpdateNotFoundView: View {
 
             // Version info
             VStack(spacing: 6) {
-                Text("Here Island \(Bundle.main.releaseVersionNumber ?? "Unknown")")
+                Text(String(localized: "Here Island \(Bundle.main.releaseVersionNumber ?? String(localized: \"Unknown\"))"))
                     .font(.subheadline)
                     .foregroundStyle(.primary)
 
                 HStack(spacing: 4) {
                     Image(systemName: channel.badgeIcon)
                         .font(.caption2)
-                    Text("\(channel.displayName) channel")
+                    Text(String(localized: "\(channel.displayName) channel"))
                         .font(.caption)
                 }
                 .foregroundStyle(channelColor)
@@ -95,7 +95,7 @@ struct UpdateNotFoundView: View {
             .opacity(showCheckmark ? 1.0 : 0)
             .animation(.easeIn(duration: 0.3).delay(0.5), value: showCheckmark)
 
-            Text("Here Island will automatically check for updates periodically.")
+            Text(String(localized: "Here Island will automatically check for updates periodically."))
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -109,7 +109,7 @@ struct UpdateNotFoundView: View {
             Button {
                 state.acknowledgeAction?()
             } label: {
-                Text("OK")
+                Text(String(localized: "OK"))
                     .font(.system(.body, weight: .medium))
                     .frame(width: 120)
                     .padding(.vertical, 6)

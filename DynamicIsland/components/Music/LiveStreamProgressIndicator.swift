@@ -66,14 +66,14 @@ struct LiveStreamProgressIndicator: View {
             )
             .frame(height: 10)
             .overlay {
-                Text("LIVE")
+                Text(String(localized: "LIVE"))
                     .font(.system(size: 12, weight: .black, design: .rounded))
                     .tracking(1.4)
                     .foregroundStyle(Color.white)
                     .shadow(color: .black.opacity(0.65), radius: 4, y: 1)
             }
             .allowsHitTesting(false)
-            .accessibilityLabel("Live stream indicator")
+            .accessibilityLabel(String(localized: "Live stream indicator"))
             .opacity(0.95)
     }
 }

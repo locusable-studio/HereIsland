@@ -52,7 +52,7 @@ struct MinimalisticMusicPlayerView: View {
                     Image(systemName: "music.note.slash")
                         .font(.system(size: 24, weight: .light))
                         .foregroundColor(.gray)
-                    Text("Nothing Playing")
+                    Text(String(localized: "Nothing Playing"))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.gray)
                 }
@@ -721,7 +721,7 @@ struct MinimalisticMusicPlayerView: View {
                     routeManager.refreshDevices()
                 }
             }
-            .accessibilityLabel("Media output")
+            .accessibilityLabel(String(localized: "Media output"))
             .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
                 MediaOutputSelectorPopover(
                     routeManager: routeManager,
@@ -781,7 +781,7 @@ struct MinimalisticMusicPlayerView: View {
                     Task { await airPlayManager.refreshDevices() }
                 }
             }
-            .accessibilityLabel("AirPlay")
+            .accessibilityLabel(String(localized: "AirPlay"))
             .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
                 AirPlaySelectorPopover(
                     airPlayManager: airPlayManager,

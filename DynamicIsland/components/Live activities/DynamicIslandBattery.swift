@@ -232,7 +232,7 @@ struct BatteryMenuView: View {
         VStack(alignment: .leading, spacing: 16) {
 
             HStack {
-                Text("Battery Status")
+                Text(String(localized: "Battery Status"))
                     .font(.headline)
                     .fontWeight(.semibold)
                 Spacer()
@@ -242,31 +242,31 @@ struct BatteryMenuView: View {
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                Text("Max Capacity: \(Int(maxCapacity))%")
+                Text(String(localized: "Max Capacity: \(Int(maxCapacity))%"))
                     .font(.subheadline)
                     .fontWeight(.regular)
                 if isInLowPowerMode {
-                    Label("Low Power Mode", systemImage: "bolt.circle")
+                    Label(String(localized: "Low Power Mode"), systemImage: "bolt.circle")
                         .font(.subheadline)
                         .fontWeight(.regular)
                 }
                 if isCharging {
-                    Label("Charging", systemImage: "bolt.fill")
+                    Label(String(localized: "Charging"), systemImage: "bolt.fill")
                         .font(.subheadline)
                         .fontWeight(.regular)
                 }
                 if isPluggedIn {
-                    Label("Plugged In", systemImage: "powerplug.fill")
+                    Label(String(localized: "Plugged In"), systemImage: "powerplug.fill")
                         .font(.subheadline)
                         .fontWeight(.regular)
                 }
                 if timeToFullCharge > 0 {
-                    Label("Time to Full Charge: \(timeToFullCharge) min", systemImage: "clock")
+                    Label(String(localized: "Time to Full Charge: \(timeToFullCharge) min"), systemImage: "clock")
                         .font(.subheadline)
                         .fontWeight(.regular)
                 }
                 if !isCharging && isPluggedIn && levelBattery >= 80 {
-                    Label("Charging on Hold: Desktop Mode", systemImage: "desktopcomputer")
+                    Label(String(localized: "Charging on Hold: Desktop Mode"), systemImage: "desktopcomputer")
                         .font(.subheadline)
                         .fontWeight(.regular)
                 }
@@ -277,7 +277,7 @@ struct BatteryMenuView: View {
             Divider()
 
             Button(action: openBatteryPreferences) {
-                Label("Battery Settings", systemImage: "gearshape")
+                Label(String(localized: "Battery Settings"), systemImage: "gearshape")
                     .fontWeight(.regular)
             }
             .frame(maxWidth: .infinity)
@@ -583,18 +583,18 @@ struct BatteryTemporaryActivityView: View {
     private var compactTitle: String {
         switch kind {
         case .charging:
-            return "Charging"
+            return String(localized: "Charging")
         case .lowBattery:
-            return "Low Battery"
+            return String(localized: "Low Battery")
         case .fullBattery:
-            return "Full Battery"
+            return String(localized: "Full Battery")
         }
     }
 
     @ViewBuilder
     private var standardTitle: some View {
         HStack(spacing: 5) {
-            Text(verbatim: kind == .lowBattery ? "Battery Low" : "Full Battery")
+            Text(kind == .lowBattery ? String(localized: "Battery Low") : String(localized: "Full Battery"))
                 .font(.system(size: kind == .lowBattery ? 13 : 13, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.82))
                 .lineLimit(1)

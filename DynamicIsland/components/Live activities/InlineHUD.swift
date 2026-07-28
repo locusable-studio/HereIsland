@@ -47,7 +47,7 @@ struct InlineHUD: View {
             Spacer(minLength: 8)
 
             if type == .mic {
-                Text(value > 0 ? "Unmuted" : "Muted")
+                Text(value > 0 ? String(localized: "Unmuted") : String(localized: "Muted"))
                     .font(.caption)
                     .foregroundStyle(.gray)
             } else if type != .music {

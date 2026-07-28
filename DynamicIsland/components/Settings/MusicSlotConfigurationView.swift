@@ -57,9 +57,9 @@ struct MusicSlotConfigurationView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Layout Preview")
+            Text(String(localized: "Layout Preview"))
                 .font(.headline)
-            Text("Drag items between slots or drop from the palette to remap controls.")
+            Text(String(localized: "Drag items between slots or drop from the palette to remap controls."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -94,7 +94,7 @@ struct MusicSlotConfigurationView: View {
                     return handleDropOnTrash(providers)
                 }
 
-                Text("Clear slot")
+                Text(String(localized: "Clear slot"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -107,12 +107,12 @@ struct MusicSlotConfigurationView: View {
     private var palette: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Text("Control Palette")
+                Text(String(localized: "Control Palette"))
                     .font(.headline)
                 Spacer()
                 ScrollHintIndicator()
             }
-            Text("Drag a control onto a slot or tap to place it in the first empty slot.")
+            Text(String(localized: "Drag a control onto a slot or tap to place it in the first empty slot."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -131,7 +131,7 @@ private struct ScrollHintIndicator: View {
     var body: some View {
         HStack(spacing: 2) {
             Image(systemName: "chevron.left")
-            Text("Scroll")
+            Text(String(localized: "Scroll"))
             Image(systemName: "chevron.right")
         }
         .font(.caption2.weight(.medium))
@@ -145,7 +145,7 @@ private struct ScrollHintIndicator: View {
     private var resetButton: some View {
         HStack {
             Spacer()
-            Button("Reset to defaults") {
+            Button(String(localized: "Reset to defaults")) {
                 withAnimation {
                     musicControlSlots = MusicControlButton.defaultLayout
                 }

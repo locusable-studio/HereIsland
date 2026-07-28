@@ -77,7 +77,7 @@ struct SystemEventIndicatorModifier: View {
             }
             switch eventType {
             case .mic:
-                Text(value > 0 ? "Mic unmuted" : "Mic muted")
+                Text(value > 0 ? String(localized: "Mic unmuted") : String(localized: "Mic muted"))
                     .foregroundStyle(.gray)
                     .lineLimit(1)
                     .allowsTightening(true)
@@ -139,7 +139,7 @@ struct VolumeProgressSection: View {
     var body: some View {
         Group {
             if value.isZero {
-                Text("muted")
+                Text(String(localized: "muted"))
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundStyle(.gray)

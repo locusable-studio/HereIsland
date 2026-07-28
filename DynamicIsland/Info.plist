@@ -12,7 +12,7 @@
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>Here Island needs audio capture permission to display the real-time music waveform visualizer.</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>Here Island needs screen recording permission for capture features.</string>
+	<string>Here Island needs screen recording permission to hide the notch while screen sharing.</string>
 	<key>SUEnableDownloaderService</key>
 	<true/>
 	<key>SUEnableInstallerLauncherService</key>

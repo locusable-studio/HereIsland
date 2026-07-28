@@ -32,14 +32,14 @@ struct SpotifyAuthSettingsSection: View {
     var body: some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Sign in to Spotify to capture the `sp_dc` cookie automatically, or paste it in below.")
+                Text(String(localized: "Sign in to Spotify to capture the `sp_dc` cookie automatically, or paste it in below."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
                 Button {
                     showingLoginSheet = true
                 } label: {
-                    Label("Sign in with Spotify", systemImage: "person.crop.circle.badge.checkmark")
+                    Label(String(localized: "Sign in with Spotify"), systemImage: "person.crop.circle.badge.checkmark")
                 }
                 .buttonStyle(.borderedProminent)
 
@@ -66,7 +66,7 @@ struct SpotifyAuthSettingsSection: View {
             }
 
             HStack {
-                Button("Paste from Clipboard") {
+                Button(String(localized: "Paste from Clipboard")) {
                     pasteCookieFromClipboard()
                 }
 
@@ -78,7 +78,7 @@ struct SpotifyAuthSettingsSection: View {
                 }
                 .disabled(!hasCookie || spotifyAuthManager.isAuthorizing)
 
-                Button("Clear") {
+                Button(String(localized: "Clear")) {
                     spotifySPDCCookie = ""
                     spotifyAuthManager.clearSession()
                 }
@@ -87,16 +87,16 @@ struct SpotifyAuthSettingsSection: View {
 
             DisclosureGroup("Get the cookie manually") {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("1. Open Spotify in a browser and log in")
+                    Text(String(localized: "1. Open Spotify in a browser and log in"))
                         .font(.caption)
-                    Text("2. Developer Tools -> Application/Storage -> Cookies -> https://open.spotify.com")
+                    Text(String(localized: "2. Developer Tools -> Application/Storage -> Cookies -> https://open.spotify.com"))
                         .font(.caption)
-                    Text("3. Copy the value of `sp_dc` and paste it here")
+                    Text(String(localized: "3. Copy the value of `sp_dc` and paste it here"))
                         .font(.caption)
 
                     HStack(spacing: 12) {
-                        Link("Open Spotify Web Player", destination: URL(string: "https://open.spotify.com")!)
-                        Link("Method source", destination: URL(string: "https://github.com/Paxsenix0/Spotify-Canvas-API")!)
+                        Link(String(localized: "Open Spotify Web Player"), destination: URL(string: "https://open.spotify.com")!)
+                        Link(String(localized: "Method source"), destination: URL(string: "https://github.com/Paxsenix0/Spotify-Canvas-API")!)
                     }
                     .font(.caption)
                 }
@@ -105,9 +105,9 @@ struct SpotifyAuthSettingsSection: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         } header: {
-            Text("Spotify Canvas Session")
+            Text(String(localized: "Spotify Canvas Session"))
         } footer: {
-            Text("Here Island uses the local `sp_dc` cookie only to request Spotify's internal web-player token and fetch the matching Canvas for the current track.")
+            Text(String(localized: "Here Island uses the local `sp_dc` cookie only to request Spotify's internal web-player token and fetch the matching Canvas for the current track."))
                 .foregroundStyle(.secondary)
                 .font(.caption)
         }

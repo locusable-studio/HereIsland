@@ -51,7 +51,7 @@ struct SpotifyLoginSheet: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Connect Spotify")
+                    Text(String(localized: "Connect Spotify"))
                         .font(.headline)
                     Text(statusText)
                         .font(.caption)
@@ -61,14 +61,14 @@ struct SpotifyLoginSheet: View {
                 Button {
                     NSWorkspace.shared.open(SpotifyLoginConstants.externalLoginURL)
                 } label: {
-                    Label("Open in Browser", systemImage: "safari")
+                    Label(String(localized: "Open in Browser"), systemImage: "safari")
                 }
                 .help("Spotify often blocks in-app logins. Sign in via your normal browser, then paste sp_dc in Settings.")
-                Button("Reset Session") {
+                Button(String(localized: "Reset Session")) {
                     NotificationCenter.default.post(name: .spotifyLoginSheetReset, object: nil)
                     statusText = "Session cleared. Sign in again to capture the cookie."
                 }
-                Button("Cancel") { dismiss() }
+                Button(String(localized: "Cancel")) { dismiss() }
                     .keyboardShortcut(.cancelAction)
             }
             .padding(12)

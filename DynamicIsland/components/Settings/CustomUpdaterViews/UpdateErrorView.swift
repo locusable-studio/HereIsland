@@ -64,7 +64,7 @@ struct UpdateErrorView: View {
             }
 
             // Error title
-            Text("Update Failed")
+            Text(String(localized: "Update Failed"))
                 .font(.title3)
                 .fontWeight(.semibold)
                 .foregroundStyle(.primary)
@@ -84,7 +84,7 @@ struct UpdateErrorView: View {
                 Button {
                     state.acknowledgeAction?()
                 } label: {
-                    Text("Try Again")
+                    Text(String(localized: "Try Again"))
                         .font(.system(.body, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -93,7 +93,7 @@ struct UpdateErrorView: View {
                 .tint(.red.opacity(0.8))
                 .controlSize(.large)
 
-                Button("Dismiss") {
+                Button(String(localized: "Dismiss")) {
                     state.acknowledgeAction?()
                 }
                 .buttonStyle(.plain)

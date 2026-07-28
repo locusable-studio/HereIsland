@@ -87,44 +87,44 @@ private struct SlimGeneralSettings: View {
     @Default(.enableRealTimeWaveform) private var enableRealTimeWaveform
 
     var body: some View {
-        Section("App") {
+        Section(String(localized: "App")) {
             LaunchAtLogin.Toggle {
-                Text("Launch at login")
+                Text(String(localized: "Launch at login"))
             }
-            Toggle("Menubar icon", isOn: $menubarIcon)
-            Toggle("Settings icon in notch", isOn: $settingsIconInNotch)
-            Toggle("Show on all displays", isOn: $showOnAllDisplays)
+            Toggle(String(localized: "Menubar icon"), isOn: $menubarIcon)
+            Toggle(String(localized: "Settings icon in notch"), isOn: $settingsIconInNotch)
+            Toggle(String(localized: "Show on all displays"), isOn: $showOnAllDisplays)
         }
 
-        Section("Interaction") {
-            Toggle("Open on hover", isOn: $openNotchOnHover)
-            Toggle("Enable gestures", isOn: $enableGestures)
-            Toggle("Enable haptics", isOn: $enableHaptics)
-            Toggle("Enable shortcuts", isOn: $enableShortcuts)
-            Toggle("Use simpler close animation", isOn: $useModernCloseAnimation)
+        Section(String(localized: "Interaction")) {
+            Toggle(String(localized: "Open on hover"), isOn: $openNotchOnHover)
+            Toggle(String(localized: "Enable gestures"), isOn: $enableGestures)
+            Toggle(String(localized: "Enable haptics"), isOn: $enableHaptics)
+            Toggle(String(localized: "Enable shortcuts"), isOn: $enableShortcuts)
+            Toggle(String(localized: "Use simpler close animation"), isOn: $useModernCloseAnimation)
         }
 
-        Section("HUD") {
-            Toggle("Inline HUD", isOn: $inlineHUD)
-            Toggle("Enable sneak peek", isOn: $enableSneakPeek)
-            Toggle("Window shadow", isOn: $enableShadow)
+        Section(String(localized: "HUD")) {
+            Toggle(String(localized: "Inline HUD"), isOn: $inlineHUD)
+            Toggle(String(localized: "Enable sneak peek"), isOn: $enableSneakPeek)
+            Toggle(String(localized: "Window shadow"), isOn: $enableShadow)
         }
 
-        Section("Battery") {
-            Toggle("Show battery indicator", isOn: $showMinimalisticBatteryIndicator)
-            Toggle("Show battery percentage inside icon", isOn: $showBatteryPercentInside)
+        Section(String(localized: "Battery")) {
+            Toggle(String(localized: "Show battery indicator"), isOn: $showMinimalisticBatteryIndicator)
+            Toggle(String(localized: "Show battery percentage inside icon"), isOn: $showBatteryPercentInside)
                 .disabled(!showMinimalisticBatteryIndicator)
         }
 
-        Section("Audio") {
-            Toggle("Real-time waveform", isOn: $enableRealTimeWaveform)
+        Section(String(localized: "Audio")) {
+            Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
         }
     }
 }
 
 private struct SlimMediaSettings: View {
     var body: some View {
-        Section("Playback") {
+        Section(String(localized: "Playback")) {
             SpotifyAuthSettingsSection()
             MusicSlotConfigurationView()
         }
@@ -135,12 +135,12 @@ private struct SlimUpdatesSettings: View {
     let updaterController: SPUStandardUpdaterController?
 
     var body: some View {
-        Section("Updates") {
+        Section(String(localized: "Updates")) {
             if let updater = updaterController?.updater {
                 CheckForUpdatesView(updater: updater)
                 UpdaterSettingsView(updater: updater)
             } else {
-                Text("Updater unavailable")
+                Text(String(localized: "Updater unavailable"))
                     .foregroundStyle(.secondary)
             }
         }

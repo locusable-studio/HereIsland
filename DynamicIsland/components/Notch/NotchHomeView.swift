@@ -431,7 +431,7 @@ private struct MediaOutputPickerButton: View {
                 routeManager.refreshDevices()
             }
         }
-        .accessibilityLabel("Media output")
+        .accessibilityLabel(String(localized: "Media output"))
         .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
             MediaOutputSelectorPopover(
                 routeManager: routeManager,
@@ -487,7 +487,7 @@ private struct AirPlayPickerButton: View {
                 Task { await airPlayManager.refreshDevices() }
             }
         }
-        .accessibilityLabel("AirPlay")
+        .accessibilityLabel(String(localized: "AirPlay"))
         .popover(isPresented: $isPopoverPresented, arrowEdge: .bottom) {
             AirPlaySelectorPopover(
                 airPlayManager: airPlayManager,
@@ -578,7 +578,7 @@ struct MediaOutputSelectorPopover: View {
             }
 
             HStack {
-                Text("Output volume")
+                Text(String(localized: "Output volume"))
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
@@ -591,12 +591,12 @@ struct MediaOutputSelectorPopover: View {
 
     private var devicesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Output devices")
+            Text(String(localized: "Output devices"))
                 .font(.caption)
                 .foregroundColor(.secondary)
 
             if routeManager.devices.isEmpty {
-                Text("No audio outputs available")
+                Text(String(localized: "No audio outputs available"))
                     .font(.callout)
                     .foregroundColor(.secondary)
                     .padding(.vertical, 12)
@@ -662,12 +662,12 @@ struct AirPlaySelectorPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("AirPlay")
+            Text(String(localized: "AirPlay"))
                 .font(.caption)
                 .foregroundColor(.secondary)
 
             if airPlayManager.devices.isEmpty {
-                Text("No AirPlay devices found")
+                Text(String(localized: "No AirPlay devices found"))
                     .font(.callout)
                     .foregroundColor(.secondary)
                     .padding(.vertical, 12)

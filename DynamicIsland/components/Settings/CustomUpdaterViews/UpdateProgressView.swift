@@ -109,7 +109,7 @@ struct UpdateProgressView: View {
                     }
 
                     if state.totalBytes > 0 {
-                        Text("of \(state.totalSizeString)")
+                        Text(String(localized: "of \(state.totalSizeString)"))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
@@ -153,7 +153,7 @@ struct UpdateProgressView: View {
 
             // Cancel button
             if state.phase == .downloading {
-                Button("Cancel") {
+                Button(String(localized: "Cancel")) {
                     state.cancelAction?()
                 }
                 .buttonStyle(.plain)
@@ -167,7 +167,7 @@ struct UpdateProgressView: View {
                 Button {
                     state.updateReply?(.install)
                 } label: {
-                    Text("Install & Relaunch")
+                    Text(String(localized: "Install & Relaunch"))
                         .font(.system(.body, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -185,11 +185,11 @@ struct UpdateProgressView: View {
 
     private var phaseLabel: String {
         switch state.phase {
-        case .downloading:    return "Downloading Update…"
-        case .extracting:     return "Extracting Update…"
-        case .readyToInstall: return "Ready to Install"
-        case .installing:     return "Installing…"
-        case .installed:      return "Update Installed!"
+        case .downloading:    return String(localized: "Downloading Update…")
+        case .extracting:     return String(localized: "Extracting Update…")
+        case .readyToInstall: return String(localized: "Ready to Install")
+        case .installing:     return String(localized: "Installing…")
+        case .installed:      return String(localized: "Update Installed!")
         default:              return state.phase.displayName
         }
     }

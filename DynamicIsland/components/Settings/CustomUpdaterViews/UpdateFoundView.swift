@@ -65,7 +65,7 @@ struct UpdateFoundView: View {
                 }
 
                 // Title
-                Text("A new version of Here Island is available!")
+                Text(String(localized: "A new version of Here Island is available!"))
                     .font(.headline)
                     .multilineTextAlignment(.center)
 
@@ -138,7 +138,7 @@ struct UpdateFoundView: View {
                 Button {
                     state.updateReply?(.install)
                 } label: {
-                    Text("Install Update")
+                    Text(String(localized: "Install Update"))
                         .font(.system(.body, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -148,14 +148,14 @@ struct UpdateFoundView: View {
                 .controlSize(.large)
 
                 HStack(spacing: 16) {
-                    Button("Remind Me Later") {
+                    Button(String(localized: "Remind Me Later")) {
                         state.updateReply?(.dismiss)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
                     .font(.caption)
 
-                    Button("Skip This Version") {
+                    Button(String(localized: "Skip This Version")) {
                         state.updateReply?(.skip)
                     }
                     .buttonStyle(.plain)
