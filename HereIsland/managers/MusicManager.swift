@@ -484,12 +484,15 @@ class MusicManager: ObservableObject {
             self.elapsedTime = timeChanged ? state.currentTime : 0
             self.timestampDate = state.lastUpdated
         } else if timeChanged {
-            // While paused, ignore tiny backward corrections from media lag so the
-            // locally frozen estimate doesn't snap left after pause.
+            // Right after an optimistic pause freeze, ignore tiny backward media
+            // corrections so the bar doesn't snap left. Once the freeze is stale,
+            // trust media again so we don't drift away from the real player.
+            let justFroze = Date().timeIntervalSince(timestampDate) < 0.45
             let backwardCorrection =
                 !eventIsPlaying
+                && justFroze
                 && state.currentTime < self.elapsedTime
-                && (self.elapsedTime - state.currentTime) <= 1.5
+                && (self.elapsedTime - state.currentTime) <= 1.25
             if !backwardCorrection {
                 self.elapsedTime = state.currentTime
             }
