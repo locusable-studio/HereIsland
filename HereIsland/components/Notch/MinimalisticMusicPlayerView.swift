@@ -281,7 +281,7 @@ struct MinimalisticMusicPlayerView: View {
             )
         }
         .onAppear {
-            sliderValue = musicManager.elapsedTime
+            sliderValue = musicManager.estimatedPlaybackPosition()
         }
         .onChange(of: musicManager.isLiveStream) { _, isLive in
             if isLive {

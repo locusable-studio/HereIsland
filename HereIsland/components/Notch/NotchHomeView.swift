@@ -209,16 +209,25 @@ struct MusicSliderView: View {
             guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
             setSliderValueWithoutAnimation(MusicManager.shared.estimatedPlaybackPosition(at: newDate))
         }
-        .onChange(of: isPlaying) { _, playing in
-            // Snap slider to the exact position when music pauses so
-            // the in-flight animation doesn't coast past the true value.
-            if !playing {
-                sliderValue = MusicManager.shared.estimatedPlaybackPosition()
-            }
+        .onChange(of: isPlaying) { _, _ in
+            // Snap without animation so play-state transitions don't inherit
+            // the button's .smooth transaction and make the bar slide sideways.
+            guard !dragging else { return }
+            setSliderValueWithoutAnimation(MusicManager.shared.estimatedPlaybackPosition())
+        }
+        .onChange(of: elapsedTime) { _, _ in
+            // TimelineView is paused while not playing, so scrubber must follow
+            // elapsedTime directly (track change / seek while paused).
+            guard !isLiveStream, !dragging, !isPlaying else { return }
+            setSliderValueWithoutAnimation(MusicManager.shared.estimatedPlaybackPosition())
+        }
+        .onChange(of: duration) { _, _ in
+            guard !isLiveStream, !dragging, !isPlaying else { return }
+            setSliderValueWithoutAnimation(MusicManager.shared.estimatedPlaybackPosition())
         }
         .onChange(of: isLiveStream) { isLive in
             if isLive {
-                sliderValue = 0
+                setSliderValueWithoutAnimation(0)
             }
         }
     }

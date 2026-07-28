@@ -410,6 +410,20 @@ class MusicManager: ObservableObject {
 
     @MainActor
     private func applyPlayState(_ state: Bool, animation: Animation?) {
+        // Keep the progress bar continuous across pause/resume:
+        // - Pausing: freeze at the currently estimated position (not the stale elapsedTime).
+        // - Resuming: re-anchor only when the existing timestamp is stale (optimistic
+        //   resume after a pause). Fresh media timestamps are preserved.
+        if state != isPlaying {
+            if !state {
+                let frozen = estimatedPlaybackPosition()
+                elapsedTime = frozen
+                timestampDate = Date()
+            } else if Date().timeIntervalSince(timestampDate) > 0.25 {
+                timestampDate = Date()
+            }
+        }
+
         if let animation {
             var transaction = Transaction()
             transaction.animation = animation
@@ -431,24 +445,14 @@ class MusicManager: ObservableObject {
         let expectedState = pendingOptimisticPlayState
         pendingOptimisticPlayState = nil
 
-        if eventIsPlaying != self.isPlaying {
-            let animation: Animation? = (expectedState == eventIsPlaying) ? .smooth(duration: 0.18) : .smooth
-            applyPlayState(eventIsPlaying, animation: animation)
-        } else {
-            self.updateIdleState(state: eventIsPlaying)
-        }
-
-        // Check for changes in track metadata using last artwork change values
+        // Detect track/content changes first — timing resets depend on this.
         let titleChanged = state.title != self.lastArtworkTitle
         let artistChanged = state.artist != self.lastArtworkArtist
         let albumChanged = state.album != self.lastArtworkAlbum
         let bundleChanged = state.bundleIdentifier != self.lastArtworkBundleIdentifier
         let contentIdentifierChanged = state.contentIdentifier != self.lastArtworkContentIdentifier
         let contentURLChanged = state.contentURL != self.lastArtworkContentURL
-
-        // Check for artwork changes
         let artworkChanged = state.artwork != nil && state.artwork != self.artworkData
-
         let hasContentChange =
             titleChanged
             || artistChanged
@@ -457,6 +461,64 @@ class MusicManager: ObservableObject {
             || bundleChanged
             || contentIdentifierChanged
             || contentURLChanged
+        // Artwork-only updates must not reset progress; only track identity changes.
+        let trackIdentityChanged =
+            titleChanged
+            || artistChanged
+            || albumChanged
+            || bundleChanged
+            || contentIdentifierChanged
+            || contentURLChanged
+
+        // Apply timing fields before play-state transitions so freeze/re-anchor
+        // operates on the latest media sample instead of being overwritten after.
+        let timeChanged = state.currentTime != self.elapsedTime
+        let durationChanged = state.duration != self.songDuration
+        let playbackRateChanged = state.playbackRate != self.playbackRate
+        let shuffleChanged = state.isShuffled != self.isShuffled
+        let repeatModeChanged = state.repeatMode != self.repeatMode
+
+        if trackIdentityChanged {
+            // New track: always adopt media time. Diff updates sometimes omit elapsedTime
+            // and would otherwise keep the previous track's position while paused.
+            self.elapsedTime = timeChanged ? state.currentTime : 0
+            self.timestampDate = state.lastUpdated
+        } else if timeChanged {
+            // While paused, ignore tiny backward corrections from media lag so the
+            // locally frozen estimate doesn't snap left after pause.
+            let backwardCorrection =
+                !eventIsPlaying
+                && state.currentTime < self.elapsedTime
+                && (self.elapsedTime - state.currentTime) <= 1.5
+            if !backwardCorrection {
+                self.elapsedTime = state.currentTime
+            }
+        }
+
+        if durationChanged {
+            self.songDuration = state.duration
+        }
+
+        if playbackRateChanged {
+            self.playbackRate = state.playbackRate
+        }
+
+        // Keep (elapsedTime, timestampDate) as a consistent estimation anchor.
+        // After an optimistic resume we may already hold a fresher local timestamp;
+        // don't regress to a stale media timestamp unless the elapsed time also updated.
+        if !trackIdentityChanged {
+            if timeChanged || state.lastUpdated >= self.timestampDate || !eventIsPlaying {
+                self.timestampDate = state.lastUpdated
+            }
+        }
+
+        if eventIsPlaying != self.isPlaying {
+            let animation: Animation? = (expectedState == eventIsPlaying) ? .smooth(duration: 0.18) : .smooth
+            applyPlayState(eventIsPlaying, animation: animation)
+        } else {
+            self.updateIdleState(state: eventIsPlaying)
+        }
+
         let liveArtworkChanged = state.liveArtworkURL != self.videoArtworkURL
 
         if liveArtworkChanged {
@@ -509,24 +571,6 @@ class MusicManager: ObservableObject {
             self.refreshExplicitFlag(for: state)
         }
 
-        let timeChanged = state.currentTime != self.elapsedTime
-        let durationChanged = state.duration != self.songDuration
-        let playbackRateChanged = state.playbackRate != self.playbackRate
-        let shuffleChanged = state.isShuffled != self.isShuffled
-        let repeatModeChanged = state.repeatMode != self.repeatMode
-
-        if timeChanged {
-            self.elapsedTime = state.currentTime
-        }
-
-        if durationChanged {
-            self.songDuration = state.duration
-        }
-
-        if playbackRateChanged {
-            self.playbackRate = state.playbackRate
-        }
-        
         if shuffleChanged {
             self.isShuffled = state.isShuffled
         }
@@ -540,7 +584,6 @@ class MusicManager: ObservableObject {
         }
         
         updateLiveStreamState(with: state)
-        self.timestampDate = state.lastUpdated
     }
 
     @MainActor
@@ -744,9 +787,9 @@ class MusicManager: ObservableObject {
 
     // MARK: - Playback Position Estimation
     public func estimatedPlaybackPosition(at date: Date = Date()) -> TimeInterval {
-        guard isPlaying else { return min(elapsedTime, songDuration) }
+        guard isPlaying else { return min(max(0, elapsedTime), songDuration) }
 
-        let timeDifference = date.timeIntervalSince(timestampDate)
+        let timeDifference = max(0, date.timeIntervalSince(timestampDate))
         let estimated = elapsedTime + (timeDifference * playbackRate)
         return min(max(0, estimated), songDuration)
     }
