@@ -45,8 +45,6 @@ struct SettingsView: View {
             }
 
             Section(String(localized: "Appearance")) {
-                Toggle(String(localized: "Enable sneak peek"), isOn: $enableSneakPeek)
-                Toggle(String(localized: "Window shadow"), isOn: $enableShadow)
                 Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
             }
 
@@ -68,7 +66,5 @@ struct SettingsView: View {
     @Default(.enableHaptics) private var enableHaptics
     @Default(.showOnAllDisplays) private var showOnAllDisplays
     @Default(.settingsIconInNotch) private var settingsIconInNotch
-    @Default(.enableShadow) private var enableShadow
-    @Default(.enableSneakPeek) private var enableSneakPeek
     @Default(.enableRealTimeWaveform) private var enableRealTimeWaveform
 }

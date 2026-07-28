@@ -9,7 +9,6 @@ Here Island lives in the MacBook notch (and Dynamic Island–style displays) and
 - Album art, title, and artist
 - Progress and playback controls: shuffle, previous, play/pause, next, repeat
 - Optional real-time waveform
-- Optional sneak peek when the track changes
 
 No battery HUD, system OSD replacement, Spotify, or configurable control layouts — just media in the notch.
 

@@ -98,7 +98,7 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
         notchState = .open
         // Keep AppKit out of the spring: only sync if size actually differs.
         AppDelegate.shared?.ensureWindowSize(
-            addShadowPadding(to: targetSize, isMinimalistic: true),
+            targetSize,
             animated: false,
             force: false
         )

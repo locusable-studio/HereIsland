@@ -207,25 +207,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Window is always sized for the open notch (original behavior).
     /// Closed live activities sit inside that larger top-aligned window.
     private func calculateRequiredNotchSize() -> CGSize {
-        if vm.notchState == .closed,
-           coordinator.expandingView.show,
-           coordinator.expandingView.type == .music,
-           Defaults[.enableSneakPeek],
-           Defaults[.sneakPeekStyles] == .inline {
-            return addShadowPadding(
-                to: CGSize(width: 460, height: vm.effectiveClosedNotchHeight),
-                isMinimalistic: true
-            )
-        }
-
         let base = minimalisticOpenNotchSize(isDynamicIslandMode: shouldUseDynamicIslandMode(for: vm.screen))
-        return addShadowPadding(to: base, isMinimalistic: true)
+        return base
     }
 
     private func adjustedSizeForScreen(_ size: CGSize, screen: NSScreen) -> CGSize {
         var adjusted = size
         if shouldUseDynamicIslandMode(for: screen.localizedName) {
-            adjusted.width += dynamicIslandShadowInset * 2
             adjusted.height += dynamicIslandTopOffset
         }
         return CGSize(
@@ -297,12 +285,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         coordinator.$currentView
             .sink { [weak self] _ in
                 DispatchQueue.main.async { self?.updateWindowSizeIfNeeded() }
-            }
-            .store(in: &cancellables)
-
-        coordinator.$expandingView
-            .sink { [weak self] _ in
-                DispatchQueue.main.async { self?.debouncedUpdateWindowSize() }
             }
             .store(in: &cancellables)
 

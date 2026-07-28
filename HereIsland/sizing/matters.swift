@@ -87,8 +87,6 @@ func enforceMinimumNotchWidth() {
     }
 }
 private let minimalisticBaseOpenNotchSize: CGSize = .init(width: 420, height: 180)
-let notchShadowPaddingStandard: CGFloat = 18
-let notchShadowPaddingMinimalistic: CGFloat = 12
 
 @MainActor
 func minimalisticOpenNotchSize(isDynamicIslandMode: Bool) -> CGSize {
@@ -100,14 +98,6 @@ func minimalisticOpenNotchSize(isDynamicIslandMode: Bool) -> CGSize {
 }
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 24), closed: (top: 6, bottom: 14))
 let minimalisticCornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 35, bottom: 35), closed: cornerRadiusInsets.closed)
-
-func notchShadowPaddingValue(isMinimalistic: Bool) -> CGFloat {
-    isMinimalistic ? notchShadowPaddingMinimalistic : notchShadowPaddingStandard
-}
-
-func addShadowPadding(to size: CGSize, isMinimalistic: Bool) -> CGSize {
-    CGSize(width: size.width, height: size.height + notchShadowPaddingValue(isMinimalistic: isMinimalistic))
-}
 
 /// Determines whether a specific screen should render the Dynamic Island pill
 /// shape instead of the standard notch shape.
@@ -148,11 +138,6 @@ let dynamicIslandPillCornerRadiusInsets: (opened: CGFloat, closed: (standard: CG
 /// Creates a visual gap so the pill floats below the menu bar, mimicking
 /// the iPhone's Dynamic Island detachment from the physical screen edge.
 let dynamicIslandTopOffset: CGFloat = 6
-
-/// Extra horizontal padding applied OUTSIDE the pill clip shape in Dynamic
-/// Island mode so the drop shadow has room to render without being clipped
-/// by the outer frame constraint.
-let dynamicIslandShadowInset: CGFloat = 14
 
 enum MusicPlayerImageSizes {
     static let cornerRadiusInset: (opened: CGFloat, closed: CGFloat) = (opened: 13.0, closed: 4.0)

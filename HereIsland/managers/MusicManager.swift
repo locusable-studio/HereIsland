@@ -224,10 +224,6 @@ class MusicManager: ObservableObject {
     // Active controller
     private var activeController: (any MediaControllerProtocol)?
 
-    // Pear Desktop auto-detection
-    private static let pearDesktopBundleID = YouTubeMusicConfiguration.default.bundleIdentifier
-    private var isPearDesktopAutoSwitched: Bool = false
-
     // Published properties for UI
     @Published var songTitle: String = "I'm Handsome"
     @Published var artistName: String = "Me"
@@ -304,16 +300,14 @@ class MusicManager: ObservableObject {
 
     // MARK: - Initialization
     init() {
+        Self.sanitizeMediaControllerPreference()
+
         // Listen for changes to the default controller preference
         NotificationCenter.default.publisher(for: Notification.Name.mediaControllerChanged)
             .sink { [weak self] _ in
-                self?.isPearDesktopAutoSwitched = false
                 self?.setActiveControllerBasedOnPreference()
             }
             .store(in: &cancellables)
-
-        // Observe Pear Desktop launch/terminate for auto-detection
-        setupPearDesktopAutoDetection()
 
         // Initialize deprecation check asynchronously
         Task { @MainActor in
@@ -324,54 +318,17 @@ class MusicManager: ObservableObject {
                 print("Failed to check deprecation status: \(error). Defaulting to false.")
                 self.isNowPlayingDeprecated = false
             }
-            
-            // Check if Pear Desktop is already running at startup
-            let pearDesktopRunning = NSWorkspace.shared.runningApplications.contains {
-                $0.bundleIdentifier == Self.pearDesktopBundleID
-            }
-            
-            if pearDesktopRunning {
-                print("[MusicManager] Pear Desktop detected at startup, auto-switching to YouTubeMusicController")
-                self.isPearDesktopAutoSwitched = true
-                if let controller = self.createController(for: .youtubeMusic) {
-                    self.setActiveController(controller)
-                }
-            } else {
-                // Initialize the active controller after deprecation check
-                self.setActiveControllerBasedOnPreference()
-            }
+
+            self.setActiveControllerBasedOnPreference()
         }
     }
 
-    // MARK: - Pear Desktop Auto-Detection
-    private func setupPearDesktopAutoDetection() {
-        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)
-            .sink { [weak self] notification in
-                guard let self = self,
-                      let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-                      app.bundleIdentifier == Self.pearDesktopBundleID else { return }
-
-                print("[MusicManager] Pear Desktop launched, auto-switching to YouTubeMusicController")
-                self.isPearDesktopAutoSwitched = true
-                if let controller = self.createController(for: .youtubeMusic) {
-                    self.setActiveController(controller)
-                }
-            }
-            .store(in: &cancellables)
-
-        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)
-            .sink { [weak self] notification in
-                guard let self = self,
-                      let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-                      app.bundleIdentifier == Self.pearDesktopBundleID else { return }
-
-                print("[MusicManager] Pear Desktop terminated, reverting to preferred controller")
-                if self.isPearDesktopAutoSwitched {
-                    self.isPearDesktopAutoSwitched = false
-                    self.setActiveControllerBasedOnPreference()
-                }
-            }
-            .store(in: &cancellables)
+    /// Drop removed controller preferences (YouTube / Amazon / Cider) left in UserDefaults.
+    private static func sanitizeMediaControllerPreference() {
+        let raw = UserDefaults.standard.string(forKey: Defaults.Keys.mediaController.name)
+        if let raw, MediaControllerType(rawValue: raw) == nil {
+            Defaults[.mediaController] = .appleMusic
+        }
     }
 
     deinit {
@@ -409,12 +366,6 @@ class MusicManager: ObservableObject {
             }
         case .appleMusic:
             newController = AppleMusicController()
-        case .youtubeMusic:
-            newController = YouTubeMusicController()
-        case .amazonMusic:
-            newController = AmazonMusicController()
-        case .cider:
-            newController = CiderController()
         }
 
         // Set up state observation for the new controller
@@ -483,10 +434,6 @@ class MusicManager: ObservableObject {
         if eventIsPlaying != self.isPlaying {
             let animation: Animation? = (expectedState == eventIsPlaying) ? .smooth(duration: 0.18) : .smooth
             applyPlayState(eventIsPlaying, animation: animation)
-
-            if eventIsPlaying && !state.title.isEmpty && !state.artist.isEmpty {
-                self.updateSneakPeek()
-            }
         } else {
             self.updateIdleState(state: eventIsPlaying)
         }
@@ -529,8 +476,6 @@ class MusicManager: ObservableObject {
         }
 
         // Handle artwork and visual transitions for changed content
-        let shouldAutoPeekOnTrackChange = Defaults[.showSneakPeekOnTrackChange]
-
         if hasContentChange {
             self.triggerFlipAnimation()
 
@@ -560,12 +505,6 @@ class MusicManager: ObservableObject {
             }
 
             self.refreshExplicitFlag(for: state)
-
-
-            // Only update sneak peek if there's actual content and something changed
-            if shouldAutoPeekOnTrackChange && !state.title.isEmpty && !state.artist.isEmpty && state.isPlaying {
-                self.updateSneakPeek()
-            }
         } else if state.isExplicit != nil {
             self.refreshExplicitFlag(for: state)
         }
@@ -823,21 +762,6 @@ class MusicManager: ObservableObject {
         }
     }
 
-    private func updateSneakPeek() {
-        let standardControlsEnabled = Defaults[.showStandardMediaControls]
-        let minimalisticEnabled = true
-
-        guard standardControlsEnabled || minimalisticEnabled else { return }
-
-        if isPlaying && Defaults[.enableSneakPeek] {
-            if Defaults[.sneakPeekStyles] == .standard {
-                coordinator.toggleSneakPeek(status: true, type: .music)
-            } else {
-                coordinator.toggleExpandingView(status: true, type: .music)
-            }
-        }
-    }
-
     // MARK: - Public Methods for controlling playback
     func playPause() {
         Task {
@@ -982,11 +906,7 @@ class MusicManager: ObservableObject {
         // Request immediate update from the active controller
         Task { [weak self] in
             if self?.activeController?.isActive() == true {
-                if let youtubeController = self?.activeController as? YouTubeMusicController {
-                    await youtubeController.pollPlaybackState()
-                } else {
-                    await self?.activeController?.updatePlaybackInfo()
-                }
+                await self?.activeController?.updatePlaybackInfo()
             }
         }
     }
@@ -1023,36 +943,15 @@ extension MusicManager {
         switch controller {
         case .appleMusic:
             return appleMusicPink
-        case .amazonMusic:
-            return amazonOrange
-        case .cider:
-            return .accentColor
         case .nowPlaying:
-            if let bundleIdentifier,
-               let bundleColor = brandAccentColor(forBundleIdentifier: bundleIdentifier) {
-                return bundleColor
+            if bundleIdentifier == "com.apple.Music" {
+                return appleMusicPink
             }
-            fallthrough
-        case .youtubeMusic:
             return .accentColor
-        }
-    }
-
-    private static func brandAccentColor(forBundleIdentifier bundleIdentifier: String) -> Color? {
-        switch bundleIdentifier {
-        case "com.apple.Music":
-            return appleMusicPink
-        case AmazonMusicController.bundleIdentifier:
-            return amazonOrange
-        case CiderController.bundleIdentifier:
-            return .accentColor
-        default:
-            return nil
         }
     }
 
     private static let appleMusicPink = Color(red: 0.999, green: 0.171, blue: 0.331)
-    private static let amazonOrange = Color(red: 1.0, green: 0.6, blue: 0.0)
 }
 
 // MARK: - Album Art Flip Helper

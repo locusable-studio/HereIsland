@@ -34,7 +34,6 @@ struct ContentView: View {
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject var musicManager = MusicManager.shared
 
-    @Default(.enableShadow) private var enableShadow
     @Default(.cornerRadiusScaling) private var cornerRadiusScaling
     @Default(.enableHaptics) private var enableHaptics
     @Default(.coloredSpectrogram) private var coloredSpectrogram
@@ -45,10 +44,6 @@ struct ContentView: View {
 
     private var isIslandMode: Bool {
         shouldUseDynamicIslandMode(for: vm.screen)
-    }
-
-    private var currentShadowPadding: CGFloat {
-        notchShadowPaddingValue(isMinimalistic: true)
     }
 
     private var cornerInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) {
@@ -104,13 +99,10 @@ struct ContentView: View {
         }
         .frame(
             maxWidth: (dynamicNotchSize.width
-                + (vm.notchState == .open ? 24 : 0)
-                + (isIslandMode ? dynamicIslandShadowInset * 2 : 0)).rounded(),
+                + (vm.notchState == .open ? 24 : 0)).rounded(),
             maxHeight: (dynamicNotchSize.height
                 + (vm.notchState == .open ? 12 : 0)
-                + (isIslandMode
-                    ? dynamicIslandTopOffset + dynamicIslandShadowInset * 2
-                    : currentShadowPadding)).rounded(),
+                + (isIslandMode ? dynamicIslandTopOffset : 0)).rounded(),
             alignment: .top
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -122,7 +114,7 @@ struct ContentView: View {
             }
             // Ensure window stays at open size even when starting closed.
             AppDelegate.shared?.ensureWindowSize(
-                addShadowPadding(to: dynamicNotchSize, isMinimalistic: true),
+                dynamicNotchSize,
                 animated: false,
                 force: true
             )
@@ -138,25 +130,12 @@ struct ContentView: View {
                 chromeBase
                     .clipShape(DynamicIslandPillShape(cornerRadius: pillCornerRadius))
                     .compositingGroup()
-                    .shadow(
-                        color: ((vm.notchState == .open || isHovering) && enableShadow) ? .black.opacity(0.6) : .clear,
-                        radius: cornerRadiusScaling ? 10 : 5
-                    )
-                    .padding(.horizontal, dynamicIslandShadowInset)
-                    .padding(.bottom, dynamicIslandShadowInset)
                     .padding(.top, pillTopOffset)
-                    .padding(.bottom, currentShadowPadding)
                     .contentShape(DynamicIslandPillShape(cornerRadius: pillCornerRadius))
             } else {
                 chromeBase
                     .clipShape(NotchShape(topCornerRadius: notchTopRadius, bottomCornerRadius: notchBottomRadius))
                     .compositingGroup()
-                    .shadow(
-                        color: ((vm.notchState == .open || isHovering) && enableShadow) ? .black.opacity(0.6) : .clear,
-                        radius: cornerRadiusScaling ? 10 : 5
-                    )
-                    .padding(.top, pillTopOffset)
-                    .padding(.bottom, currentShadowPadding)
                     .contentShape(NotchShape(topCornerRadius: notchTopRadius, bottomCornerRadius: notchBottomRadius))
             }
         }
@@ -233,21 +212,6 @@ struct ContentView: View {
             Rectangle()
                 .fill(.black)
                 .frame(width: center, height: height)
-                .overlay {
-                    if coordinator.expandingView.show && coordinator.expandingView.type == .music {
-                        HStack {
-                            Text(musicManager.songTitle)
-                                .lineLimit(1)
-                                .foregroundStyle(coloredSpectrogram ? Color(nsColor: musicManager.avgColor) : .gray)
-                                .padding(.leading, 8)
-                            Spacer(minLength: vm.closedNotchSize.width)
-                            Text(musicManager.artistName)
-                                .lineLimit(1)
-                                .foregroundStyle(coloredSpectrogram ? Color(nsColor: musicManager.avgColor) : .gray)
-                                .padding(.trailing, 8)
-                        }
-                    }
-                }
 
             Rectangle()
                 .fill((coloredSpectrogram ? Color(nsColor: musicManager.avgColor) : Color.gray).spectrogramGradient())

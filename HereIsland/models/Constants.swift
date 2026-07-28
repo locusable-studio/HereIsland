@@ -31,9 +31,6 @@ extension Notification.Name {
 enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializable {
     case nowPlaying = "Now Playing"
     case appleMusic = "Apple Music"
-    case youtubeMusic = "Youtube Music"
-    case amazonMusic = "Amazon Music"
-    case cider = "Cider"
     
     var id: String { self.rawValue }
     
@@ -41,23 +38,6 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
         switch self {
         case .nowPlaying: return String(localized: "Now Playing")
         case .appleMusic: return String(localized: "Apple Music")
-        case .youtubeMusic: return String(localized: "Youtube Music")
-        case .amazonMusic: return String(localized: "Amazon Music")
-        case .cider: return String(localized: "Cider")
-        }
-    }
-}
-
-enum SneakPeekStyle: String, CaseIterable, Identifiable, Defaults.Serializable {
-    case standard = "Default"
-    case inline = "Inline"
-    
-    var id: String { self.rawValue }
-    
-    var localizedName: String {
-        switch self {
-        case .standard: return String(localized: "Default")
-        case .inline: return String(localized: "Inline")
         }
     }
 }
@@ -146,7 +126,6 @@ extension Defaults.Keys {
     static let settingsIconInNotch = Key<Bool>("settingsIconInNotch", default: true)
     static let lightingEffect = Key<Bool>("lightingEffect", default: true)
     static let accentColor = Key<Color>("accentColor", default: Color.blue)
-    static let enableShadow = Key<Bool>("enableShadow", default: true)
     static let cornerRadiusScaling = Key<Bool>("cornerRadiusScaling", default: true)
     static let sliderColor = Key<SliderColorEnum>(
         "sliderUseAlbumArtColor",
@@ -164,9 +143,6 @@ extension Defaults.Keys {
     // MARK: Media playback
     static let coloredSpectrogram = Key<Bool>("coloredSpectrogram", default: true)
     static let enableRealTimeWaveform = Key<Bool>("enableRealTimeWaveform", default: false)
-    static let enableSneakPeek = Key<Bool>("enableSneakPeek", default: false)
-    static let sneakPeekStyles = Key<SneakPeekStyle>("sneakPeekStyles", default: .standard)
-    static let showSneakPeekOnTrackChange = Key<Bool>("showSneakPeekOnTrackChange", default: true)
     static let enableFullscreenMediaDetection = Key<Bool>("enableFullscreenMediaDetection", default: true)
     static let parallaxEffectIntensity = Key<Double>("parallaxEffectIntensity", default: 6.0)
     static let waitInterval = Key<Double>("waitInterval", default: 3)

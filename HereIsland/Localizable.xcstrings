@@ -19,7 +19,6 @@
         }
       }
     },
-    "Amazon Music": {},
     "App": {
       "extractionState": "manual",
       "localizations": {
@@ -105,7 +104,6 @@
         }
       }
     },
-    "Cider": {},
     "Classic notch shape that blends into the top screen edge": {
       "extractionState": "manual",
       "localizations": {
@@ -123,7 +121,6 @@
         }
       }
     },
-    "Default": {},
     "Dynamic Island": {
       "extractionState": "manual",
       "localizations": {
@@ -159,23 +156,6 @@
         }
       }
     },
-    "Enable sneak peek": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enable sneak peek"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "启用快速预览"
-          }
-        }
-      }
-    },
     "Here Island Settings": {
       "extractionState": "manual",
       "localizations": {
@@ -189,23 +169,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Here Island 设置"
-          }
-        }
-      }
-    },
-    "Inline": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inline"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "内联"
           }
         }
       }
@@ -655,25 +618,7 @@
           }
         }
       }
-    },
-    "Window shadow": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Window shadow"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "窗口阴影"
-          }
-        }
-      }
-    },
-    "Youtube Music": {}
+    }
   },
   "version": "1.1"
 }

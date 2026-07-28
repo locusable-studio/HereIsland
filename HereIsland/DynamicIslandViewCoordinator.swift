@@ -20,30 +20,9 @@ import Combine
 import Defaults
 import SwiftUI
 
-enum SneakContentType: Equatable {
-    case music
-}
-
-struct sneakPeek {
-    var show: Bool = false
-    var type: SneakContentType = .music
-    var value: CGFloat = 0
-    var icon: String = ""
-}
-
-struct ExpandedItem {
-    var show: Bool = false
-    var type: SneakContentType = .music
-    var value: CGFloat = 0
-    var autoHideDuration: TimeInterval? = nil
-}
-
 class DynamicIslandViewCoordinator: ObservableObject {
     static let shared = DynamicIslandViewCoordinator()
     private var cancellables = Set<AnyCancellable>()
-    private var sneakPeekDuration: TimeInterval = 1.5
-    private var sneakPeekTask: Task<Void, Never>?
-    private var expandingViewTask: Task<Void, Never>?
 
     @Published var currentView: NotchViews = .home
 
@@ -57,89 +36,7 @@ class DynamicIslandViewCoordinator: ObservableObject {
 
     @Published var selectedScreen: String = NSScreen.main?.localizedName ?? "Unknown"
 
-    @Published var sneakPeek: sneakPeek = .init() {
-        didSet {
-            if sneakPeek.show {
-                scheduleSneakPeekHide(after: sneakPeekDuration)
-            } else {
-                sneakPeekTask?.cancel()
-            }
-        }
-    }
-
-    @Published var expandingView: ExpandedItem = .init() {
-        didSet {
-            if expandingView.show {
-                expandingViewTask?.cancel()
-                let duration = expandingView.autoHideDuration ?? 3
-                expandingViewTask = Task { [weak self] in
-                    try? await Task.sleep(for: .seconds(duration))
-                    guard let self, !Task.isCancelled else { return }
-                    self.toggleExpandingView(status: false, type: self.expandingView.type)
-                }
-            } else {
-                expandingViewTask?.cancel()
-            }
-        }
-    }
-
     private init() {
         selectedScreen = preferredScreen
-    }
-
-    func toggleSneakPeek(
-        status: Bool,
-        type: SneakContentType,
-        duration: TimeInterval = 1.5,
-        value: CGFloat = 0,
-        icon: String = "",
-        title: String = "",
-        subtitle: String = "",
-        accentColor: Color? = nil,
-        styleOverride: SneakPeekStyle? = nil,
-        onScreen targetScreen: NSScreen? = nil
-    ) {
-        sneakPeekDuration = duration
-        DispatchQueue.main.async {
-            var updated = self.sneakPeek
-            updated.show = status
-            updated.type = type
-            updated.value = value
-            updated.icon = icon
-            withAnimation(.smooth(duration: 0.3)) {
-                self.sneakPeek = updated
-            }
-        }
-    }
-
-    private func scheduleSneakPeekHide(after duration: TimeInterval) {
-        sneakPeekTask?.cancel()
-        guard duration.isFinite else { return }
-        sneakPeekTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(duration))
-            guard let self, !Task.isCancelled else { return }
-            await MainActor.run {
-                withAnimation {
-                    self.toggleSneakPeek(status: false, type: self.sneakPeek.type)
-                    self.sneakPeekDuration = 1.5
-                }
-            }
-        }
-    }
-
-    func toggleExpandingView(
-        status: Bool,
-        type: SneakContentType,
-        value: CGFloat = 0,
-        autoHideDuration: TimeInterval? = nil
-    ) {
-        Task { @MainActor in
-            withAnimation(.smooth) {
-                self.expandingView.show = status
-                self.expandingView.type = type
-                self.expandingView.value = value
-                self.expandingView.autoHideDuration = autoHideDuration
-            }
-        }
     }
 }
