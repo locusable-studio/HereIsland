@@ -37,14 +37,33 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
           BUILD_NUMBER=$(git rev-list --count HEAD)
+          # Versioned asset: immutable forever for this tag.
           DMG_NAME="${DMG_PREFIX}-${VERSION}.dmg"
+          # Website / marketing asset: fixed name so /releases/latest/download stays stable.
+          STABLE_DMG_NAME="${DMG_PREFIX}.dmg"
+          REPO="${{ github.repository }}"
+          # Appcast enclosure MUST use the versioned release URL (immutable).
+          DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/${DMG_NAME}"
+          # Official site button should use this URL (never changes across releases).
+          LATEST_DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${STABLE_DMG_NAME}"
+          # Sparkle feed URL (path stable; file content updates on main).
+          APPCAST_URL="https://raw.githubusercontent.com/${REPO}/main/Updates/appcast.xml"
 
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "dmg_name=$DMG_NAME" >> "$GITHUB_OUTPUT"
+          {
+            echo "tag=$TAG"
+            echo "version=$VERSION"
+            echo "build_number=$BUILD_NUMBER"
+            echo "dmg_name=$DMG_NAME"
+            echo "stable_dmg_name=$STABLE_DMG_NAME"
+            echo "download_url=$DOWNLOAD_URL"
+            echo "latest_download_url=$LATEST_DOWNLOAD_URL"
+            echo "appcast_url=$APPCAST_URL"
+          } >> "$GITHUB_OUTPUT"
 
           echo "Version: $VERSION (build $BUILD_NUMBER)"
+          echo "Immutable release asset: $DOWNLOAD_URL"
+          echo "Stable website download: $LATEST_DOWNLOAD_URL"
+          echo "Sparkle appcast: $APPCAST_URL"
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -199,14 +218,40 @@ jobs:
             --wait
           xcrun stapler staple "build/${DMG_NAME}"
 
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          DMG_NAME="${{ steps.version.outputs.dmg_name }}"
+          STABLE_DMG_NAME="${{ steps.version.outputs.stable_dmg_name }}"
+
+          # Fixed-name copy for a permanent /releases/latest/download/HereIsland.dmg URL.
+          # Copy after notarization+staple so the ticket is preserved; do not re-sign.
+          cp "build/${DMG_NAME}" "build/${STABLE_DMG_NAME}"
+
+          gh release create "$TAG" \
+            "build/${DMG_NAME}" \
+            "build/${STABLE_DMG_NAME}" \
+            --title "Here Island ${VERSION}" \
+            --notes "$(cat <<EOF
+          ## Downloads
+
+          - **Website / always-latest:** ${{ steps.version.outputs.latest_download_url }}
+          - **This version (immutable):** ${{ steps.version.outputs.download_url }}
+
+          Sparkle feed: ${{ steps.version.outputs.appcast_url }}
+          EOF
+          )" \
+            --verify-tag
+
       - name: Update Sparkle appcast
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           BUILD="${{ steps.version.outputs.build_number }}"
           DMG_NAME="${{ steps.version.outputs.dmg_name }}"
-          TAG="${{ steps.version.outputs.tag }}"
-          REPO="${{ github.repository }}"
-          DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/${DMG_NAME}"
+          DOWNLOAD_URL="${{ steps.version.outputs.download_url }}"
           DMG_SIZE=$(stat -f%z "build/${DMG_NAME}")
 
           DERIVED_DATA=$(xcodebuild -project "$PROJECT" -scheme "$SCHEME" -showBuildSettings 2>/dev/null \
@@ -220,63 +265,83 @@ jobs:
             exit 1
           fi
 
-          SIGNATURE=$("$SIGN_UPDATE" --ed-key-file ~/private_keys/sparkle_ed.key "build/${DMG_NAME}" \
-            | sed -n 's/.*"\([^"]*\)".*/\1/p' | head -1)
+          # sign_update prints: sparkle:edSignature="..." length="..."
+          SIGN_OUTPUT=$("$SIGN_UPDATE" --ed-key-file ~/private_keys/sparkle_ed.key "build/${DMG_NAME}" 2>&1) || true
+          echo "$SIGN_OUTPUT"
+          SIGNATURE=$(printf '%s\n' "$SIGN_OUTPUT" | sed -n 's/.*edSignature="\([^"]*\)".*/\1/p' | head -1)
           if [ -z "$SIGNATURE" ]; then
-            # Fallback: parse sparkle:edSignature= form
-            SIGNATURE=$("$SIGN_UPDATE" --ed-key-file ~/private_keys/sparkle_ed.key "build/${DMG_NAME}" 2>&1 \
-              | sed -n 's/.*edSignature=\([^ ]*\).*/\1/p' | head -1)
-          fi
-          if [ -z "$SIGNATURE" ]; then
-            echo "::error::Failed to sign update for Sparkle"
-            "$SIGN_UPDATE" --ed-key-file ~/private_keys/sparkle_ed.key "build/${DMG_NAME}" || true
+            echo "::error::Failed to obtain Sparkle edSignature"
             exit 1
           fi
 
           PUB_DATE=$(date -u '+%a, %d %b %Y %H:%M:%S +0000')
-          cat > Updates/appcast.xml <<EOF
-          <?xml version="1.0" standalone="yes"?>
+          export VERSION BUILD DOWNLOAD_URL DMG_SIZE PUB_DATE SIGNATURE
+
+          # Prepend the new item; keep prior immutable version entries.
+          python3 <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          path = Path("Updates/appcast.xml")
+          text = path.read_text() if path.exists() else ""
+
+          new_item = f"""        <item>
+              <title>{os.environ['VERSION']}</title>
+              <pubDate>{os.environ['PUB_DATE']}</pubDate>
+              <sparkle:version>{os.environ['BUILD']}</sparkle:version>
+              <sparkle:shortVersionString>{os.environ['VERSION']}</sparkle:shortVersionString>
+              <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+              <enclosure url="{os.environ['DOWNLOAD_URL']}" length="{os.environ['DMG_SIZE']}" type="application/octet-stream" sparkle:edSignature="{os.environ['SIGNATURE']}"/>
+          </item>
+          """
+
+          # Drop any existing item for the same marketing version (retag safety).
+          version = re.escape(os.environ["VERSION"])
+          text = re.sub(
+              rf"\s*<item>\s*<title>{version}</title>.*?</item>\s*",
+              "\n",
+              text,
+              flags=re.S,
+          )
+
+          channel_open = re.search(r"<channel>\s*(?:<title>.*?</title>\s*)?", text)
+          if not channel_open:
+              text = f"""<?xml version="1.0" standalone="yes"?>
           <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
               <channel>
                   <title>Here Island</title>
-                  <item>
-                      <title>${VERSION}</title>
-                      <pubDate>${PUB_DATE}</pubDate>
-                      <sparkle:version>${BUILD}</sparkle:version>
-                      <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-                      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-                      <enclosure url="${DOWNLOAD_URL}" length="${DMG_SIZE}" type="application/octet-stream" sparkle:edSignature="${SIGNATURE}"/>
-                  </item>
-              </channel>
+          {new_item}    </channel>
           </rss>
-          EOF
+          """
+          else:
+              insert_at = channel_open.end()
+              # Ensure title exists once.
+              if "<title>" not in text[channel_open.start():insert_at]:
+                  prefix = text[: channel_open.start() + len("<channel>")]
+                  text = prefix + "\n        <title>Here Island</title>\n" + text[channel_open.start() + len("<channel>"):]
+                  channel_open = re.search(r"<channel>\s*(?:<title>.*?</title>\s*)?", text)
+                  insert_at = channel_open.end()
+              text = text[:insert_at] + "\n" + new_item + text[insert_at:]
 
-          # Rewrite without leading indentation from heredoc
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path("Updates/appcast.xml")
-          lines = [line[4:] if line.startswith("    ") else line for line in p.read_text().splitlines(True)]
-          p.write_text("".join(lines))
+          path.write_text(text)
+          print(path.read_text())
           PY
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Updates/appcast.xml
-          git commit -m "ci: update appcast for ${VERSION}" || echo "No appcast changes"
-          # Push to the default branch that contains Updates/
+
           DEFAULT_BRANCH=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
-          git push origin "HEAD:${DEFAULT_BRANCH}"
+          DEFAULT_BRANCH=${DEFAULT_BRANCH:-main}
 
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TAG="${{ steps.version.outputs.tag }}"
-          DMG_NAME="${{ steps.version.outputs.dmg_name }}"
-
-          gh release create "$TAG" \
-            "build/${DMG_NAME}" \
-            --title "Here Island ${VERSION}" \
-            --generate-notes \
-            --verify-tag
+          git fetch origin "$DEFAULT_BRANCH"
+          git stash push -u -m "appcast" -- Updates/appcast.xml
+          git checkout -B "$DEFAULT_BRANCH" "origin/${DEFAULT_BRANCH}"
+          git stash pop || true
+          git add Updates/appcast.xml
+          if git diff --cached --quiet; then
+            echo "No appcast changes"
+          else
+            git commit -m "ci: update appcast for ${VERSION}"
+            git push origin "HEAD:${DEFAULT_BRANCH}"
+          fi

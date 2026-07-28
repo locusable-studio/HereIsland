@@ -33,9 +33,14 @@ enum UpdateChannel: String, CaseIterable, Identifiable, Codable, Defaults.Serial
         String(localized: "Production releases, thoroughly tested")
     }
 
+    /// Stable Sparkle feed URL — path never changes; `Updates/appcast.xml` on `main` is rewritten each release.
+    /// Enclosure URLs inside the feed point at immutable versioned GitHub Release assets.
     var feedURL: URL {
-        URL(string: "https://raw.githubusercontent.com/sha2kyou/Atoll/main/Updates/appcast.xml")!
+        URL(string: "https://raw.githubusercontent.com/\(Self.feedRepository)/main/Updates/appcast.xml")!
     }
+
+    /// Keep in sync with the GitHub repository that hosts `Updates/appcast.xml`.
+    private static let feedRepository = "sha2kyou/HereIsland"
 
     var badgeColor: NSColor { .systemGreen }
 
