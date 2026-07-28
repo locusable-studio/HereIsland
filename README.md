@@ -21,7 +21,7 @@ No battery HUD, system OSD replacement, Spotify, or configurable control layouts
 ## Build
 
 1. Open `HereIsland.xcodeproj`
-2. Select the **Here Island** scheme
+2. Select the **HereIsland** scheme
 3. Build and run
 
 ## License

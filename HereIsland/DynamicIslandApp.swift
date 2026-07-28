@@ -28,7 +28,7 @@ struct DynamicNotchApp: App {
     @Default(.menubarIcon) var showMenuBarIcon
 
     let updaterController: SPUStandardUpdaterController
-    private let updaterDelegate = AtollUpdaterDelegate()
+    private let updaterDelegate = HereIslandUpdaterDelegate()
 
     init() {
         updaterController = SPUStandardUpdaterController(
@@ -317,28 +317,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             self?.adjustWindowPosition(changeAlpha: true)
         }
-        NotificationCenter.default.addObserver(
-            forName: Notification.Name.notchHeightChanged, object: nil, queue: nil
-        ) { [weak self] _ in
-            self?.adjustWindowPosition()
-        }
-        NotificationCenter.default.addObserver(
-            forName: Notification.Name.showOnAllDisplaysChanged, object: nil, queue: nil
-        ) { [weak self] _ in
-            guard let self else { return }
-            self.cleanupWindows(shouldInvert: true)
-            if !Defaults[.showOnAllDisplays] {
-                let window = self.createDynamicIslandWindow(
-                    for: NSScreen.main ?? NSScreen.screens.first!,
-                    with: self.vm
-                )
-                self.window = window
-                self.adjustWindowPosition(changeAlpha: true)
-            } else {
-                self.adjustWindowPosition()
+        Defaults.publisher(.showOnAllDisplays, options: [])
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.handleShowOnAllDisplaysChanged()
             }
-            self.syncNotchSpaceMembership()
-        }
+            .store(in: &cancellables)
 
         DistributedNotificationCenter.default().addObserver(
             self, selector: #selector(onScreenLocked(_:)),
@@ -376,6 +360,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         syncNotchSpaceMembership()
     }
 
+    private func handleShowOnAllDisplaysChanged() {
+        cleanupWindows(shouldInvert: true)
+        if !Defaults[.showOnAllDisplays] {
+            let window = createDynamicIslandWindow(
+                for: NSScreen.main ?? NSScreen.screens.first!,
+                with: vm
+            )
+            self.window = window
+            adjustWindowPosition(changeAlpha: true)
+        } else {
+            window = nil
+            adjustWindowPosition(changeAlpha: true)
+        }
+        syncNotchSpaceMembership()
+    }
+
     @objc func adjustWindowPosition(changeAlpha: Bool = false) {
         if Defaults[.showOnAllDisplays] {
             let screens = NSScreen.screens
@@ -408,7 +408,4 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension Notification.Name {
     static let selectedScreenChanged = Notification.Name("SelectedScreenChanged")
-    static let notchHeightChanged = Notification.Name("NotchHeightChanged")
-    static let showOnAllDisplaysChanged = Notification.Name("showOnAllDisplaysChanged")
-    static let automaticallySwitchDisplayChanged = Notification.Name("automaticallySwitchDisplayChanged")
 }

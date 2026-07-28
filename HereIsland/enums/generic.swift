@@ -26,14 +26,12 @@ import CoreGraphics
 
 public enum Style {
     case notch
-    case floating
 }
 
-/// Controls how Atoll renders on external and non-notched displays.
+/// Controls how Here Island renders on external and non-notched displays.
 /// - `notch`: Standard notch shape (concave top corners blending into the screen edge).
-/// - `dynamicIsland`: Pill-shaped island with continuously rounded corners,
-///   inspired by DynamicNotchKit's floating style. Only applies to screens
-///   that do NOT have a physical notch.
+/// - `dynamicIsland`: Pill-shaped island with continuously rounded corners.
+///   Only applies to screens that do NOT have a physical notch.
 enum ExternalDisplayStyle: String, CaseIterable, Defaults.Serializable, Identifiable {
     case notch = "Standard Notch"
     case dynamicIsland = "Dynamic Island"
@@ -57,12 +55,6 @@ enum ExternalDisplayStyle: String, CaseIterable, Defaults.Serializable, Identifi
             return String(localized: "Pill-shaped island with rounded corners, similar to iPhone's Dynamic Island")
         }
     }
-}
-
-public enum ContentType: Int, Codable, Hashable, Equatable {
-    case normal
-    case menu
-    case settings
 }
 
 public enum NotchState {
@@ -93,20 +85,6 @@ enum SliderColorEnum: String, CaseIterable, Defaults.Serializable {
                 return String(localized: "Match album art")
             case .accent:
                 return String(localized: "Accent color")
-        }
-    }
-}
-
-enum TimerInputStyle: String, CaseIterable, Defaults.Serializable, Identifiable {
-    case ruler = "Ruler"
-    case manual = "Manual"
-    
-    var id: String { rawValue }
-    
-    var displayName: String {
-        switch self {
-        case .ruler: return String(localized: "Ruler")
-        case .manual: return String(localized: "Manual")
         }
     }
 }

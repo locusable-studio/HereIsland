@@ -149,10 +149,6 @@ jobs:
         run: |
           sudo DevToolsSecurity -enable
 
-          # Drop Atoll-specific mach-services entitlement if still present.
-          plutil -remove com.apple.security.mach-services \
-            HereIsland/HereIsland.entitlements 2>/dev/null || true
-
           xcodebuild archive \
             -project "$PROJECT" \
             -scheme "$SCHEME" \

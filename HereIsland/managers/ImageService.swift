@@ -21,7 +21,6 @@
  */
 
 import Foundation
-import Defaults
 
 public protocol ImageServiceProtocol {
     func fetchImageData(from url: URL) async throws -> Data
@@ -47,16 +46,6 @@ public final class ImageService: ImageServiceProtocol {
         config.timeoutIntervalForResource = 30
         config.httpShouldSetCookies = false
         self.session = URLSession(configuration: config)
-
-        performLegacyCacheCleanupIfNeeded()
-    }
-
-    private func performLegacyCacheCleanupIfNeeded() {
-
-        if !Defaults[.didClearLegacyURLCacheV1] {
-            URLCache.shared.removeAllCachedResponses()
-            Defaults[.didClearLegacyURLCacheV1] = true
-        }
     }
 
     public func fetchImageData(from url: URL) async throws -> Data {

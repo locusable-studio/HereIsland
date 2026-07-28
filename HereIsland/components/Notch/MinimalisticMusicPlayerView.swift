@@ -572,7 +572,6 @@ private struct MinimalisticSquircircleButton: View {
                 }
             }
         case .wiggle(let direction):
-            guard #available(macOS 14.0, *) else { return }
             wiggleToken += 1
             let angle: Double = direction == .clockwise ? 11 : -11
 
@@ -598,35 +597,19 @@ private struct MinimalisticSquircircleButton: View {
         case .none:
             image
         case .replace:
-            if #available(macOS 14.0, *) {
-                image.contentTransition(.symbolEffect(.replace))
-            } else {
-                image
-            }
+            image.contentTransition(.symbolEffect(.replace))
         case .bounce:
-            if #available(macOS 14.0, *) {
-                image.symbolEffect(.bounce, value: icon)
-            } else {
-                image
-            }
+            image.symbolEffect(.bounce, value: icon)
         case .replaceAndBounce:
-            if #available(macOS 14.0, *) {
-                image
-                    .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.bounce, value: icon)
-            } else {
-                image
-            }
+            image
+                .contentTransition(.symbolEffect(.replace))
+                .symbolEffect(.bounce, value: icon)
         case .wiggle:
-            if #available(macOS 15.0, *) {
-                image.symbolEffect(
-                    .wiggle.byLayer,
-                    options: .nonRepeating,
-                    value: wiggleToken
-                )
-            } else {
-                image
-            }
+            image.symbolEffect(
+                .wiggle.byLayer,
+                options: .nonRepeating,
+                value: wiggleToken
+            )
         }
     }
 

@@ -139,7 +139,6 @@ referenceimages
 PrivateWorks
 
 *.py
-!tests/test_privacy_configuration.py
 *.sh
 comparison_report.json
 *.txt

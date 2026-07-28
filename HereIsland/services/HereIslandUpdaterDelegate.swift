@@ -21,7 +21,7 @@ import Sparkle
 
 /// Custom Sparkle updater delegate that dynamically returns the feed URL
 /// based on the user's selected update channel preference.
-class AtollUpdaterDelegate: NSObject, SPUUpdaterDelegate {
+class HereIslandUpdaterDelegate: NSObject, SPUUpdaterDelegate {
     func feedURLString(for updater: SPUUpdater) -> String? {
         return Defaults[.updateChannel].feedURL.absoluteString
     }

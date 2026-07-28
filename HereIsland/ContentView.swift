@@ -114,6 +114,7 @@ struct ContentView: View {
             alignment: .top
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .accessibilityIdentifier("HereIslandNotch")
         .onAppear {
             coordinator.currentView = .home
             if vm.screen == nil {
@@ -284,7 +285,8 @@ struct ContentView: View {
     private func openNotch() {
         guard vm.notchState == .closed else { return }
         if enableHaptics {
-            NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+            // NSHapticFeedbackManager is ignored for .nonactivatingPanel; use MTActuator.
+            HapticFeedback.perform()
         }
         // Implicit animation via .animation(_:value: vm.notchState)
         vm.open()

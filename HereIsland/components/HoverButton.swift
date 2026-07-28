@@ -60,16 +60,12 @@ struct HoverButton: View {
                                 .font(scale == .large ? .largeTitle : .body)
 
                             if case .wiggle = pressEffect {
-                                if #available(macOS 15.0, *) {
-                                    baseImage
-                                        .symbolEffect(
-                                            .wiggle.byLayer,
-                                            options: .nonRepeating,
-                                            value: wiggleToken
-                                        )
-                                } else {
-                                    baseImage
-                                }
+                                baseImage
+                                    .symbolEffect(
+                                        .wiggle.byLayer,
+                                        options: .nonRepeating,
+                                        value: wiggleToken
+                                    )
                             } else {
                                 baseImage
                             }
@@ -105,7 +101,6 @@ struct HoverButton: View {
                 }
             }
         case .wiggle(let direction):
-            guard #available(macOS 14.0, *) else { return }
             wiggleToken += 1
             let angle: Double = direction == .clockwise ? 10 : -10
 

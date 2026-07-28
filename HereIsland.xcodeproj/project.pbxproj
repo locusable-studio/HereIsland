@@ -35,7 +35,6 @@
 /* Begin PBXFileReference section */
 		4A9C58195E197C19F691DA62 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		54078F29304A9DBBEFBDF932 /* HereIslandUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HereIslandUITests.swift; sourceTree = "<group>"; };
-		7E25ECA22E6C6E2600700E72 /* OSD.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OSD.framework; path = /System/Library/PrivateFrameworks/OSD.framework; sourceTree = "<absolute>"; };
 		7E81303D2E3FB40500E08F3F /* mediaremote-adapter.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; path = "mediaremote-adapter.pl"; sourceTree = "<group>"; };
 		7EE1D73C2E6B1E0B00997219 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
 		7EE1D73E2E6B1E1200997219 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
@@ -143,7 +142,6 @@
 			isa = PBXGroup;
 			children = (
 				7EF10C112F817ECF004229A0 /* Accelerate.framework */,
-				7E25ECA22E6C6E2600700E72 /* OSD.framework */,
 				7EE1D73E2E6B1E1200997219 /* IOKit.framework */,
 				7EE1D73C2E6B1E0B00997219 /* ApplicationServices.framework */,
 				2402D98A7C199588E79096D5 /* OS X */,
@@ -529,10 +527,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
-				ENABLE_RESOURCE_ACCESS_CALENDARS = YES;
-				ENABLE_RESOURCE_ACCESS_CAMERA = YES;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
-				ENABLE_RESOURCE_ACCESS_LOCATION = YES;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -546,19 +544,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_MetalCaptureEnabled = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Here Island uses AppleScript to control Spotify and Apple Music.";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Here Island needs Bluetooth access for audio device features.";
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Show calender events inside the notch";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "Need for Calendar Mode";
-				INFOPLIST_KEY_NSCameraUsageDescription = "We need your camera for Mirror mode";
-				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Here Island needs access to save screenshots to your desktop.";
-				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "Here Island needs access to save and read shelf dragged files.";
-				INFOPLIST_KEY_NSDownloadsFolderUsageDescription = "Here Island needs access to read files in the downloads folder.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Here Island uses AppleScript to control Apple Music.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSLocationUsageDescription = "Here Island uses your location to display accurate lock screen weather.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Here Island uses your location to display accurate lock screen weather.";
-				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Here Island needs Reminders access to show your reminders";
-				INFOPLIST_KEY_NSRemindersUsageDescription = "Here Island needs Reminders access to show your reminders";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -603,10 +590,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
-				ENABLE_RESOURCE_ACCESS_CALENDARS = YES;
-				ENABLE_RESOURCE_ACCESS_CAMERA = YES;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
-				ENABLE_RESOURCE_ACCESS_LOCATION = YES;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -620,19 +607,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_MetalCaptureEnabled = YES;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Here Island uses AppleScript to control Spotify and Apple Music.";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Here Island needs Bluetooth access for audio device features.";
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Show calender events inside the notch";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "Need for Calendar Mode";
-				INFOPLIST_KEY_NSCameraUsageDescription = "We need your camera for Mirror mode";
-				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Here Island needs access to save screenshots to your desktop.";
-				INFOPLIST_KEY_NSDocumentsFolderUsageDescription = "Here Island needs access to save and read shelf dragged files.";
-				INFOPLIST_KEY_NSDownloadsFolderUsageDescription = "Here Island needs access to read files in the downloads folder.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Here Island uses AppleScript to control Apple Music.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSLocationUsageDescription = "Here Island uses your location to display accurate lock screen weather.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Here Island uses your location to display accurate lock screen weather.";
-				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Here Island needs Reminders access to show your reminders";
-				INFOPLIST_KEY_NSRemindersUsageDescription = "Here Island needs Reminders access to show your reminders";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

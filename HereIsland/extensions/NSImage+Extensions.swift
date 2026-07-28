@@ -24,7 +24,6 @@ import SwiftUI
 import AppKit
 import Cocoa
 import Foundation
-import Defaults
 import CoreImage
 import CoreGraphics
 import CoreImage.CIFilterBuiltins
@@ -122,7 +121,6 @@ extension NSImage {
     }
     
     func prominentOpposingColors(completion: @escaping (NSColor, NSColor) -> Void) {
-        let isLegacyMode = Defaults[.colorExtractionMode] == .legacy
         DispatchQueue.global(qos: .userInitiated).async {
             // Step 1: Downsample the image
             let targetSize = CGSize(width: 64, height: 64)
@@ -159,54 +157,6 @@ extension NSImage {
                 return
             }
             let pointer = data.bindMemory(to: UInt32.self, capacity: totalPixels)
-            
-            let isLegacy = isLegacyMode
-            if isLegacy {
-                var totalRed: UInt64 = 0
-                var totalGreen: UInt64 = 0
-                var totalBlue: UInt64 = 0
-                
-                for i in 0..<totalPixels {
-                    let color = pointer[i]
-                    totalRed += UInt64(color & 0xFF)
-                    totalGreen += UInt64((color >> 8) & 0xFF)
-                    totalBlue += UInt64((color >> 16) & 0xFF)
-                }
-                
-                let averageRed = CGFloat(totalRed) / CGFloat(totalPixels) / 255.0
-                let averageGreen = CGFloat(totalGreen) / CGFloat(totalPixels) / 255.0
-                let averageBlue = CGFloat(totalBlue) / CGFloat(totalPixels) / 255.0
-                
-                let minBrightness: CGFloat = 0.5
-                let isNearBlack = averageRed < 0.03 && averageGreen < 0.03 && averageBlue < 0.03
-                
-                var primaryColor: NSColor
-                if isNearBlack {
-                    primaryColor = NSColor(white: minBrightness, alpha: 1.0)
-                } else {
-                    var color = NSColor(red: averageRed, green: averageGreen, blue: averageBlue, alpha: 1.0)
-                    var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
-                    color.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
-                    
-                    if brightness < minBrightness {
-                        let saturationScale = brightness / minBrightness
-                        color = NSColor(hue: hue,
-                                        saturation: saturation * saturationScale,
-                                        brightness: minBrightness,
-                                        alpha: alpha)
-                    }
-                    primaryColor = color
-                }
-                
-                var pHue: CGFloat = 0, pSat: CGFloat = 0, pBri: CGFloat = 0, pAlpha: CGFloat = 0
-                primaryColor.getHue(&pHue, saturation: &pSat, brightness: &pBri, alpha: &pAlpha)
-                
-                let sHue = fmod(pHue + 0.5, 1.0)
-                let secondaryColor = NSColor(hue: sHue, saturation: pSat, brightness: pBri, alpha: 1.0)
-                
-                DispatchQueue.main.async { completion(primaryColor, secondaryColor) }
-                return
-            }
             
             struct Bucket {
                 var r: CGFloat = 0
@@ -394,10 +344,6 @@ extension Color {
     
     /// Creates a top-down gradient using the current color and its complementary (opposing) color.
     func spectrogramGradient(secondary: Color? = nil) -> AnyShapeStyle {
-        if Defaults[.colorExtractionMode] == .legacy {
-            return AnyShapeStyle(self.gradient)
-        }
-        
         if let secondary = secondary {
             return AnyShapeStyle(LinearGradient(
                 colors: [self, secondary],

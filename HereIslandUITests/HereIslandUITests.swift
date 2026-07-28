@@ -26,7 +26,7 @@ final class HereIslandUITests: XCTestCase {
 
     // The notch panel is present and exposed to accessibility.
     func testNotchExpansion() throws {
-        let notch = app.descendants(matching: .any)["AtollNotch"]
-        XCTAssertTrue(notch.waitForExistence(timeout: 15.0), "The Atoll notch should be visible.")
+        let notch = app.descendants(matching: .any)["HereIslandNotch"]
+        XCTAssertTrue(notch.waitForExistence(timeout: 15.0), "The Here Island notch should be visible.")
     }
 }
