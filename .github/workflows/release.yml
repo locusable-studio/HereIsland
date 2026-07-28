@@ -17,7 +17,7 @@ env:
   SCHEME: HereIsland
   APP_BUNDLE_NAME: Here Island
   DMG_PREFIX: HereIsland
-  TEAM_ID: 9Y64TRM77N
+  TEAM_ID: BQF6YM3NLN
 
 jobs:
   release:
@@ -89,8 +89,8 @@ jobs:
         env:
           CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE_P12 }}
           CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
+          KEYCHAIN_PASSWORD="hereisland-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
