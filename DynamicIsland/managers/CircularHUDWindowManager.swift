@@ -19,7 +19,6 @@
 #if os(macOS)
 import AppKit
 import SwiftUI
-import SkyLightWindow
 import QuartzCore
 import Defaults
 import Combine
@@ -122,7 +121,6 @@ final class CircularHUDWindowManager {
         win.contentView = hostingView
         win.alphaValue = 0
         
-        SkyLightOperator.shared.delegateWindow(win)
         
         let windowStruct = OSDWindow(nsWindow: win, hostingView: hostingView, type: type)
         windows[screen] = windowStruct

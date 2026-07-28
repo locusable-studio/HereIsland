@@ -268,11 +268,7 @@ final class SystemChangesObserver: MediaKeyInterceptorDelegate {
 
     @MainActor
     private func resolvedVolumeIcon(isMuted: Bool) -> String {
-        guard let icon = BluetoothAudioManager.shared.activeDeviceIconSymbol() else { return "" }
-        if isMuted && Self.headsetIconSymbols.contains(icon) {
-            return "headphones.slash"
-        }
-        return icon
+        ""
     }
 
     private func sendBrightnessNotification(value: Float) {

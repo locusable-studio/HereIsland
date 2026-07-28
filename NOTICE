@@ -1,7 +1,15 @@
-Atoll (DynamicIsland) - NOTICE
+Here Island - NOTICE
 
-This product includes software derived from the boring.notch project,
-modified and adapted for Atoll (DynamicIsland). The boring.notch project
-is licensed under the GNU General Public License v3.0.
+This product includes software derived from:
 
-See the LICENSE file for the full GPL v3 text.
+1. boring.notch (https://github.com/TheBoredTeam/boring.notch)
+   Licensed under the GNU General Public License v3.0.
+
+2. Atoll / DynamicIsland (https://github.com/Ebullioscopic/Atoll)
+   A modified and extended work based on boring.notch, also under GPL-3.0.
+
+Here Island is a further modified work of that lineage.
+See the LICENSE file for the full GPL-3.0 text.
+
+Corresponding source for this modified version must be provided under GPL-3.0
+when the binary is distributed.

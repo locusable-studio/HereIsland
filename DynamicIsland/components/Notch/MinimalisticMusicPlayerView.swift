@@ -33,15 +33,12 @@ struct MinimalisticMusicPlayerView: View {
     @Default(.showMediaOutputControl) private var showMediaOutputControl
     @Default(.musicSkipBehavior) private var musicSkipBehavior
     @Default(.showMinimalisticBatteryIndicator) private var showMinimalisticBatteryIndicator
-    @ObservedObject private var reminderManager = ReminderLiveActivityManager.shared
-    @ObservedObject private var timerManager = TimerManager.shared
     @ObservedObject private var coordinator = DynamicIslandViewCoordinator.shared
     @State private var hudValue: Double = 0
     @State private var hudDragging: Bool = false
     @State private var hudLastDragged: Date = .distantPast
-    @Default(.enableReminderLiveActivity) private var enableReminderLiveActivity
     @Default(.enableLyrics) private var enableLyrics
-    @Default(.timerPresets) private var timerPresets
+    @Default(.useMusicVisualizer) private var useMusicVisualizer
     private let seekInterval: TimeInterval = 10
     private let skipMagnitude: CGFloat = 8
 
@@ -62,9 +59,6 @@ struct MinimalisticMusicPlayerView: View {
 
                 Spacer(minLength: 0)
 
-                timerCountdownSection
-
-                reminderList
             }
             .padding(.horizontal, shouldUseDynamicIslandMode(for: vm.screen) ? -4 : 12)
             .padding(.vertical, shouldUseDynamicIslandMode(for: vm.screen) ? 14 : 0)
@@ -146,13 +140,10 @@ struct MinimalisticMusicPlayerView: View {
                         .padding(.top, 10)
                 }
 
-                timerCountdownSection
-
-                reminderList
             }
             .padding(.horizontal, shouldUseDynamicIslandMode(for: vm.screen) ? -4 : 12)
             .padding(.top, shouldUseDynamicIslandMode(for: vm.screen) ? 14 : (batteryOffNotchMode ? 10 : 6))
-            .padding(.bottom, shouldUseDynamicIslandMode(for: vm.screen) ? 14 : (batteryOffNotchMode ? 10 : ReminderLiveActivityManager.baselineMinimalisticBottomPadding))
+            .padding(.bottom, shouldUseDynamicIslandMode(for: vm.screen) ? 14 : (batteryOffNotchMode ? 10 : 3))
             .frame(maxWidth: .infinity)
             .frame(height: calculateDynamicHeight(), alignment: .top)
             .animation(.smooth(duration: 0.3), value: dynamicHeightSignature)
@@ -218,50 +209,13 @@ struct MinimalisticMusicPlayerView: View {
         }
     }
 
-    private var reminderEntries: [ReminderLiveActivityManager.ReminderEntry] {
-        reminderManager.activeWindowReminders
-    }
-
-    private var shouldShowReminderList: Bool {
-        enableReminderLiveActivity && !reminderEntries.isEmpty
-    }
-
-    private var reminderListHeight: CGFloat {
-        ReminderLiveActivityManager.additionalHeight(forRowCount: reminderEntries.count)
-    }
-
-    private var shouldShowTimerCountdown: Bool {
-        coordinator.timerLiveActivityEnabled && timerManager.isExternalTimerActive
-    }
-
     private var brandAccentColor: Color {
         musicManager.brandAccentColor
     }
 
-    private var timerCountdownColor: Color {
-        let baseColor: Color
-        if let presetId = timerManager.activePresetId,
-           let preset = timerPresets.first(where: { $0.id == presetId }) {
-            baseColor = preset.color
-        } else {
-            baseColor = timerManager.timerColor
-        }
-        return baseColor.ensureMinimumBrightness(factor: 0.75)
-    }
-
-    private var timerCountdownText: String {
-        timerManager.formattedRemainingTime()
-    }
-
-    private var timerDisplayName: String {
-        let trimmed = timerManager.timerName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Timer" : trimmed
-    }
-
     private var dynamicHeightSignature: Int {
-        var signature = reminderEntries.count * 10
+        var signature = 0
         if enableLyrics { signature += 1 }
-        if shouldShowTimerCountdown { signature += 100 }
         if showMinimalisticBatteryIndicator { signature += 1000 }
         return signature
     }
@@ -283,15 +237,8 @@ struct MinimalisticMusicPlayerView: View {
             if enableLyrics {
                 height += 10 + 34 // lyrics padding + estimated height
             }
-            if shouldShowTimerCountdown {
-                height += minimalisticTimerCountdownBlockHeight
-            }
-            if shouldShowReminderList {
-                height += reminderListHeight
-            }
-
             height += isDynamicIsland ? 14 : 15 // top padding
-            height += isDynamicIsland ? 14 : ReminderLiveActivityManager.baselineMinimalisticBottomPadding
+            height += isDynamicIsland ? 14 : 3
             return height
         }
 
@@ -305,13 +252,6 @@ struct MinimalisticMusicPlayerView: View {
         if enableLyrics {
             height += 10 + 34
         }
-        if shouldShowTimerCountdown {
-            height += minimalisticTimerCountdownBlockHeight
-        }
-        if shouldShowReminderList {
-            height += reminderListHeight
-        }
-
         height += 10 // top padding
         height += 10 // bottom padding
         return height
@@ -387,69 +327,6 @@ struct MinimalisticMusicPlayerView: View {
         .frame(height: 26) // Only the text portion is in-flow; album art overlaps upward
     }
 
-    private var timerCountdownSection: some View {
-        VStack(spacing: 0) {
-            if shouldShowTimerCountdown {
-                timerCountdownView
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .padding(.top, shouldShowTimerCountdown ? minimalisticTimerCountdownTopPadding : 0)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: shouldShowTimerCountdown ? minimalisticTimerCountdownBlockHeight : 0, alignment: .top)
-        .animation(.smooth(duration: 0.25), value: shouldShowTimerCountdown)
-    }
-
-    private func displayFont(size: CGFloat) -> Font {
-        .custom("SF Pro Display", size: size)
-    }
-
-    private var timerCountdownView: some View {
-        GeometryReader { geometry in
-            let availableWidth = geometry.size.width
-            let preferredCountdownWidth = max(availableWidth * 0.42, 150)
-            let maxCountdownWidth = max(availableWidth - 60, 0)
-            let countdownWidth = min(preferredCountdownWidth, maxCountdownWidth)
-            let marqueeWidth = max(availableWidth - countdownWidth - 12, 0)
-
-            HStack(alignment: .lastTextBaseline, spacing: 12) {
-                MarqueeText(
-                    .init(get: { timerDisplayName }, set: { _ in }),
-                    font: .system(size: 16, weight: .semibold),
-                    nsFont: .title3,
-                    textColor: timerCountdownColor.opacity(0.85),
-                    frameWidth: max(marqueeWidth, 1)
-                )
-                .alignmentGuide(.lastTextBaseline) { dimensions in
-                    dimensions[VerticalAlignment.bottom]
-                }
-
-                Spacer(minLength: 8)
-
-                Text(timerCountdownText)
-                    .font(displayFont(size: 56))
-                    .monospacedDigit()
-                    .foregroundStyle(timerManager.isOvertime ? Color.red : timerCountdownColor)
-                    .contentTransition(.numericText())
-                    .animation(.smooth(duration: 0.25), value: timerManager.remainingTime)
-                    .lineLimit(1)
-                    .frame(width: countdownWidth, alignment: .trailing)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.horizontal, 4)
-        .frame(height: minimalisticTimerCountdownContentHeight, alignment: .top)
-    }
-
-    private var reminderList: some View {
-        MinimalisticReminderEventListView(reminders: reminderEntries)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: reminderListHeight, alignment: .top)
-            .opacity(shouldShowReminderList ? 1 : 0)
-            .animation(.easeInOut(duration: 0.18), value: shouldShowReminderList)
-            .environmentObject(vm)
-    }
-
     private var lyricsView: some View {
         let line = musicManager.currentLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
         let transition: AnyTransition = .asymmetric(
@@ -481,271 +358,6 @@ struct MinimalisticMusicPlayerView: View {
     }
     
 
-private struct MinimalisticReminderEventListView: View {
-    let reminders: [ReminderLiveActivityManager.ReminderEntry]
-
-    private let textFont = Font.system(size: 13, weight: .regular)
-    private let separatorSpacing: CGFloat = 10
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: ReminderLiveActivityManager.listRowSpacing) {
-            ForEach(reminders) { entry in
-                MinimalisticReminderEventRow(entry: entry, textFont: textFont, separatorSpacing: separatorSpacing)
-            }
-        }
-        .padding(.top, ReminderLiveActivityManager.listTopPadding)
-    }
-}
-
-private struct MinimalisticReminderEventRow: View {
-    let entry: ReminderLiveActivityManager.ReminderEntry
-    let textFont: Font
-    let separatorSpacing: CGFloat
-
-    @EnvironmentObject private var vm: DynamicIslandViewModel
-    @State private var didCopyLink = false
-    @State private var copyResetToken: UUID?
-    @State private var isDetailsPopoverPresented = false
-    @State private var isHoveringDetailsPopover = false
-
-    private let indicatorHeight: CGFloat = 20
-
-    private static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        return formatter
-    }()
-
-    var body: some View {
-        HStack(spacing: separatorSpacing) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(eventColor)
-                .frame(width: 8, height: indicatorHeight)
-
-            HStack(spacing: 6) {
-                Text(entry.event.title)
-                    .font(textFont)
-                    .foregroundStyle(Color.white)
-                    .lineLimit(1)
-
-                if let timeText {
-                    Text(timeText)
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundStyle(Color.white.opacity(0.6))
-                        .lineLimit(1)
-                }
-            }
-            .layoutPriority(1)
-
-            Spacer(minLength: 12)
-
-            HStack(spacing: separatorSpacing) {
-                if let url = linkURL {
-                    Button {
-                        copyToClipboard(url: url)
-                        triggerCopyFeedback()
-                    } label: {
-                        Image(systemName: didCopyLink ? "checkmark.circle.fill" : "link")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(didCopyLink ? Color.green : Color.white.opacity(0.85))
-                            .symbolRenderingMode(.monochrome)
-                            .animation(.easeInOut(duration: 0.2), value: didCopyLink)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Copy event link")
-                }
-
-                if hasDetails {
-                    Button {
-                        isDetailsPopoverPresented.toggle()
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.85))
-                    }
-                    .buttonStyle(.plain)
-                    .popover(isPresented: $isDetailsPopoverPresented, arrowEdge: .top) {
-                        MinimalisticReminderDetailsView(
-                            entry: entry,
-                            linkURL: linkURL,
-                            onHoverChanged: { hovering in
-                                isHoveringDetailsPopover = hovering
-                                updatePopoverActivity()
-                            }
-                        )
-                        .onDisappear {
-                            isHoveringDetailsPopover = false
-                            updatePopoverActivity()
-                        }
-                    }
-                    .onChange(of: isDetailsPopoverPresented) { _, presented in
-                        if !presented {
-                            isHoveringDetailsPopover = false
-                            updatePopoverActivity()
-                        }
-                    }
-                }
-            }
-        }
-        .frame(height: ReminderLiveActivityManager.listRowHeight)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            openInCalendar()
-        }
-        .onDisappear {
-            copyResetToken = nil
-            didCopyLink = false
-            vm.isReminderPopoverActive = false
-        }
-    }
-
-    private var eventColor: Color {
-        Color(nsColor: entry.event.calendar.color).ensureMinimumBrightness(factor: 0.7)
-    }
-
-    private var hasDetails: Bool {
-        let location = entry.event.location?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let notes = entry.event.notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return !location.isEmpty || !notes.isEmpty
-    }
-
-    private var linkURL: URL? {
-        entry.event.url ?? entry.event.calendarAppURL()
-    }
-
-    private var timeText: String? {
-        Self.timeFormatter.string(from: entry.event.start)
-    }
-
-    private func updatePopoverActivity() {
-        vm.isReminderPopoverActive = isDetailsPopoverPresented && isHoveringDetailsPopover
-    }
-
-    private func triggerCopyFeedback() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
-            didCopyLink = true
-        }
-
-        let token = UUID()
-        copyResetToken = token
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [token] in
-            guard copyResetToken == token else { return }
-
-            withAnimation(.easeInOut(duration: 0.2)) {
-                didCopyLink = false
-            }
-
-            if copyResetToken == token {
-                copyResetToken = nil
-            }
-        }
-    }
-
-    private func copyToClipboard(url: URL) {
-#if canImport(AppKit)
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(url.absoluteString, forType: .string)
-#endif
-    }
-
-    private func openInCalendar() {
-#if canImport(AppKit)
-        guard let url = linkURL else { return }
-        NSWorkspace.shared.open(url)
-#endif
-    }
-}
-
-private struct MinimalisticReminderDetailsView: View {
-    let entry: ReminderLiveActivityManager.ReminderEntry
-    let linkURL: URL?
-    var onHoverChanged: (Bool) -> Void = { _ in }
-
-    private let detailFont = Font.system(size: 13, weight: .regular)
-    private let smallLabelFont = Font.system(size: 12, weight: .semibold)
-    private static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        return formatter
-    }()
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(entry.event.title)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.white)
-                .lineLimit(2)
-
-            VStack(alignment: .leading, spacing: 6) {
-                if let timeRange = timeRangeText {
-                    detailRow(icon: "clock", label: "Time", value: timeRange)
-                }
-
-                if let location = entry.event.location, !location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    detailRow(icon: "mappin.and.ellipse", label: "Location", value: location)
-                }
-
-                if let notes = entry.event.notes, !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    detailRow(icon: "note.text", label: "Notes", value: notes)
-                }
-            }
-
-            if let url = linkURL {
-                Button {
-                    open(url: url)
-                } label: {
-                    Label("Open in Calendar", systemImage: "arrow.up.right.square")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .buttonStyle(.link)
-                .foregroundStyle(Color.accentColor)
-            }
-        }
-        .padding(16)
-        .frame(minWidth: 220)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.black.opacity(0.92))
-        )
-        .onHover { hovering in
-            onHoverChanged(hovering)
-        }
-        .onDisappear {
-            onHoverChanged(false)
-        }
-    }
-
-    private func detailRow(icon: String, label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label(label, systemImage: icon)
-                .font(smallLabelFont)
-                .foregroundStyle(Color.white.opacity(0.8))
-            Text(value)
-                .font(detailFont)
-                .foregroundStyle(Color.white)
-        }
-    }
-
-    private var timeRangeText: String? {
-        let startText = Self.timeFormatter.string(from: entry.event.start)
-        let endText = Self.timeFormatter.string(from: entry.event.end)
-        return startText == endText ? startText : "\(startText) – \(endText)"
-    }
-
-    private func open(url: URL) {
-#if canImport(AppKit)
-        NSWorkspace.shared.open(url)
-#endif
-    }
-}
-    // MARK: - Visualizer
-    
-    @Default(.useMusicVisualizer) var useMusicVisualizer
-    
     private var visualizer: some View {
         let width = CGFloat(Defaults[.visualizerBarCount]) * 4
         return Rectangle()

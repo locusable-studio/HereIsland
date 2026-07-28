@@ -1,8 +1,10 @@
-Atoll (DynamicIsland) - Assets Copyright
+Here Island - Assets Copyright
 
-Unless otherwise noted, the original assets created specifically for Atoll
-(DynamicIsland) are Copyright (C) 2024-2026 Atoll Contributors.
+Unless otherwise noted:
 
-This includes original media, artwork, animations, and other creative assets
-unique to Atoll. Third-party assets retain their original licenses and
-copyrights; see NOTICE and any THIRD_PARTY_LICENSES files for details.
+- Original assets created specifically for Here Island are Copyright (C) of
+  the Here Island contributors.
+- Assets and code inherited from Atoll / boring.notch retain their original
+  copyright notices as stated in source headers and NOTICE.
+- Third-party assets and libraries retain their original licenses; see NOTICE
+  and dependency license texts.

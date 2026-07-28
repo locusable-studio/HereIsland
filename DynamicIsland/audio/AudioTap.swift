@@ -26,7 +26,7 @@ import CoreAudio
 import simd
 import os.log
 
-private let audioTapLog = OSLog(subsystem: "com.atoll.dynamicisland", category: "AudioTap")
+private let audioTapLog = OSLog(subsystem: "com.locusable.hereisland", category: "AudioTap")
 
 // Debug: track callback invocations
 private var callbackCount: Int = 0
@@ -115,7 +115,7 @@ class AudioTap: NSObject {
     private var updateTimer: Timer?
     
     // Serial queue to prevent race conditions
-    private let audioQueue = DispatchQueue(label: "com.atoll.audiotap", qos: .userInitiated)
+    private let audioQueue = DispatchQueue(label: "com.locusable.hereisland.audiotap", qos: .userInitiated)
     
     // Debounce restart requests
     private var pendingRestartWorkItem: DispatchWorkItem?
@@ -223,7 +223,7 @@ class AudioTap: NSObject {
         // Create the Aggregate Device (a "virtual microphone" that we can route the tap into)
         let tapList = [[kAudioSubTapUIDKey: tapUID]]
         let aggregateDict: [String: Any] = [
-            kAudioAggregateDeviceNameKey: "Atoll_Virtual_Tap",
+            kAudioAggregateDeviceNameKey: "HereIsland_Virtual_Tap",
             kAudioAggregateDeviceUIDKey: UUID().uuidString,
             kAudioAggregateDeviceIsPrivateKey: true,  // Hides it from the user's sound settings
             kAudioAggregateDeviceTapListKey: tapList,

@@ -22,7 +22,6 @@
 
 import SwiftUI
 import Defaults
-import Lottie
 import Foundation
 
 private let availableDirectories = FileManager
@@ -115,14 +114,6 @@ enum AnimationLoopMode: String, Codable, CaseIterable {
     case loop = "Loop"
     case playOnce = "Play Once"
     case autoReverse = "Auto Reverse"
-    
-    var lottieLoopMode: LottieLoopMode {
-        switch self {
-        case .loop: return .loop
-        case .playOnce: return .playOnce
-        case .autoReverse: return .autoReverse
-        }
-    }
 }
 
 enum AnimationSource: Codable, Hashable, Equatable {

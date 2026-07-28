@@ -19,7 +19,6 @@
 #if os(macOS)
 import AppKit
 import SwiftUI
-import SkyLightWindow
 import QuartzCore
 import Defaults
 import Combine
@@ -220,7 +219,6 @@ final class VerticalHUDWindowManager {
         // Default to ignoring events until explicitly shown
         win.ignoresMouseEvents = true
         
-        SkyLightOperator.shared.delegateWindow(win)
         
         let windowStruct = OSDWindow(nsWindow: win, hostingView: hostingView, state: state)
         windows[screen] = windowStruct

@@ -1,9 +1,13 @@
-Atoll (DynamicIsland) - Trademarks
+Here Island - Trademarks
 
-Atoll and DynamicIsland are trademarks of their respective owners.
-DynamicIsland is not associated with, endorsed by, or affiliated with Apple
-or Apple's "Dynamic Island" product. There is no intent to cause confusion
-or infringement; the product is explicitly marketed as Atoll.
-All other trademarks, service marks, and logos appearing in this project
-are the property of their respective owners and used for identification
-purposes only.
+"Here Island" and related marks used by this project are not affiliated with
+Apple Inc. or Apple's "Dynamic Island" product.
+
+This project is based on open-source software originally published as
+boring.notch and Atoll. Those names and logos remain trademarks or project
+identities of their respective owners and are used here only for provenance
+attribution required by the GPL-3.0 license. This project does not claim
+ownership of those marks.
+
+All other trademarks, service marks, and logos appearing in dependencies are
+the property of their respective owners.
