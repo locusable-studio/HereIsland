@@ -51,7 +51,6 @@ public final class CGSSpace {
     }
 
     public init(id: UInt64) {
-        let flag = 0x1 // this value MUST be 1, otherwise, Finder decides to draw desktop icons
         self.identifier = id
         CGSShowSpaces(_CGSDefaultConnection(), [self.identifier])
         self.createdByInit = false // Mark as created externally

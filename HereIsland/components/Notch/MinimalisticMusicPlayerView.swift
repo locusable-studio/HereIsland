@@ -375,11 +375,11 @@ struct MinimalisticMusicPlayerView: View {
             )
         case .shuffle:
             controlButton(icon: "shuffle", isActive: musicManager.isShuffled) {
-                Task { await musicManager.toggleShuffle() }
+                musicManager.toggleShuffle()
             }
         case .repeatMode:
             controlButton(icon: repeatIcon, isActive: musicManager.repeatMode != .off, symbolEffect: .replace) {
-                Task { await musicManager.toggleRepeat() }
+                musicManager.toggleRepeat()
             }
         }
     }

@@ -204,7 +204,7 @@ struct MusicSliderView: View {
             guard !dragging else { return }
             setSliderValueWithoutAnimation(MusicManager.shared.estimatedPlaybackPosition())
         }
-        .onChange(of: currentDate) { newDate in
+        .onChange(of: currentDate) { _, newDate in
             guard !isLiveStream else { return }
             guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
             setSliderValueWithoutAnimation(MusicManager.shared.estimatedPlaybackPosition(at: newDate))
@@ -225,7 +225,7 @@ struct MusicSliderView: View {
             guard !isLiveStream, !dragging, !isPlaying else { return }
             setSliderValueWithoutAnimation(MusicManager.shared.estimatedPlaybackPosition())
         }
-        .onChange(of: isLiveStream) { isLive in
+        .onChange(of: isLiveStream) { _, isLive in
             if isLive {
                 setSliderValueWithoutAnimation(0)
             }
@@ -384,8 +384,6 @@ struct CustomSlider: View {
             let progress = rangeSpan == .zero ? 0 : (value - range.lowerBound) / rangeSpan
             let filledTrackWidth = min(max(progress, 0), 1) * width
             
-            let showScrubber = false
-
             ZStack(alignment: .bottomLeading) {
                 Rectangle()
                     .fill(.gray.opacity(0.3))

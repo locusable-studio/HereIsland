@@ -76,7 +76,6 @@ func currentRecommendedMinimumNotchWidth() -> CGFloat {
 /// Also clamps to screen width so the notch never exceeds the display.
 /// Only adjusts when not in minimalistic mode.
 func enforceMinimumNotchWidth() {
-    return
     let minWidth = currentRecommendedMinimumNotchWidth()
     let maxWidth = maxAllowedNotchWidth()
     var width = Defaults[.openNotchWidth]
