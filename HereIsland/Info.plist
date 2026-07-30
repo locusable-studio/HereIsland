@@ -9,8 +9,6 @@
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>Here Island uses Apple Music to fetch animated artwork.</string>
-	<key>NSAudioCaptureUsageDescription</key>
-	<string>Here Island needs audio capture permission to display the real-time music waveform visualizer.</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Here Island needs screen recording permission to hide the notch while screen sharing.</string>
 	<key>SUEnableDownloaderService</key>

@@ -132,17 +132,12 @@ extension Defaults.Keys {
         default: SliderColorEnum.white
     )
     static let playerColorTinting = Key<Bool>("playerColorTinting", default: true)
-    static let useMusicVisualizer = Key<Bool>("useMusicVisualizer", default: true)
-    static let visualizerBarCount = Key<Int>("visualizerBarCount", default: 4)
-    static let enableWaveformScrubber = Key<Bool>("enableWaveformScrubber", default: true)
     
     // MARK: Gestures (media player swipe)
     static let enableHorizontalMusicGestures = Key<Bool>("enableHorizontalMusicGestures", default: true)
     static let musicGestureBehavior = Key<MusicSkipBehavior>("musicGestureBehavior", default: .track)
     
     // MARK: Media playback
-    static let coloredSpectrogram = Key<Bool>("coloredSpectrogram", default: true)
-    static let enableRealTimeWaveform = Key<Bool>("enableRealTimeWaveform", default: false)
     static let enableFullscreenMediaDetection = Key<Bool>("enableFullscreenMediaDetection", default: true)
     static let parallaxEffectIntensity = Key<Double>("parallaxEffectIntensity", default: 6.0)
     static let waitInterval = Key<Double>("waitInterval", default: 3)

@@ -780,9 +780,7 @@ class MusicManager: ObservableObject {
         workItem = DispatchWorkItem { [weak self] in
             withAnimation(.smooth) {
                 self?.albumArt = newAlbumArt
-                if Defaults[.coloredSpectrogram] {
-                    self?.calculateAverageColor()
-                }
+                self?.calculateAverageColor()
             }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: workItem!)

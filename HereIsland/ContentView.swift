@@ -36,7 +36,6 @@ struct ContentView: View {
 
     @Default(.cornerRadiusScaling) private var cornerRadiusScaling
     @Default(.enableHaptics) private var enableHaptics
-    @Default(.coloredSpectrogram) private var coloredSpectrogram
 
     @Namespace private var albumArtNamespace
     @State private var isHovering = false
@@ -212,17 +211,8 @@ struct ContentView: View {
             Rectangle()
                 .fill(.black)
                 .frame(width: center, height: height)
-
-            Rectangle()
-                .fill((coloredSpectrogram ? Color(nsColor: musicManager.avgColor) : Color.gray).spectrogramGradient())
-                .mask {
-                    AudioVisualizerView(isPlaying: .constant(musicManager.isPlaying))
-                        .frame(width: max(wing - 4, 12), height: max(height - 4, 10))
-                }
-                .frame(width: wing, height: height)
-                .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
         }
-        .frame(width: wing + center + wing, height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
+        .frame(width: wing + center, height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
     }
 
     private func handleHover(_ hovering: Bool) {

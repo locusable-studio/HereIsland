@@ -372,8 +372,6 @@ struct CustomSlider: View {
     var draggingTrackHeight: CGFloat = 14
     
     @State private var isHovering: Bool = false
-    @Default(.enableRealTimeWaveform) var enableRealTimeWaveform
-    @Default(.enableWaveformScrubber) var enableWaveformScrubber
 
     var body: some View {
         GeometryReader { geometry in
