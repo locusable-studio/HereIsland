@@ -44,6 +44,10 @@ struct SettingsView: View {
                 Toggle(String(localized: "Enable haptics"), isOn: $enableHaptics)
             }
 
+            Section(String(localized: "Appearance")) {
+                Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
+            }
+
             Section(String(localized: "Software updates")) {
                 if let updater = updaterController?.updater {
                     CheckForUpdatesView(updater: updater)
@@ -62,4 +66,5 @@ struct SettingsView: View {
     @Default(.enableHaptics) private var enableHaptics
     @Default(.showOnAllDisplays) private var showOnAllDisplays
     @Default(.settingsIconInNotch) private var settingsIconInNotch
+    @Default(.enableRealTimeWaveform) private var enableRealTimeWaveform
 }

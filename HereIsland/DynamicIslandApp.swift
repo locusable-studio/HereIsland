@@ -16,6 +16,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import AVFoundation
 import Combine
 import Defaults
 import Sparkle
@@ -99,6 +100,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         windowSizeUpdateWorkItem?.cancel()
         NotificationCenter.default.removeObserver(self)
+        AudioTap.shared.stopCapture()
     }
 
     @objc func onScreenLocked(_: Notification) {
@@ -271,6 +273,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if Defaults[.enableRealTimeWaveform] {
+            Task { await AudioTap.shared.startCapture() }
+        }
+        Defaults.publisher(.enableRealTimeWaveform, options: [])
+            .sink { change in
+                if change.newValue {
+                    Task { await AudioTap.shared.startCapture() }
+                } else {
+                    AudioTap.shared.stopCapture()
+                }
+            }
+            .store(in: &cancellables)
+
         coordinator.$currentView
             .sink { [weak self] _ in
                 DispatchQueue.main.async { self?.updateWindowSizeIfNeeded() }

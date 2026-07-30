@@ -73,7 +73,6 @@
       }
     },
     "Appearance" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

@@ -2,5 +2,6 @@
 "CFBundleDisplayName" = "Here Island";
 "CFBundleName" = "Here Island";
 "NSAppleMusicUsageDescription" = "Here Island 需要访问 Apple Music 以获取动态封面。";
+"NSAudioCaptureUsageDescription" = "Here Island 需要音频采集权限以显示实时音乐波形。";
 "NSScreenCaptureUsageDescription" = "Here Island 需要屏幕录制权限，以便在屏幕共享时隐藏灵动岛。";
 "NSAppleEventsUsageDescription" = "Here Island 使用 AppleScript 控制 Apple Music。";
