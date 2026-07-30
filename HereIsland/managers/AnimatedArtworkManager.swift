@@ -26,12 +26,6 @@ actor AnimatedArtworkManager {
     private var cachedVideoURL: URL?
     private var cachedKey: String?
 
-    /// Once we've prompted (or observed a terminal non-authorized status),
-    /// never call `MusicAuthorization.request()` again in this process.
-    /// Without this, every track/artwork update re-triggers the system dialog
-    /// while status stays `.notDetermined` or remains denied.
-    private var authorizationPromptCompleted = false
-
     // MARK: - Token failure backoff
     //
     // When MusicKit returns a developer-token error (e.g. 404 "Client not found"),
@@ -112,24 +106,6 @@ actor AnimatedArtworkManager {
         let status = MusicAuthorization.currentStatus
         if status == .authorized { return true }
 
-        // Denied / restricted: never re-prompt; MusicKit will not show UI again anyway.
-        if status == .denied || status == .restricted {
-            authorizationPromptCompleted = true
-            return false
-        }
-
-        // Already asked once this launch — avoid dialog spam on every media update.
-        if authorizationPromptCompleted {
-            return false
-        }
-
-        // Only `.notDetermined` should present the system sheet.
-        guard status == .notDetermined else {
-            authorizationPromptCompleted = true
-            return false
-        }
-
-        authorizationPromptCompleted = true
         let newStatus = await MusicAuthorization.request()
         return newStatus == .authorized
     }

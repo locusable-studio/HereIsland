@@ -565,9 +565,7 @@ class MusicManager: ObservableObject {
 
             if let liveArtworkURL = state.liveArtworkURL {
                 self.videoArtworkURL = liveArtworkURL
-            } else if trackIdentityChanged {
-                // Only fetch Motion artwork on track change — artwork-only updates
-                // (catalog cover arriving later) must not re-trigger MusicKit auth.
+            } else {
                 self.fetchVideoArtwork()
             }
 
