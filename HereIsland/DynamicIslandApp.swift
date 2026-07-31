@@ -59,12 +59,10 @@ struct DynamicNotchApp: App {
                 }
             }
 
-            Section {
-                Menu(String(localized: "Updates")) {
-                    CheckForUpdatesView(updater: updaterController.updater)
-                    Section {
-                        UpdaterSettingsView(updater: updaterController.updater)
-                    }
+            Section(String(localized: "Updates")) {
+                CheckForUpdatesView(updater: updaterController.updater)
+                Menu(String(localized: "Update Settings")) {
+                    UpdaterSettingsView(updater: updaterController.updater)
                 }
             }
 

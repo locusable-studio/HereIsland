@@ -721,6 +721,23 @@
         }
       }
     },
+    "Update Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新设置"
+          }
+        }
+      }
+    },
     "Updates" : {
       "extractionState" : "manual",
       "localizations" : {

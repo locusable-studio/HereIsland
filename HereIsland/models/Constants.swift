@@ -25,8 +25,8 @@ import Defaults
 import Foundation
 
 enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializable {
-    case appleMusic = "Apple Music"
     case nowPlaying = "Now Playing"
+    case appleMusic = "Apple Music"
     
     var id: String { self.rawValue }
     
@@ -44,5 +44,5 @@ extension Defaults.Keys {
     static let enableHaptics = Key<Bool>("enableHaptics", default: true)
 
     // MARK: Media Controller
-    static let mediaController = Key<MediaControllerType>("mediaController", default: .appleMusic)
+    static let mediaController = Key<MediaControllerType>("mediaController", default: .nowPlaying)
 }

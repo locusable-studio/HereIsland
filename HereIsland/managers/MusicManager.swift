@@ -314,7 +314,7 @@ class MusicManager: ObservableObject {
     private static func sanitizeMediaControllerPreference() {
         let raw = UserDefaults.standard.string(forKey: Defaults.Keys.mediaController.name)
         if let raw, MediaControllerType(rawValue: raw) == nil {
-            Defaults[.mediaController] = .appleMusic
+            Defaults[.mediaController] = .nowPlaying
         }
     }
 
