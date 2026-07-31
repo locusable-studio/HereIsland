@@ -61,11 +61,6 @@ struct AboutView: View {
             detail: String(localized: "Now Playing access via MediaRemote Adapter"),
             url: URL(string: "https://github.com/ungive/mediaremote-adapter")!
         ),
-        AboutCredit(
-            name: "rtaudio",
-            detail: String(localized: "Real-time audio capture foundation"),
-            url: URL(string: "https://github.com/ZephyrCodesStuff/rtaudio")!
-        ),
     ]
 
     var body: some View {

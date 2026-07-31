@@ -629,7 +629,7 @@
       }
     },
     "Real-time audio capture foundation" : {
-      "extractionState" : "manual",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -646,7 +646,7 @@
       }
     },
     "Real-time waveform" : {
-      "extractionState" : "manual",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
