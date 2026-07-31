@@ -55,23 +55,6 @@
         }
       }
     },
-    "App" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "App"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "应用"
-          }
-        }
-      }
-    },
     "Appearance" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -268,36 +251,19 @@
         }
       }
     },
-    "Here Island Settings" : {
+    "General" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Here Island Settings"
+            "value" : "General"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Here Island 设置"
-          }
-        }
-      }
-    },
-    "Interaction" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Interaction"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "交互"
+            "value" : "通用"
           }
         }
       }
@@ -434,23 +400,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "匹配专辑封面"
-          }
-        }
-      }
-    },
-    "Menubar icon" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Menubar icon"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "菜单栏图标"
           }
         }
       }
@@ -713,40 +662,6 @@
         }
       }
     },
-    "Settings icon in notch" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Settings icon in notch"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在灵动岛显示设置图标"
-          }
-        }
-      }
-    },
-    "Settings…" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Settings…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "设置…"
-          }
-        }
-      }
-    },
     "Show on all displays" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -797,23 +712,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "软件更新框架"
-          }
-        }
-      }
-    },
-    "Software updates" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Software updates"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "软件更新"
           }
         }
       }
@@ -892,19 +790,19 @@
     "Track Skip" : {
 
     },
-    "Updater unavailable" : {
+    "Updates" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Updater unavailable"
+            "value" : "Updates"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "更新器不可用"
+            "value" : "更新"
           }
         }
       }

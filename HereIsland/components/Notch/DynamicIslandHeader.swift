@@ -16,17 +16,15 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import Defaults
 import SwiftUI
 
+/// Spacer that clears the physical notch when the island is open.
 struct DynamicIslandHeader: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
-    @Default(.settingsIconInNotch) private var settingsIconInNotch
 
     var body: some View {
         HStack(spacing: 0) {
             Spacer(minLength: 0)
-
             if vm.notchState == .open {
                 let spacerWidth = min(vm.closedNotchSize.width, 300)
                 Rectangle()
@@ -34,26 +32,7 @@ struct DynamicIslandHeader: View {
                     .frame(width: spacerWidth)
                     .mask { NotchShape() }
             }
-
-            HStack(spacing: 4) {
-                if vm.notchState == .open && settingsIconInNotch {
-                    Button {
-                        SettingsWindowController.shared.openSettings()
-                    } label: {
-                        Capsule()
-                            .fill(.black)
-                            .frame(width: 30, height: 30)
-                            .overlay {
-                                Image(systemName: "gear")
-                                    .foregroundColor(.white)
-                                    .imageScale(.medium)
-                            }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(8)
+            Spacer(minLength: 0)
         }
     }
 }

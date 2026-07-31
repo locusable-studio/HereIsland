@@ -18,13 +18,15 @@
 
 import Combine
 import Defaults
+import LaunchAtLogin
 import Sparkle
 import SwiftUI
 
 @main
 struct DynamicNotchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @Default(.menubarIcon) var showMenuBarIcon
+    @Default(.enableHaptics) var enableHaptics
+    @Default(.showOnAllDisplays) var showOnAllDisplays
 
     let updaterController: SPUStandardUpdaterController
     private let updaterDelegate = HereIslandUpdaterDelegate()
@@ -35,25 +37,36 @@ struct DynamicNotchApp: App {
             updaterDelegate: updaterDelegate,
             userDriverDelegate: nil
         )
-        SettingsWindowController.shared.setUpdaterController(updaterController)
     }
 
     var body: some Scene {
-        MenuBarExtra("dynamic.island", systemImage: "inset.filled.capsule", isInserted: $showMenuBarIcon) {
-            Button(String(localized: "About Here Island")) {
-                AboutWindowController.shared.openAbout()
+        MenuBarExtra("dynamic.island", systemImage: "inset.filled.capsule") {
+            Section(String(localized: "General")) {
+                Toggle(String(localized: "Show on all displays"), isOn: $showOnAllDisplays)
+                Toggle(String(localized: "Enable haptics"), isOn: $enableHaptics)
+                LaunchAtLogin.Toggle {
+                    Text(String(localized: "Launch at login"))
+                }
             }
-            Divider()
-            Button(String(localized: "Settings…")) {
-                SettingsWindowController.shared.openSettings()
+
+            Section {
+                Menu(String(localized: "Updates")) {
+                    CheckForUpdatesView(updater: updaterController.updater)
+                    Section {
+                        UpdaterSettingsView(updater: updaterController.updater)
+                    }
+                }
             }
-            .keyboardShortcut(",", modifiers: .command)
-            CheckForUpdatesView(updater: updaterController.updater)
-            Divider()
-            Button(String(localized: "Quit"), role: .destructive) {
-                NSApplication.shared.terminate(self)
+
+            Section {
+                Button(String(localized: "About Here Island")) {
+                    AboutWindowController.shared.openAbout()
+                }
+                Button(String(localized: "Quit"), role: .destructive) {
+                    NSApplication.shared.terminate(self)
+                }
+                .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
             }
-            .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
         }
     }
 }

@@ -93,10 +93,7 @@ final class AboutWindowController: NSWindowController {
 extension AboutWindowController: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         window?.orderOut(nil)
-        // Keep regular activation if Settings is still open.
-        if SettingsWindowController.shared.window?.isVisible != true {
-            NSApp.setActivationPolicy(.accessory)
-        }
+        NSApp.setActivationPolicy(.accessory)
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
