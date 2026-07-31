@@ -215,107 +215,89 @@ jobs:
             --wait
           xcrun stapler staple "build/${DMG_NAME}"
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release and Sparkle appcast
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPARKLE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
           DMG_NAME="${{ steps.version.outputs.dmg_name }}"
           STABLE_DMG_NAME="${{ steps.version.outputs.stable_dmg_name }}"
+          DOWNLOAD_URL="${{ steps.version.outputs.download_url }}"
+          REPO="${{ github.repository }}"
 
           # Fixed-name copy for a permanent /releases/latest/download/HereIsland.dmg URL.
           # Copy after notarization+staple so the ticket is preserved; do not re-sign.
           cp "build/${DMG_NAME}" "build/${STABLE_DMG_NAME}"
 
+          DERIVED_DATA=$(xcodebuild -project "$PROJECT" -scheme "$SCHEME" -showBuildSettings 2>/dev/null \
+            | grep -m1 BUILD_DIR | awk '{print $3}' | sed 's|/Build/Products||')
+          GENERATE_APPCAST=$(find "$DERIVED_DATA" -name "generate_appcast" -type f 2>/dev/null | head -1)
+          if [ -z "$GENERATE_APPCAST" ]; then
+            GENERATE_APPCAST=$(find ~/Library/Developer/Xcode -name "generate_appcast" -type f 2>/dev/null | head -1)
+          fi
+          if [ -z "$GENERATE_APPCAST" ]; then
+            echo "::error::Sparkle generate_appcast not found"
+            exit 1
+          fi
+
+          ARCHIVES_DIR="build/sparkle-archives"
+          rm -rf "$ARCHIVES_DIR"
+          mkdir -p "$ARCHIVES_DIR"
+          cp "build/${DMG_NAME}" "$ARCHIVES_DIR/"
+          if [ -f Updates/appcast.xml ]; then
+            cp Updates/appcast.xml "$ARCHIVES_DIR/appcast.xml"
+          fi
+
+          # Fetch previous versioned DMGs so generate_appcast can build deltas
+          # (Sparkle default --maximum-deltas is 5). Skip the always-latest HereIsland.dmg.
+          PREV_TAGS=$(gh release list --repo "$REPO" --limit 20 --json tagName,isDraft \
+            --jq '[.[] | select(.isDraft == false) | .tagName | select(startswith("v"))] | .[:5] | .[]')
+          for prev in $PREV_TAGS; do
+            if [ "$prev" = "$TAG" ]; then
+              continue
+            fi
+            echo "Downloading previous release asset from $prev ..."
+            gh release download "$prev" --repo "$REPO" --dir "$ARCHIVES_DIR" --pattern 'HereIsland-*.dmg' || true
+          done
+
+          # Avoid duplicate "latest" alias if any release shipped it as a pattern match.
+          rm -f "$ARCHIVES_DIR/${STABLE_DMG_NAME}"
+
+          echo "Archives for generate_appcast:"
+          ls -la "$ARCHIVES_DIR"
+
+          echo "$SPARKLE_KEY" > ~/private_keys/sparkle_ed.key
+          DOWNLOAD_PREFIX="https://github.com/${REPO}/releases/download/${TAG}/"
+          "$GENERATE_APPCAST" \
+            --ed-key-file ~/private_keys/sparkle_ed.key \
+            --download-url-prefix "$DOWNLOAD_PREFIX" \
+            -o "$ARCHIVES_DIR/appcast.xml" \
+            "$ARCHIVES_DIR"
+
+          # Ensure the newest full enclosure points at this tag's versioned asset URL.
+          # generate_appcast already prefixes with DOWNLOAD_PREFIX; keep a sanity check.
+          if ! grep -q "$DOWNLOAD_URL" "$ARCHIVES_DIR/appcast.xml"; then
+            echo "::warning::Expected enclosure URL not found in appcast: $DOWNLOAD_URL"
+          fi
+
+          DELTA_ARGS=()
+          shopt -s nullglob
+          for delta in "$ARCHIVES_DIR"/*.delta; do
+            DELTA_ARGS+=("$delta")
+          done
+          shopt -u nullglob
+
           gh release create "$TAG" \
             "build/${DMG_NAME}" \
             "build/${STABLE_DMG_NAME}" \
+            "${DELTA_ARGS[@]}" \
             --title "Here Island ${VERSION}" \
             --notes "" \
             --verify-tag
 
-      - name: Update Sparkle appcast
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          BUILD="${{ steps.version.outputs.build_number }}"
-          DMG_NAME="${{ steps.version.outputs.dmg_name }}"
-          DOWNLOAD_URL="${{ steps.version.outputs.download_url }}"
-          DMG_SIZE=$(stat -f%z "build/${DMG_NAME}")
-
-          DERIVED_DATA=$(xcodebuild -project "$PROJECT" -scheme "$SCHEME" -showBuildSettings 2>/dev/null \
-            | grep -m1 BUILD_DIR | awk '{print $3}' | sed 's|/Build/Products||')
-          SIGN_UPDATE=$(find "$DERIVED_DATA" -name "sign_update" -type f 2>/dev/null | head -1)
-          if [ -z "$SIGN_UPDATE" ]; then
-            SIGN_UPDATE=$(find ~/Library/Developer/Xcode -name "sign_update" -type f 2>/dev/null | head -1)
-          fi
-          if [ -z "$SIGN_UPDATE" ]; then
-            echo "::error::Sparkle sign_update not found"
-            exit 1
-          fi
-
-          # sign_update prints: sparkle:edSignature="..." length="..."
-          SIGN_OUTPUT=$("$SIGN_UPDATE" --ed-key-file ~/private_keys/sparkle_ed.key "build/${DMG_NAME}" 2>&1) || true
-          echo "$SIGN_OUTPUT"
-          SIGNATURE=$(printf '%s\n' "$SIGN_OUTPUT" | sed -n 's/.*edSignature="\([^"]*\)".*/\1/p' | head -1)
-          if [ -z "$SIGNATURE" ]; then
-            echo "::error::Failed to obtain Sparkle edSignature"
-            exit 1
-          fi
-
-          PUB_DATE=$(date -u '+%a, %d %b %Y %H:%M:%S +0000')
-          export VERSION BUILD DOWNLOAD_URL DMG_SIZE PUB_DATE SIGNATURE
-
-          # Prepend the new item; keep prior immutable version entries.
-          python3 <<'PY'
-          from pathlib import Path
-          import os
-          import re
-
-          path = Path("Updates/appcast.xml")
-          text = path.read_text() if path.exists() else ""
-
-          new_item = f"""        <item>
-              <title>{os.environ['VERSION']}</title>
-              <pubDate>{os.environ['PUB_DATE']}</pubDate>
-              <sparkle:version>{os.environ['BUILD']}</sparkle:version>
-              <sparkle:shortVersionString>{os.environ['VERSION']}</sparkle:shortVersionString>
-              <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-              <enclosure url="{os.environ['DOWNLOAD_URL']}" length="{os.environ['DMG_SIZE']}" type="application/octet-stream" sparkle:edSignature="{os.environ['SIGNATURE']}"/>
-          </item>
-          """
-
-          # Drop any existing item for the same marketing version (retag safety).
-          version = re.escape(os.environ["VERSION"])
-          text = re.sub(
-              rf"\s*<item>\s*<title>{version}</title>.*?</item>\s*",
-              "\n",
-              text,
-              flags=re.S,
-          )
-
-          channel_open = re.search(r"<channel>\s*(?:<title>.*?</title>\s*)?", text)
-          if not channel_open:
-              text = f"""<?xml version="1.0" standalone="yes"?>
-          <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
-              <channel>
-                  <title>Here Island</title>
-          {new_item}    </channel>
-          </rss>
-          """
-          else:
-              insert_at = channel_open.end()
-              # Ensure title exists once.
-              if "<title>" not in text[channel_open.start():insert_at]:
-                  prefix = text[: channel_open.start() + len("<channel>")]
-                  text = prefix + "\n        <title>Here Island</title>\n" + text[channel_open.start() + len("<channel>"):]
-                  channel_open = re.search(r"<channel>\s*(?:<title>.*?</title>\s*)?", text)
-                  insert_at = channel_open.end()
-              text = text[:insert_at] + "\n" + new_item + text[insert_at:]
-
-          path.write_text(text)
-          print(path.read_text())
-          PY
+          cp "$ARCHIVES_DIR/appcast.xml" Updates/appcast.xml
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
