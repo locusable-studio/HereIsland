@@ -20,7 +20,7 @@ import AppKit
 import SwiftUI
 
 struct AboutView: View {
-    private static let repositoryURL = URL(string: "https://github.com/sha2kyou/HereIsland")!
+    private static let repositoryURL = URL(string: "https://github.com/locusable-studio/HereIsland")!
 
     private static let lineageCredits: [AboutCredit] = [
         AboutCredit(

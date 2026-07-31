@@ -40,7 +40,7 @@ enum UpdateChannel: String, CaseIterable, Identifiable, Codable, Defaults.Serial
     }
 
     /// Keep in sync with the GitHub repository that hosts `Updates/appcast.xml`.
-    private static let feedRepository = "sha2kyou/HereIsland"
+    private static let feedRepository = "locusable-studio/HereIsland"
 
     var badgeColor: NSColor { .systemGreen }
 

@@ -46,4 +46,4 @@ Optional theme suffix when useful: `Here Island 2026.8.1 — …`
 - Keep it short; one screen is enough
 - No download-link sections (GitHub Assets already list DMGs)
 - Prefer editing the Release body after CI creates the tag if auto-generated notes are too thin
-- Sparkle feed (stable): `https://raw.githubusercontent.com/sha2kyou/HereIsland/main/Updates/appcast.xml`
+- Sparkle feed (stable): `https://raw.githubusercontent.com/locusable-studio/HereIsland/main/Updates/appcast.xml`
