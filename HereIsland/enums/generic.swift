@@ -21,40 +21,9 @@
  */
 
 import Foundation
-import Defaults
-import CoreGraphics
 
 public enum Style {
     case notch
-}
-
-/// Controls how Here Island renders on external and non-notched displays.
-/// - `notch`: Standard notch shape (concave top corners blending into the screen edge).
-/// - `dynamicIsland`: Pill-shaped island with continuously rounded corners.
-///   Only applies to screens that do NOT have a physical notch.
-enum ExternalDisplayStyle: String, CaseIterable, Defaults.Serializable, Identifiable {
-    case notch = "Standard Notch"
-    case dynamicIsland = "Dynamic Island"
-
-    var id: String { rawValue }
-
-    var localizedName: String {
-        switch self {
-        case .notch:
-            return String(localized: "Standard Notch")
-        case .dynamicIsland:
-            return String(localized: "Dynamic Island")
-        }
-    }
-
-    var description: String {
-        switch self {
-        case .notch:
-            return String(localized: "Classic notch shape that blends into the top screen edge")
-        case .dynamicIsland:
-            return String(localized: "Pill-shaped island with rounded corners, similar to iPhone's Dynamic Island")
-        }
-    }
 }
 
 public enum NotchState {
@@ -64,27 +33,4 @@ public enum NotchState {
 
 public enum NotchViews {
     case home
-}
-
-enum WindowHeightMode: String, Defaults.Serializable {
-    case matchMenuBar = "Match menubar height"
-    case matchRealNotchSize = "Match real notch height"
-    case custom = "Custom height"
-}
-
-enum SliderColorEnum: String, CaseIterable, Defaults.Serializable {
-    case white = "White"
-    case albumArt = "Match album art"
-    case accent = "Accent color"
-    
-    var localizedName: String {
-        switch self {
-            case .white:
-                return String(localized: "White")
-            case .albumArt:
-                return String(localized: "Match album art")
-            case .accent:
-                return String(localized: "Accent color")
-        }
-    }
 }

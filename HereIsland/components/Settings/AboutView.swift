@@ -93,7 +93,7 @@ struct AboutView: View {
                 }
 
                 LabeledContent(String(localized: "Channel")) {
-                    Text(UpdateChannel.buildChannel.displayName)
+                    Text(UpdateChannel.displayName)
                         .foregroundStyle(.secondary)
                 }
             }

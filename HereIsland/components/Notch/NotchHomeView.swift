@@ -21,7 +21,6 @@
  */
 
 import Combine
-import Defaults
 import SwiftUI
 import AppKit
 import AVFoundation
@@ -309,21 +308,12 @@ struct MusicSliderView: View {
         )
     }
 
-    private var sliderTint: Color {//
-        switch Defaults[.sliderColor] {
-        case .albumArt:
-            return Color(nsColor: color).ensureMinimumBrightness(factor: 0.6)
-        case .accent:
-            return .accentColor
-        case .white:
-            return .white
-        }
+    private var sliderTint: Color {
+        .white
     }
 
     private var timeLabelColor: Color {
-        Defaults[.playerColorTinting]
-            ? Color(nsColor: color).ensureMinimumBrightness(factor: 0.6)
-            : .gray
+        Color(nsColor: color).ensureMinimumBrightness(factor: 0.6)
     }
 
     private var trailingTimeText: String {
@@ -372,7 +362,6 @@ struct CustomSlider: View {
     var draggingTrackHeight: CGFloat = 14
     
     @State private var isHovering: Bool = false
-    @Default(.enableWaveformScrubber) var enableWaveformScrubber
 
     var body: some View {
         GeometryReader { geometry in

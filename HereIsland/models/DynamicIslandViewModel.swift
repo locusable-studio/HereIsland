@@ -17,7 +17,6 @@
  */
 
 import Combine
-import Defaults
 import SwiftUI
 
 @MainActor
@@ -60,11 +59,7 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     }
 
     private func setupDetectorObserver() {
-        let enabledPublisher = Defaults
-            .publisher(.enableFullscreenMediaDetection)
-            .map(\.newValue)
-
-        let statusPublisher = $screen
+        $screen
             .compactMap { $0 }
             .removeDuplicates()
             .map { screenName in
@@ -73,9 +68,6 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
                     .removeDuplicates()
             }
             .switchToLatest()
-
-        Publishers.CombineLatest(statusPublisher, enabledPublisher)
-            .map { status, enabled in enabled && status }
             .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] shouldHide in

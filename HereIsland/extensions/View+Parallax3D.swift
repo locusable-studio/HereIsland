@@ -19,19 +19,17 @@
 import SwiftUI
 import AppKit
 
-import Defaults
-
 struct ParallaxMotionModifier: ViewModifier {
     var enableOverride: Bool?
     var isSuspended: Bool
     
-    @Default(.parallaxEffectIntensity) var parallaxEffectIntensity
+    private let parallaxEffectIntensity: Double = 6.0
     @State private var offset: CGSize = .zero
     @State private var isHovering = false
     @State private var viewSize: CGSize = .zero
     
     func body(content: Content) -> some View {
-        if isSuspended || !(enableOverride ?? (parallaxEffectIntensity > 0.0)) {
+        if isSuspended || !(enableOverride ?? true) {
             content
         } else {
             content
@@ -52,7 +50,7 @@ struct ParallaxMotionModifier: ViewModifier {
                     switch phase {
                     case .active(let location):
                         guard viewSize.width > 0, viewSize.height > 0 else { return }
-                        guard NSEvent.pressedMouseButtons == 0 else { return } // Skip hover math while clicking to avoid lag
+                        guard NSEvent.pressedMouseButtons == 0 else { return }
                         let x = (location.x / viewSize.width) * 2 - 1
                         let y = (location.y / viewSize.height) * 2 - 1
 
@@ -68,14 +66,14 @@ struct ParallaxMotionModifier: ViewModifier {
                     }
                 }
                 .rotation3DEffect(
-                    .degrees(offset.height * parallaxEffectIntensity), // Y movement rotates around X axis
+                    .degrees(offset.height * parallaxEffectIntensity),
                     axis: (x: 1, y: 0, z: 0)
                 )
                 .rotation3DEffect(
-                    .degrees(offset.width * -parallaxEffectIntensity), // X movement rotates around Y axis (inverted to look naturally)
+                    .degrees(offset.width * -parallaxEffectIntensity),
                     axis: (x: 0, y: 1, z: 0)
                 )
-                .scaleEffect(isHovering ? 1.02 : 1.0) // Subtle scale up on hover
+                .scaleEffect(isHovering ? 1.02 : 1.0)
         }
     }
 }

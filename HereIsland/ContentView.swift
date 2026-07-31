@@ -34,9 +34,7 @@ struct ContentView: View {
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject var musicManager = MusicManager.shared
 
-    @Default(.cornerRadiusScaling) private var cornerRadiusScaling
     @Default(.enableHaptics) private var enableHaptics
-    @Default(.coloredSpectrogram) private var coloredSpectrogram
 
     @Namespace private var albumArtNamespace
     @State private var isHovering = false
@@ -53,10 +51,7 @@ struct ContentView: View {
     /// Horizontal inset that keeps the clipped notch shape aligned with the physical cutout.
     private var notchHorizontalPadding: CGFloat {
         if vm.notchState == .open {
-            if cornerRadiusScaling {
-                return cornerInsets.opened.top - 5
-            }
-            return cornerInsets.opened.bottom - 5
+            return cornerInsets.opened.top - 5
         }
         return cornerInsets.closed.bottom
     }
@@ -86,11 +81,11 @@ struct ContentView: View {
     }
 
     private var notchTopRadius: CGFloat {
-        (vm.notchState == .open && cornerRadiusScaling) ? cornerInsets.opened.top : cornerInsets.closed.top
+        vm.notchState == .open ? cornerInsets.opened.top : cornerInsets.closed.top
     }
 
     private var notchBottomRadius: CGFloat {
-        (vm.notchState == .open && cornerRadiusScaling) ? cornerInsets.opened.bottom : cornerInsets.closed.bottom
+        vm.notchState == .open ? cornerInsets.opened.bottom : cornerInsets.closed.bottom
     }
 
     var body: some View {
@@ -214,7 +209,7 @@ struct ContentView: View {
                 .frame(width: center, height: height)
 
             Rectangle()
-                .fill((coloredSpectrogram ? Color(nsColor: musicManager.avgColor) : Color.gray).spectrogramGradient())
+                .fill(Color(nsColor: musicManager.avgColor).spectrogramGradient())
                 .mask {
                     AudioVisualizerView(isPlaying: .constant(musicManager.isPlaying))
                         .frame(width: max(wing - 4, 12), height: max(height - 4, 10))
@@ -231,7 +226,7 @@ struct ContentView: View {
             withAnimation(.bouncy.speed(1.2)) { isHovering = true }
             guard vm.notchState == .closed else { return }
             hoverTask = Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(Int(Defaults[.minimumHoverDuration] * 1000)))
+                try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }
                 openNotch()
             }

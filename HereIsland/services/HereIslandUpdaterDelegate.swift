@@ -16,13 +16,11 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import Defaults
 import Sparkle
 
-/// Custom Sparkle updater delegate that dynamically returns the feed URL
-/// based on the user's selected update channel preference.
+/// Custom Sparkle updater delegate that returns the stable feed URL.
 class HereIslandUpdaterDelegate: NSObject, SPUUpdaterDelegate {
     func feedURLString(for updater: SPUUpdater) -> String? {
-        return Defaults[.updateChannel].feedURL.absoluteString
+        UpdateChannel.feedURL.absoluteString
     }
 }

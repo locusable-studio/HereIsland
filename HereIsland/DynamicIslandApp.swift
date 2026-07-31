@@ -27,6 +27,8 @@ struct DynamicNotchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Default(.enableHaptics) var enableHaptics
     @Default(.showOnAllDisplays) var showOnAllDisplays
+    @Default(.mediaController) var mediaController
+    @ObservedObject private var musicManager = MusicManager.shared
 
     let updaterController: SPUStandardUpdaterController
     private let updaterDelegate = HereIslandUpdaterDelegate()
@@ -49,6 +51,14 @@ struct DynamicNotchApp: App {
                 }
             }
 
+            Section(String(localized: "Media")) {
+                Picker(String(localized: "Source"), selection: $mediaController) {
+                    ForEach(availableMediaControllers) { type in
+                        Text(type.localizedName).tag(type)
+                    }
+                }
+            }
+
             Section {
                 Menu(String(localized: "Updates")) {
                     CheckForUpdatesView(updater: updaterController.updater)
@@ -68,6 +78,13 @@ struct DynamicNotchApp: App {
                 .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
             }
         }
+    }
+
+    private var availableMediaControllers: [MediaControllerType] {
+        if musicManager.isNowPlayingDeprecated {
+            return [.appleMusic]
+        }
+        return MediaControllerType.allCases
     }
 }
 
@@ -164,17 +181,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func syncNotchSpaceMembership() {
-        guard Defaults[.hideNotchOption] == .never else {
-            NotchSpaceManager.shared.notchSpace.windows = []
-            return
-        }
-        if Defaults[.showOnAllDisplays] {
-            NotchSpaceManager.shared.notchSpace.windows = Set(windows.values)
-        } else if let window {
-            NotchSpaceManager.shared.notchSpace.windows = [window]
-        } else {
-            NotchSpaceManager.shared.notchSpace.windows = []
-        }
+        NotchSpaceManager.shared.notchSpace.windows = []
     }
 
     private func createDynamicIslandWindow(for screen: NSScreen, with viewModel: DynamicIslandViewModel) -> NSWindow {
@@ -191,9 +198,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             rootView: ContentView().environmentObject(viewModel)
         )
         window.orderFrontRegardless()
-        if Defaults[.hideNotchOption] == .never {
-            NotchSpaceManager.shared.notchSpace.windows.insert(window)
-        }
         return window
     }
 

@@ -23,7 +23,6 @@
 import Foundation
 import OSLog
 import SwiftUI
-import Defaults
 
 enum LogCategory: String {
     case lifecycle = "🔄"
@@ -49,15 +48,6 @@ enum LogCategory: String {
         case .success: return "success"
         case .debug: return "debug"
         case .extensions: return "extensions"
-        }
-    }
-
-    var defaultLevel: LogLevel {
-        switch self {
-        case .error: return .error
-        case .warning: return .warning
-        case .success, .ui, .network, .lifecycle, .memory, .performance, .extensions: return .info
-        case .debug: return .debug
         }
     }
 }
@@ -87,19 +77,15 @@ struct Logger {
         function: String = #function,
         line: Int = #line
     ) {
-        let configuredLevel = Defaults[.logLevel]
-        if configuredLevel == .none || category.defaultLevel.rawValue > configuredLevel.rawValue {
-            return
-        }
-
+#if DEBUG
         let fileName = (file as NSString).lastPathComponent
         let timestamp = dateFormatter.string(from: Date())
         let entry = "\(category.rawValue) [\(timestamp)] [\(fileName):\(line)] \(function) - \(message)"
         let logger = osLogger(for: category)
         os_log("%{public}@", log: logger, type: .default, entry)
-
-#if DEBUG
         Swift.print(entry)
+#else
+        _ = (message, category, file, function, line)
 #endif
     }
     
@@ -153,21 +139,5 @@ struct ViewLifecycleTracker: ViewModifier {
     }
 }
 
-// Global overrides to filter scattered print and NSLog statements throughout the app
-
-public func NSLog(_ format: String, _ args: CVarArg...) {
-    let configuredLevel = Defaults[.logLevel]
-    if configuredLevel == .none { return }
-    
-    let message = String(format: format, arguments: args)
-    let lowerMessage = message.lowercased()
-    
-    let isError = message.contains("❌") || lowerMessage.contains("error") || lowerMessage.contains("failed")
-    let isWarning = message.contains("⚠️") || lowerMessage.contains("warning")
-    
-    let simulatedLevel: LogLevel = isError ? .error : (isWarning ? .warning : .debug)
-    
-    if simulatedLevel.rawValue > configuredLevel.rawValue { return }
-    
-    Foundation.NSLog("%@", message)
-} 
+/// Silence scattered NSLog calls; intentional logging goes through ``Logger``.
+public func NSLog(_ format: String, _ args: CVarArg...) {}

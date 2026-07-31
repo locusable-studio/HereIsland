@@ -197,19 +197,6 @@ private actor MusicExplicitnessResolver {
 }
 
 class MusicManager: ObservableObject {
-    enum SkipDirection: Equatable {
-        case backward
-        case forward
-    }
-
-    struct SkipGesturePulse: Equatable {
-        let token: Int
-        let direction: SkipDirection
-        let behavior: MusicSkipBehavior
-    }
-
-    static let skipGestureSeekInterval: TimeInterval = 10
-
     // MARK: - Properties
     static let shared = MusicManager()
     private var cancellables = Set<AnyCancellable>()
@@ -218,7 +205,7 @@ class MusicManager: ObservableObject {
     @MainActor private var pendingOptimisticPlayState: Bool?
 
     // Helper to check if macOS has removed support for NowPlayingController
-    public private(set) var isNowPlayingDeprecated: Bool = false
+    @Published public private(set) var isNowPlayingDeprecated: Bool = false
     private let mediaChecker = MediaChecker()
 
     // Active controller
@@ -267,7 +254,6 @@ class MusicManager: ObservableObject {
     @Published var isLiveStream: Bool = false
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @Published var usingAppIconForArtwork: Bool = false
-    @Published private(set) var skipGesturePulse: SkipGesturePulse?
 
     private var explicitLookupTask: Task<Void, Never>?
     private var explicitLookupKey: String?
@@ -290,20 +276,17 @@ class MusicManager: ObservableObject {
     private var lastArtworkContentURL: String? = nil
 
     @Published var flipAngle: Double = 0
-    @Published var lastFlipDirection: SkipDirection = .forward
     private let flipAnimationDuration: TimeInterval = 0.45
     private var flipCooldownActive: Bool = false
 
     @Published var isTransitioning: Bool = false
     private var transitionWorkItem: DispatchWorkItem?
-    private var skipGestureToken: Int = 0
 
     // MARK: - Initialization
     init() {
         Self.sanitizeMediaControllerPreference()
 
-        // Listen for changes to the default controller preference
-        NotificationCenter.default.publisher(for: Notification.Name.mediaControllerChanged)
+        Defaults.publisher(.mediaController)
             .sink { [weak self] _ in
                 self?.setActiveControllerBasedOnPreference()
             }
@@ -317,6 +300,10 @@ class MusicManager: ObservableObject {
             } catch {
                 print("Failed to check deprecation status: \(error). Defaulting to false.")
                 self.isNowPlayingDeprecated = false
+            }
+
+            if self.isNowPlayingDeprecated, Defaults[.mediaController] == .nowPlaying {
+                Defaults[.mediaController] = .appleMusic
             }
 
             self.setActiveControllerBasedOnPreference()
@@ -664,11 +651,8 @@ class MusicManager: ObservableObject {
         guard !flipCooldownActive else { return }
         flipCooldownActive = true
 
-        // Direction: positive rotation = next (page turn forward),
-        //            negative rotation = previous (page turn backward).
-        let delta: Double = lastFlipDirection == .forward ? 180 : -180
         withAnimation(.easeInOut(duration: flipAnimationDuration)) {
-            flipAngle += delta
+            flipAngle += 180
         }
 
         // Reset cooldown after the animation completes so the next
@@ -765,7 +749,7 @@ class MusicManager: ObservableObject {
             debounceIdleTask?.cancel()
             debounceIdleTask = Task { [weak self] in
                 guard let self = self else { return }
-                try? await Task.sleep(for: .seconds(Defaults[.waitInterval]))
+                try? await Task.sleep(for: .seconds(3))
                 withAnimation {
                     self.isPlayerIdle = !self.isPlaying
                 }
@@ -780,9 +764,7 @@ class MusicManager: ObservableObject {
         workItem = DispatchWorkItem { [weak self] in
             withAnimation(.smooth) {
                 self?.albumArt = newAlbumArt
-                if Defaults[.coloredSpectrogram] {
-                    self?.calculateAverageColor()
-                }
+                self?.calculateAverageColor()
             }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: workItem!)
@@ -873,58 +855,6 @@ class MusicManager: ObservableObject {
         Task {
             await activeController?.seek(to: position)
         }
-    }
-
-    func seek(by offset: TimeInterval) {
-        guard !isLiveStream else { return }
-        let duration = songDuration
-        guard duration > 0 else { return }
-
-        let current = estimatedPlaybackPosition()
-        let magnitude = abs(offset)
-
-        if offset < 0, current <= magnitude {
-            previousTrack()
-            return
-        }
-
-        if offset > 0, (duration - current) <= magnitude {
-            nextTrack()
-            return
-        }
-
-        let target = min(max(0, current + offset), duration)
-        seek(to: target)
-    }
-
-    @MainActor
-    func handleSkipGesture(direction: SkipDirection) {
-        guard Defaults[.enableHorizontalMusicGestures] else { return }
-        guard !isPlayerIdle || bundleIdentifier != nil else { return }
-
-        let behavior = Defaults[.musicGestureBehavior]
-
-        switch behavior {
-        case .track:
-            if direction == .forward {
-                lastFlipDirection = .forward
-                nextTrack()
-            } else {
-                lastFlipDirection = .backward
-                previousTrack()
-            }
-        case .tenSecond:
-            let interval = Self.skipGestureSeekInterval
-            let offset = direction == .forward ? interval : -interval
-            seek(by: offset)
-        }
-
-        skipGestureToken = skipGestureToken &+ 1
-        skipGesturePulse = SkipGesturePulse(
-            token: skipGestureToken,
-            direction: direction,
-            behavior: behavior
-        )
     }
 
     func openMusicApp() {

@@ -1,9 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "±10 Seconds" : {
-
-    },
     "About Here Island" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -17,23 +14,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "关于 Here Island"
-          }
-        }
-      }
-    },
-    "Accent color" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Accent color"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "强调色"
           }
         }
       }
@@ -73,7 +53,21 @@
       }
     },
     "Apple Music" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Music"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Music"
+          }
+        }
+      }
     },
     "Automatically check for updates" : {
       "extractionState" : "manual",
@@ -139,40 +133,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "检查更新…"
-          }
-        }
-      }
-    },
-    "Classic notch shape that blends into the top screen edge" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Classic notch shape that blends into the top screen edge"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "经典刘海形状，贴合屏幕上沿"
-          }
-        }
-      }
-    },
-    "Dynamic Island" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dynamic Island"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "灵动岛"
           }
         }
       }
@@ -302,6 +262,23 @@
         }
       }
     },
+    "Media" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Media"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "媒体"
+          }
+        }
+      }
+    },
     "License (GPL-3.0)" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -387,23 +364,6 @@
         }
       }
     },
-    "Match album art" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Match album art"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "匹配专辑封面"
-          }
-        }
-      }
-    },
     "Music" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -456,7 +416,21 @@
       }
     },
     "Now Playing" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now Playing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统正在播放"
+          }
+        }
+      }
     },
     "Now Playing access via MediaRemote Adapter" : {
       "extractionState" : "manual",
@@ -492,23 +466,6 @@
         }
       }
     },
-    "Pill-shaped island with rounded corners, similar to iPhone's Dynamic Island" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pill-shaped island with rounded corners, similar to iPhone's Dynamic Island"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "圆角胶囊形岛屿，类似 iPhone 灵动岛"
-          }
-        }
-      }
-    },
     "Play / Pause" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -539,23 +496,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "上一曲"
-          }
-        }
-      }
-    },
-    "Production releases, thoroughly tested" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Production releases, thoroughly tested"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正式发布，经过充分测试"
           }
         }
       }
@@ -696,9 +636,6 @@
         }
       }
     },
-    "Skip forward or backward by ten seconds" : {
-
-    },
     "Software update framework" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -712,6 +649,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "软件更新框架"
+          }
+        }
+      }
+    },
+    "Source" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来源"
           }
         }
       }
@@ -732,26 +686,6 @@
           }
         }
       }
-    },
-    "Standard Notch" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Standard Notch"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "标准刘海"
-          }
-        }
-      }
-    },
-    "Standard previous/next track controls" : {
-
     },
     "Thanks to these open-source dependencies." : {
       "extractionState" : "manual",
@@ -786,9 +720,6 @@
           }
         }
       }
-    },
-    "Track Skip" : {
-
     },
     "Updates" : {
       "extractionState" : "manual",
@@ -854,23 +785,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "版本信息"
-          }
-        }
-      }
-    },
-    "White" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "White"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "白色"
           }
         }
       }

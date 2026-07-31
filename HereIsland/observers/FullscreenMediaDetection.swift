@@ -21,7 +21,6 @@
  */
 
 import ApplicationServices
-import Defaults
 import MacroVisionKit
 import SwiftUI
 
@@ -71,18 +70,8 @@ class FullscreenMediaDetector: ObservableObject {
     }
 
     private func updateFullScreenStatus() {
-        guard Defaults[.enableFullscreenMediaDetection] else {
-            let reset = Dictionary(uniqueKeysWithValues: NSScreen.screens.map { ($0.localizedName, false) })
-            if reset != fullscreenStatus {
-                fullscreenStatus = reset
-            }
-            return
-        }
-        
-
         let apps = detector.detectFullscreenApps(debug: false)
         let names = NSScreen.screens.map { $0.localizedName }
-        let hideOption = Defaults[.hideNotchOption]
 
         var newStatus: [String: Bool] = [:]
         for name in names {
@@ -90,21 +79,9 @@ class FullscreenMediaDetector: ObservableObject {
                 guard app.screen.localizedName == name,
                       app.bundleIdentifier != "com.apple.finder" else { return false }
 
-                // The notch stays on display by default (the window's collectionBehavior
-                // rides along with fullscreen spaces). It only hides when the user's
-                // "Hide DynamicIsland" option asks for it.
-                switch hideOption {
-                case .always:
-                    // Hide for any app in genuine native fullscreen on this screen.
-                    return isInNativeFullscreen(app)
-                case .nowPlayingOnly:
-                    // Hide only when the currently playing media app is in fullscreen.
-                    return app.bundleIdentifier == musicManager.bundleIdentifier
-                        && isInNativeFullscreen(app)
-                case .never:
-                    // Always on display; never hide.
-                    return false
-                }
+                // Hide only when the currently playing media app is in native fullscreen.
+                return app.bundleIdentifier == musicManager.bundleIdentifier
+                    && isInNativeFullscreen(app)
             }
         }
 

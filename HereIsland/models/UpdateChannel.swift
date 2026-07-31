@@ -16,37 +16,15 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import AppKit
-import Defaults
+import Foundation
 
-/// Sparkle update feed channel. Here Island only ships a single stable channel.
-enum UpdateChannel: String, CaseIterable, Identifiable, Codable, Defaults.Serializable {
-    case stable
+/// Sparkle update feed. Here Island only ships a single stable channel.
+enum UpdateChannel {
+    static let feedURL = URL(
+        string: "https://raw.githubusercontent.com/locusable-studio/HereIsland/main/Updates/appcast.xml"
+    )!
 
-    var id: String { rawValue }
-
-    var displayName: String {
+    static var displayName: String {
         String(localized: "Stable")
     }
-
-    var description: String {
-        String(localized: "Production releases, thoroughly tested")
-    }
-
-    /// Stable Sparkle feed URL — path never changes; `Updates/appcast.xml` on `main` is rewritten each release.
-    /// Enclosure URLs inside the feed point at immutable versioned GitHub Release assets.
-    var feedURL: URL {
-        URL(string: "https://raw.githubusercontent.com/\(Self.feedRepository)/main/Updates/appcast.xml")!
-    }
-
-    /// Keep in sync with the GitHub repository that hosts `Updates/appcast.xml`.
-    private static let feedRepository = "locusable-studio/HereIsland"
-
-    var badgeColor: NSColor { .systemGreen }
-
-    var badgeIcon: String { "checkmark.seal.fill" }
-
-    static var buildChannel: UpdateChannel { .stable }
-
-    static var availableChannels: [UpdateChannel] { [.stable] }
 }
