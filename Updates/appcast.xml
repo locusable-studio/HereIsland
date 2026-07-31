@@ -2,6 +2,15 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>Here Island</title>
-        <!-- Stable releases will be populated by the release workflow -->
+        
+        <item>
+    <title>2026.7.28</title>
+    <pubDate>Fri, 31 Jul 2026 07:57:21 +0000</pubDate>
+    <sparkle:version>1198</sparkle:version>
+    <sparkle:shortVersionString>2026.7.28</sparkle:shortVersionString>
+    <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+    <enclosure url="https://github.com/sha2kyou/HereIsland/releases/download/v2026.7.28/HereIsland-2026.7.28.dmg" length="2365511" type="application/octet-stream" sparkle:edSignature="7StDE+/A+x2A4aGA3aOiGrwUc8PA0YVOoDkHcQckLQKsvTSppozG5N47SuQaAjmYSfo6uFxbRDCTXOfEQeiKBA=="/>
+</item>
+<!-- Stable releases will be populated by the release workflow -->
     </channel>
 </rss>
