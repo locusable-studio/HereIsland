@@ -119,11 +119,17 @@ jobs:
 
       - name: Set up notarization credentials
         env:
-          API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
-          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_APP_PASSWORD: ${{ secrets.NOTARY_APP_PASSWORD }}
         run: |
-          mkdir -p ~/private_keys
-          echo "$API_KEY_P8" | base64 --decode > ~/private_keys/AuthKey_${API_KEY_ID}.p8
+          if [ -z "$NOTARY_APPLE_ID" ] || [ -z "$NOTARY_APP_PASSWORD" ]; then
+            echo "::error::Missing NOTARY_APPLE_ID or NOTARY_APP_PASSWORD secrets"
+            exit 1
+          fi
+          xcrun notarytool store-credentials "hereisland-notary" \
+            --apple-id "$NOTARY_APPLE_ID" \
+            --team-id "$TEAM_ID" \
+            --password "$NOTARY_APP_PASSWORD"
 
       - name: Set up Sparkle signing key
         env:
@@ -202,15 +208,10 @@ jobs:
           codesign --force --sign "$CODESIGN_IDENTITY" "build/${DMG_NAME}"
 
       - name: Notarize DMG
-        env:
-          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
           DMG_NAME="${{ steps.version.outputs.dmg_name }}"
           xcrun notarytool submit "build/${DMG_NAME}" \
-            --key ~/private_keys/AuthKey_${API_KEY_ID}.p8 \
-            --key-id "$API_KEY_ID" \
-            --issuer "$API_ISSUER" \
+            --keychain-profile "hereisland-notary" \
             --wait
           xcrun stapler staple "build/${DMG_NAME}"
 
