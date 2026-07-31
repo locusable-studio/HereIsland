@@ -276,8 +276,40 @@ jobs:
             -o "$ARCHIVES_DIR/appcast.xml" \
             "$ARCHIVES_DIR"
 
+          # GitHub Releases replaces spaces in uploaded asset names with '.'.
+          # generate_appcast emits "Here IslandNNNN-MMMM.delta" (from CFBundleName);
+          # rename files and rewrite appcast URLs so Sparkle can actually download deltas.
+          # Also retarget older DMG enclosures to the release that owns each asset
+          # (--download-url-prefix otherwise points every enclosure at the new tag).
+          ARCHIVES_DIR="$ARCHIVES_DIR" REPO="$REPO" python3 <<'PY'
+          import os, pathlib, re
+          archives = pathlib.Path(os.environ["ARCHIVES_DIR"])
+          repo = os.environ["REPO"]
+          appcast_path = archives / "appcast.xml"
+
+          for delta in archives.glob("*.delta"):
+              safe = delta.name.replace(" ", ".")
+              if safe != delta.name:
+                  delta.rename(delta.with_name(safe))
+                  print(f"Renamed delta asset: {delta.name} -> {safe}")
+
+          text = appcast_path.read_text()
+          text = text.replace("Here%20Island", "Here.Island")
+
+          def rewrite_dmg(match):
+              filename, version = match.group(1), match.group(2)
+              return f"https://github.com/{repo}/releases/download/v{version}/{filename}"
+
+          text, count = re.subn(
+              r'https://github\.com/[^"]+/releases/download/v[^/]+/(HereIsland-([^"]+)\.dmg)',
+              rewrite_dmg,
+              text,
+          )
+          appcast_path.write_text(text)
+          print(f"Rewrote {count} versioned DMG enclosure URL(s) to owning release tags")
+          PY
+
           # Ensure the newest full enclosure points at this tag's versioned asset URL.
-          # generate_appcast already prefixes with DOWNLOAD_PREFIX; keep a sanity check.
           if ! grep -q "$DOWNLOAD_URL" "$ARCHIVES_DIR/appcast.xml"; then
             echo "::warning::Expected enclosure URL not found in appcast: $DOWNLOAD_URL"
           fi
