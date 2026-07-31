@@ -680,7 +680,7 @@
       }
     },
     "Restart Here Island" : {
-      "extractionState" : "manual",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

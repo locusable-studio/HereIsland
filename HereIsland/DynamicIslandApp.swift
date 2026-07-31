@@ -50,16 +50,6 @@ struct DynamicNotchApp: App {
             .keyboardShortcut(",", modifiers: .command)
             CheckForUpdatesView(updater: updaterController.updater)
             Divider()
-            Button(String(localized: "Restart Here Island")) {
-                guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return }
-                let workspace = NSWorkspace.shared
-                if let appURL = workspace.urlForApplication(withBundleIdentifier: bundleIdentifier) {
-                    let configuration = NSWorkspace.OpenConfiguration()
-                    configuration.createsNewApplicationInstance = true
-                    workspace.openApplication(at: appURL, configuration: configuration)
-                }
-                NSApplication.shared.terminate(self)
-            }
             Button(String(localized: "Quit"), role: .destructive) {
                 NSApplication.shared.terminate(self)
             }
