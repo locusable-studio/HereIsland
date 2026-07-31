@@ -1,25 +1,36 @@
 # Here Island
 
-macOS notch media companion — a focused, minimalistic live activity for what’s playing now.
+A minimal live activity in your MacBook notch — album art, controls, and a real-time waveform for what’s playing now.
+
+<p align="center">
+  <img src="docs/shot-expanded.jpg" alt="Here Island expanded media controls" width="890">
+  <br>
+  <img src="docs/shot-compact.jpg" alt="Here Island compact notch player" width="722">
+</p>
+
+Website: [locusable.com/here-island](https://locusable.com/here-island/)
 
 ## What it does
 
-Here Island lives in the MacBook notch (and Dynamic Island–style displays) and shows a compact music player:
+Here Island is a menu bar app that lives in the MacBook notch and shows a compact music player:
 
 - Album art, title, and artist
 - Progress and playback controls: shuffle, previous, play/pause, next, repeat
-- Optional real-time waveform
+- Real-time waveform while playing
+- Media source: **Now Playing** (default, system-wide — including apps like Spotify) or **Apple Music**
 
-No battery HUD, system OSD replacement, Spotify, or configurable control layouts — just media in the notch.
+Settings live in the menu bar extra: display scope, haptics, launch at login, and media source.
 
-## Requirements
+No battery HUD, system OSD replacement, or configurable control layouts — just media in the notch.
 
-- macOS 26.0+
-- Xcode 26+ (to build from source)
+## Download
+
+- **[Latest DMG](https://github.com/locusable-studio/HereIsland/releases/latest/download/HereIsland.dmg)** from [GitHub Releases](https://github.com/locusable-studio/HereIsland/releases)
+- Requires **macOS 26.0+**
 
 ## Build
 
-1. Open `HereIsland.xcodeproj`
+1. Open `HereIsland.xcodeproj` in **Xcode 26+**
 2. Select the **HereIsland** scheme
 3. Build and run
 
