@@ -232,15 +232,7 @@ jobs:
             "build/${DMG_NAME}" \
             "build/${STABLE_DMG_NAME}" \
             --title "Here Island ${VERSION}" \
-            --notes "$(cat <<EOF
-          ## Downloads
-
-          - **Website / always-latest:** ${{ steps.version.outputs.latest_download_url }}
-          - **This version (immutable):** ${{ steps.version.outputs.download_url }}
-
-          Sparkle feed: ${{ steps.version.outputs.appcast_url }}
-          EOF
-          )" \
+            --notes "" \
             --verify-tag
 
       - name: Update Sparkle appcast

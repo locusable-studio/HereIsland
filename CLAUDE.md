@@ -43,7 +43,7 @@ Optional theme suffix when useful: `Here Island 2026.8.1 — …`
 
 ### Rules
 
+- CI creates the Release with **title only** (empty body); fill in Highlights / Changes / Notes manually after the tag ships
 - Keep it short; one screen is enough
 - No download-link sections (GitHub Assets already list DMGs)
-- Prefer editing the Release body after CI creates the tag if auto-generated notes are too thin
 - Sparkle feed (stable): `https://raw.githubusercontent.com/locusable-studio/HereIsland/main/Updates/appcast.xml`
