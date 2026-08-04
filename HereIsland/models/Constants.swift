@@ -43,6 +43,7 @@ extension Defaults.Keys {
     static let showOnAllDisplays = Key<Bool>("showOnAllDisplays", default: false)
     static let enableHaptics = Key<Bool>("enableHaptics", default: true)
     static let showAlbumArtBackgroundEffects = Key<Bool>("showAlbumArtBackgroundEffects", default: true)
+    static let showWindowShadow = Key<Bool>("showWindowShadow", default: true)
 
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: .nowPlaying)

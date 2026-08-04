@@ -28,6 +28,7 @@ struct DynamicNotchApp: App {
     @Default(.enableHaptics) var enableHaptics
     @Default(.showOnAllDisplays) var showOnAllDisplays
     @Default(.showAlbumArtBackgroundEffects) var showAlbumArtBackgroundEffects
+    @Default(.showWindowShadow) var showWindowShadow
     @Default(.mediaController) var mediaController
     @ObservedObject private var musicManager = MusicManager.shared
 
@@ -49,14 +50,14 @@ struct DynamicNotchApp: App {
 
     var body: some Scene {
         MenuBarExtra("dynamic.island", systemImage: "inset.filled.capsule") {
-            LaunchAtLogin.Toggle {
-                Text(String(localized: "Launch at login"))
-            }
-
-            Menu(String(localized: "General Settings")) {
+            Section(String(localized: "General")) {
+                LaunchAtLogin.Toggle {
+                    Text(String(localized: "Launch at login"))
+                }
                 Toggle(String(localized: "Show on all displays"), isOn: $showOnAllDisplays)
                 Toggle(String(localized: "Enable haptics"), isOn: $enableHaptics)
                 Toggle(String(localized: "Show album art background effects"), isOn: $showAlbumArtBackgroundEffects)
+                Toggle(String(localized: "Show window shadow"), isOn: $showWindowShadow)
             }
 
             Section(String(localized: "Media")) {
@@ -302,6 +303,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.handleShowOnAllDisplaysChanged()
             }
             .store(in: &cancellables)
+        Defaults.publisher(.showWindowShadow, options: [])
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] change in
+                self?.setWindowShadow(change.newValue)
+            }
+            .store(in: &cancellables)
 
         DistributedNotificationCenter.default().addObserver(
             self, selector: #selector(onScreenLocked(_:)),
@@ -359,6 +366,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             adjustWindowPosition(changeAlpha: true)
         }
         syncNotchSpaceMembership()
+    }
+
+    private func setWindowShadow(_ enabled: Bool) {
+        window?.hasShadow = enabled
+        for window in windows.values {
+            window.hasShadow = enabled
+        }
     }
 
     private func resolvedTargetScreen() -> NSScreen {

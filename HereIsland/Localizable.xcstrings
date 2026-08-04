@@ -157,23 +157,6 @@
     "dynamic.island" : {
 
     },
-    "Show album art background effects" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show album art background effects"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "显示专辑封面背景效果"
-          }
-        }
-      }
-    },
     "Enable haptics" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -187,6 +170,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "启用触感反馈"
+          }
+        }
+      }
+    },
+    "General" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通用"
+          }
+        }
+      }
+    },
+    "General Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通用设置"
           }
         }
       }
@@ -228,40 +245,6 @@
         }
       }
     },
-    "General" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "General"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "通用"
-          }
-        }
-      }
-    },
-    "General Settings" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "General Settings"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "通用设置"
-          }
-        }
-      }
-    },
     "Launch at login" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -292,23 +275,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sindre Sorhus 的登录时启动组件"
-          }
-        }
-      }
-    },
-    "Media" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Media"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "媒体"
           }
         }
       }
@@ -394,6 +360,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "macOS 刘海媒体伴侣"
+          }
+        }
+      }
+    },
+    "Media" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Media"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "媒体"
           }
         }
       }
@@ -636,6 +619,23 @@
         }
       }
     },
+    "Show album art background effects" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show album art background effects"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示专辑封面背景效果"
+          }
+        }
+      }
+    },
     "Show on all displays" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -649,6 +649,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在所有显示器上显示"
+          }
+        }
+      }
+    },
+    "Show window shadow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show window shadow"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示阴影"
           }
         }
       }

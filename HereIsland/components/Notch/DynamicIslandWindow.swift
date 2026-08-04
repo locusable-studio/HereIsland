@@ -21,6 +21,7 @@
  */
 
 import Cocoa
+import Defaults
 
 class DynamicIslandWindow: NSPanel {
     override init(
@@ -53,7 +54,7 @@ class DynamicIslandWindow: NSPanel {
         
         isReleasedWhenClosed = false
         level = .mainMenu + 3
-        hasShadow = false
+        hasShadow = Defaults[.showWindowShadow]
 
         ScreenCaptureVisibilityManager.shared.register(self, scope: .entireInterface)
     }
