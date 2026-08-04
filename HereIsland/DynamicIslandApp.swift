@@ -40,6 +40,11 @@ struct DynamicNotchApp: App {
             updaterDelegate: updaterDelegate,
             userDriverDelegate: nil
         )
+
+        if !AppRuntimeEnvironment.isUITesting,
+           updaterController.updater.automaticallyChecksForUpdates {
+            updaterController.updater.checkForUpdatesInBackground()
+        }
     }
 
     var body: some Scene {

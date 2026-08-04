@@ -11,6 +11,8 @@
 	<string>Here Island uses Apple Music to fetch animated artwork.</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Here Island needs screen recording permission to hide the notch while screen sharing.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>SUSendProfileInfo</key>
 	<false/>
 	<key>SUFeedURL</key>
