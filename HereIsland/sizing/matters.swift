@@ -60,28 +60,48 @@ enum MusicPlayerImageSizes {
     static let size = (opened: CGSize(width: 90, height: 90), closed: CGSize(width: 20, height: 20))
 }
 
-func getScreenFrame(_ screen: String? = nil) -> CGRect? {
-    var selectedScreen = NSScreen.main
+extension NSScreen {
+    /// Built-in panel (MacBook display), via CoreGraphics.
+    var isBuiltIn: Bool {
+        guard let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+            return false
+        }
+        return CGDisplayIsBuiltin(number.uint32Value) != 0
+    }
 
-    if let customScreen = screen {
-        selectedScreen = NSScreen.screens.first(where: { $0.localizedName == customScreen })
+    /// True when AppKit exposes notch/cutout geometry for this screen.
+    var hasNotchGeometry: Bool {
+        if safeAreaInsets.top > 0 { return true }
+        return auxiliaryTopLeftArea != nil && auxiliaryTopRightArea != nil
     }
-    
-    if let screen = selectedScreen {
-        return screen.frame
+}
+
+/// Host display for the single-display notch window:
+/// built-in when connected, otherwise the focus screen (`NSScreen.main`).
+func resolveNotchHostScreen() -> NSScreen? {
+    NSScreen.screens.first(where: \.isBuiltIn)
+        ?? NSScreen.main
+        ?? NSScreen.screens.first
+}
+
+func getScreenFrame(_ screen: String? = nil) -> CGRect? {
+    if let screen,
+       let match = NSScreen.screens.first(where: { $0.localizedName == screen }) {
+        return match.frame
     }
-    
-    return nil
+    return resolveNotchHostScreen()?.frame
 }
 
 func getClosedNotchSize(screen: String? = nil) -> CGSize {
     var notchHeight: CGFloat = 32
     var notchWidth: CGFloat = 150
 
-    var selectedScreen = NSScreen.main
-
-    if let customScreen = screen {
-        selectedScreen = NSScreen.screens.first(where: { $0.localizedName == customScreen })
+    let selectedScreen: NSScreen?
+    if let screen {
+        selectedScreen = NSScreen.screens.first(where: { $0.localizedName == screen })
+            ?? resolveNotchHostScreen()
+    } else {
+        selectedScreen = resolveNotchHostScreen()
     }
 
     if let screen = selectedScreen {

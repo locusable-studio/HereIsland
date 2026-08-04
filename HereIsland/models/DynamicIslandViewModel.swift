@@ -52,6 +52,20 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
         setupDetectorObserver()
     }
 
+    /// Bind the view model to a display and refresh closed-notch geometry.
+    func setScreen(_ name: String?) {
+        guard screen != name else {
+            refreshClosedNotchSize()
+            return
+        }
+        screen = name
+        refreshClosedNotchSize()
+    }
+
+    func refreshClosedNotchSize() {
+        closedNotchSize = getClosedNotchSize(screen: screen)
+    }
+
     func destroy() {
         cancellables.removeAll()
         onViewTeardown?()

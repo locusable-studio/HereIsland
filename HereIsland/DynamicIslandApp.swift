@@ -256,8 +256,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             for (screen, window) in windows {
                 apply(window, screen)
             }
-        } else if let window, let screen = window.screen ?? NSScreen.main {
-            apply(window, screen)
+        } else if let window {
+            apply(window, window.screen ?? resolvedTargetScreen())
         }
     }
 
@@ -291,11 +291,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
-        NotificationCenter.default.addObserver(
-            forName: Notification.Name.selectedScreenChanged, object: nil, queue: nil
-        ) { [weak self] _ in
-            self?.adjustWindowPosition(changeAlpha: true)
-        }
         Defaults.publisher(.showOnAllDisplays, options: [])
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -311,8 +306,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSNotification.Name(rawValue: "com.apple.screenIsUnlocked"), object: nil)
 
         if !Defaults[.showOnAllDisplays] {
+            let screen = resolvedTargetScreen()
+            vm.setScreen(screen.localizedName)
             window = createDynamicIslandWindow(
-                for: NSScreen.main ?? NSScreen.screens.first!,
+                for: screen,
                 with: vm
             )
             adjustWindowPosition(changeAlpha: true)
@@ -330,8 +327,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         defer { previousScreens = currentScreens }
         cleanupWindows()
         if !Defaults[.showOnAllDisplays] {
+            let screen = resolvedTargetScreen()
+            vm.setScreen(screen.localizedName)
             window = createDynamicIslandWindow(
-                for: NSScreen.main ?? NSScreen.screens.first!,
+                for: screen,
                 with: vm
             )
         }
@@ -342,8 +341,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleShowOnAllDisplaysChanged() {
         cleanupWindows(shouldInvert: true)
         if !Defaults[.showOnAllDisplays] {
+            let screen = resolvedTargetScreen()
+            vm.setScreen(screen.localizedName)
             let window = createDynamicIslandWindow(
-                for: NSScreen.main ?? NSScreen.screens.first!,
+                for: screen,
                 with: vm
             )
             self.window = window
@@ -355,6 +356,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         syncNotchSpaceMembership()
     }
 
+    private func resolvedTargetScreen() -> NSScreen {
+        resolveNotchHostScreen() ?? NSScreen.screens.first!
+    }
+
     @objc func adjustWindowPosition(changeAlpha: Bool = false) {
         if Defaults[.showOnAllDisplays] {
             let screens = NSScreen.screens
@@ -364,6 +369,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     let window = createDynamicIslandWindow(for: screen, with: viewModel)
                     windows[screen] = window
                     viewModels[screen] = viewModel
+                } else {
+                    viewModels[screen]?.setScreen(screen.localizedName)
                 }
                 if let window = windows[screen] {
                     positionWindow(window, on: screen, changeAlpha: changeAlpha)
@@ -375,16 +382,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 viewModels.removeValue(forKey: screen)
             }
         } else if let window {
-            let screen = NSScreen.screens.first(where: { $0.localizedName == coordinator.selectedScreen })
-                ?? NSScreen.main
-                ?? NSScreen.screens.first!
+            let screen = resolvedTargetScreen()
+            vm.setScreen(screen.localizedName)
             positionWindow(window, on: screen, changeAlpha: changeAlpha)
         }
         syncNotchSpaceMembership()
         updateWindowSizeIfNeeded()
     }
-}
-
-extension Notification.Name {
-    static let selectedScreenChanged = Notification.Name("SelectedScreenChanged")
 }

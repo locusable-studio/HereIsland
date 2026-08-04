@@ -17,26 +17,14 @@
  */
 
 import Combine
-import Defaults
 import SwiftUI
 
 class DynamicIslandViewCoordinator: ObservableObject {
     static let shared = DynamicIslandViewCoordinator()
-    private var cancellables = Set<AnyCancellable>()
 
     @Published var currentView: NotchViews = .home
 
     @AppStorage("musicLiveActivityEnabled") var musicLiveActivityEnabled: Bool = true
-    @AppStorage("preferred_screen_name") var preferredScreen = NSScreen.main?.localizedName ?? "Unknown" {
-        didSet {
-            selectedScreen = preferredScreen
-            NotificationCenter.default.post(name: Notification.Name.selectedScreenChanged, object: nil)
-        }
-    }
 
-    @Published var selectedScreen: String = NSScreen.main?.localizedName ?? "Unknown"
-
-    private init() {
-        selectedScreen = preferredScreen
-    }
+    private init() {}
 }

@@ -105,7 +105,9 @@ struct ContentView: View {
         .onAppear {
             coordinator.currentView = .home
             if vm.screen == nil {
-                vm.screen = NSScreen.main?.localizedName
+                vm.setScreen(resolveNotchHostScreen()?.localizedName)
+            } else {
+                vm.refreshClosedNotchSize()
             }
             // Ensure window stays at open size even when starting closed.
             AppDelegate.shared?.ensureWindowSize(
