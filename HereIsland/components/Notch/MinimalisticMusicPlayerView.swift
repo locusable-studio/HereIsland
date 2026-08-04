@@ -16,6 +16,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import Defaults
 import SwiftUI
 
 #if canImport(AppKit)
@@ -388,6 +389,7 @@ struct MinimalisticMusicPlayerView: View {
 struct MinimalisticAlbumArtView: View {
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var vm: DynamicIslandViewModel
+    @Default(.showAlbumArtBackgroundEffects) var showAlbumArtBackgroundEffects
     let albumArtNamespace: Namespace.ID
 
     private var usesLiveCanvasArtwork: Bool {
@@ -400,7 +402,9 @@ struct MinimalisticAlbumArtView: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            albumArtBackground
+            if showAlbumArtBackgroundEffects {
+                albumArtBackground
+            }
             albumArtButton
         }
     }

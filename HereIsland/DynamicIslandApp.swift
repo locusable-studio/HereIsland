@@ -27,6 +27,7 @@ struct DynamicNotchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Default(.enableHaptics) var enableHaptics
     @Default(.showOnAllDisplays) var showOnAllDisplays
+    @Default(.showAlbumArtBackgroundEffects) var showAlbumArtBackgroundEffects
     @Default(.mediaController) var mediaController
     @ObservedObject private var musicManager = MusicManager.shared
 
@@ -43,12 +44,14 @@ struct DynamicNotchApp: App {
 
     var body: some Scene {
         MenuBarExtra("dynamic.island", systemImage: "inset.filled.capsule") {
-            Section(String(localized: "General")) {
+            LaunchAtLogin.Toggle {
+                Text(String(localized: "Launch at login"))
+            }
+
+            Menu(String(localized: "General Settings")) {
                 Toggle(String(localized: "Show on all displays"), isOn: $showOnAllDisplays)
                 Toggle(String(localized: "Enable haptics"), isOn: $enableHaptics)
-                LaunchAtLogin.Toggle {
-                    Text(String(localized: "Launch at login"))
-                }
+                Toggle(String(localized: "Show album art background effects"), isOn: $showAlbumArtBackgroundEffects)
             }
 
             Section(String(localized: "Media")) {

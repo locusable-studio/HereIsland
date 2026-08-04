@@ -42,6 +42,7 @@ extension Defaults.Keys {
     // MARK: General (menu bar)
     static let showOnAllDisplays = Key<Bool>("showOnAllDisplays", default: false)
     static let enableHaptics = Key<Bool>("enableHaptics", default: true)
+    static let showAlbumArtBackgroundEffects = Key<Bool>("showAlbumArtBackgroundEffects", default: true)
 
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: .nowPlaying)
