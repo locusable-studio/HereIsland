@@ -3,6 +3,20 @@
     <channel>
         <title>Here Island</title>
         <item>
+            <title>2026.8.4</title>
+            <pubDate>Tue, 04 Aug 2026 09:30:16 +0000</pubDate>
+            <sparkle:version>1212</sparkle:version>
+            <sparkle:shortVersionString>2026.8.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.4/HereIsland-2026.8.4.dmg" length="2346369" type="application/octet-stream" sparkle:edSignature="Apvp2wDhqt8goApENHR+tjNlFjRzdIOn3APGMy8ArYok/p3ZXkKClFj9kGl+9MtwYmGTPYeIuZQudba6ruqPBA=="/>
+            <sparkle:deltas>
+                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.4/Here.Island1212-1208.delta" sparkle:deltaFrom="1208" length="158162" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="J/FGHxNk6piBOUnXVWF6KdHr+Avak6sAuIE+oF+3yCUjTP93tmO8W1RGsxJiYvh8v1Zwh/sF+PEbu/7o65oZDQ=="/>
+                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.4/Here.Island1212-1204.delta" sparkle:deltaFrom="1204" length="287702" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="c6kiGU2yw3Rh/PEHmcyyfYGCvtAKOtK10rAktRk+o+zRJGp+UrFpQgmA+tnzoLhS2LaNL0I6xCNEGKVXhAkxDA=="/>
+                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.4/Here.Island1212-1201.delta" sparkle:deltaFrom="1201" length="287910" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="ggQrJgzISfHlHzxXy//y+nleAJIk4TaSqOzH+BY2zfa3bY7b3EpEF/hOQWft5C5pvfb+PZxch30WQXIIuD7nAg=="/>
+                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.4/Here.Island1212-1198.delta" sparkle:deltaFrom="1198" length="288166" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="rFGD2Zh9Tm4Rqq9lGtriR3BmQmexLSUOtbHVen8Oi4gaKOqYgOGbqA1dhBkRGhCbB3CZzoWs1Gf5J7JJUNXfAg=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>2026.7.31</title>
             <pubDate>Fri, 31 Jul 2026 12:08:06 +0000</pubDate>
             <sparkle:version>1208</sparkle:version>
@@ -26,14 +40,6 @@
                 <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.7.31.1/Here.Island1204-1201.delta" sparkle:deltaFrom="1201" length="16766" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="4lUqoMNUc8nYqCCTjd5Ti0yRn4BUzT17Y0ja7rEd7K1X7SSmBlG6JZy5+DKGA1zLb4Dnq4fNW1WQFuiYB6rjBg=="/>
                 <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.7.31.1/Here.Island1204-1198.delta" sparkle:deltaFrom="1198" length="17226" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="lzZaJpY2v3LynUTUR4hoPIOWEHO8pgUU0WVR8knsuQz6oeqGxwrcmzvU3oV5jA5UDjaJfxhsFf5xzgn4prYOBw=="/>
             </sparkle:deltas>
-        </item>
-        <item>
-            <title>2026.7.31</title>
-            <pubDate>Fri, 31 Jul 2026 08:31:05 +0000</pubDate>
-            <sparkle:version>1201</sparkle:version>
-            <sparkle:shortVersionString>2026.7.31</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.7.31/HereIsland-2026.7.31.dmg" length="2367597" type="application/octet-stream" sparkle:edSignature="4/3c4ViUUoUw1pE2mVbMusMRaT6CbuogL8McVcN51oS0AuN1sDN69OWOKlbQYhAGC80/VArrL/njUo1RL5rNCQ=="/>
         </item>
         <!-- Stable releases will be populated by the release workflow -->
     </channel>
