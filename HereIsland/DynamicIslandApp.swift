@@ -30,6 +30,7 @@ struct DynamicNotchApp: App {
     @Default(.showAlbumArtBackgroundEffects) var showAlbumArtBackgroundEffects
     @Default(.showWindowShadow) var showWindowShadow
     @Default(.mediaController) var mediaController
+    @Default(.sliderColor) var sliderColor
     @ObservedObject private var musicManager = MusicManager.shared
 
     let updaterController: SPUStandardUpdaterController
@@ -55,9 +56,17 @@ struct DynamicNotchApp: App {
                     Text(String(localized: "Launch at login"))
                 }
                 Toggle(String(localized: "Show on all displays"), isOn: $showOnAllDisplays)
-                Toggle(String(localized: "Enable haptics"), isOn: $enableHaptics)
-                Toggle(String(localized: "Show album art background effects"), isOn: $showAlbumArtBackgroundEffects)
-                Toggle(String(localized: "Show window shadow"), isOn: $showWindowShadow)
+                Toggle(String(localized: "Haptics"), isOn: $enableHaptics)
+            }
+
+            Section(String(localized: "Appearance")) {
+                Toggle(String(localized: "Album art background"), isOn: $showAlbumArtBackgroundEffects)
+                Toggle(String(localized: "Window shadow"), isOn: $showWindowShadow)
+                Picker(String(localized: "Progress bar color"), selection: $sliderColor) {
+                    ForEach(SliderColorEnum.allCases) { option in
+                        Text(option.localizedName).tag(option)
+                    }
+                }
             }
 
             Section(String(localized: "Media")) {

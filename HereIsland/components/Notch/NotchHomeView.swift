@@ -21,6 +21,7 @@
  */
 
 import Combine
+import Defaults
 import SwiftUI
 import AppKit
 import AVFoundation
@@ -174,6 +175,7 @@ struct MusicSliderView: View {
     var trailingLabel: TrailingLabel = .duration
     var restingTrackHeight: CGFloat = 8
     var draggingTrackHeight: CGFloat = 14
+    @Default(.sliderColor) private var sliderColorSetting
 
     enum TimeLabelLayout {
         case stacked
@@ -309,7 +311,14 @@ struct MusicSliderView: View {
     }
 
     private var sliderTint: Color {
-        .white
+        switch sliderColorSetting {
+        case .albumArt:
+            return Color(nsColor: color).ensureMinimumBrightness(factor: 0.6)
+        case .accent:
+            return .accentColor
+        case .white:
+            return .white
+        }
     }
 
     private var timeLabelColor: Color {

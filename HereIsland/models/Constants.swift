@@ -38,6 +38,22 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
     }
 }
 
+enum SliderColorEnum: String, CaseIterable, Identifiable, Defaults.Serializable {
+    case white = "White"
+    case albumArt = "Match album art"
+    case accent = "Accent color"
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .white: return String(localized: "White")
+        case .albumArt: return String(localized: "Match album art")
+        case .accent: return String(localized: "Accent color")
+        }
+    }
+}
+
 extension Defaults.Keys {
     // MARK: General (menu bar)
     static let showOnAllDisplays = Key<Bool>("showOnAllDisplays", default: false)
@@ -47,4 +63,8 @@ extension Defaults.Keys {
 
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: .nowPlaying)
+    static let sliderColor = Key<SliderColorEnum>(
+        "sliderUseAlbumArtColor",
+        default: .white
+    )
 }
