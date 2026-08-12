@@ -10,6 +10,13 @@ Before every code commit, increment `CURRENT_PROJECT_VERSION` (build number) by 
 - Bump both Debug and Release values in sync
 - Include the build number change in the same commit as the functional changes
 
+### Tag / release: do not bump project versions
+
+Creating a `v*` tag does **not** require changing `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` in the Xcode project.
+
+- Tag name is the release version (e.g. `v2026.8.12` → CI stamps that version into the build)
+- Do not bump engineering versions just to “match” the tag before tagging
+
 ## Release notes
 
 GitHub Release title and body follow this convention. Write for users, not for commit history.

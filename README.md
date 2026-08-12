@@ -1,5 +1,10 @@
 # Here Island
 
+[![Release](https://img.shields.io/github/v/release/locusable-studio/HereIsland)](https://github.com/locusable-studio/HereIsland/releases/latest)
+[![Release workflow](https://github.com/locusable-studio/HereIsland/actions/workflows/release.yml/badge.svg)](https://github.com/locusable-studio/HereIsland/actions/workflows/release.yml)
+[![macOS](https://img.shields.io/badge/macOS-26%2B-black?logo=apple)](https://github.com/locusable-studio/HereIsland#download)
+[![License](https://img.shields.io/github/license/locusable-studio/HereIsland)](https://github.com/locusable-studio/HereIsland/blob/main/LICENSE)
+
 A minimal live activity in your MacBook notch — album art, controls, and a real-time waveform for what’s playing now.
 
 <p align="center">
