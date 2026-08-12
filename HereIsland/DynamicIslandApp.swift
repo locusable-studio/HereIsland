@@ -40,13 +40,9 @@ struct DynamicNotchApp: App {
         updaterController = SPUStandardUpdaterController(
             startingUpdater: !AppRuntimeEnvironment.isUITesting,
             updaterDelegate: updaterDelegate,
-            userDriverDelegate: nil
+            userDriverDelegate: updaterDelegate
         )
-
-        if !AppRuntimeEnvironment.isUITesting,
-           updaterController.updater.automaticallyChecksForUpdates {
-            updaterController.updater.checkForUpdatesInBackground()
-        }
+        updaterDelegate.updater = updaterController.updater
     }
 
     var body: some Scene {
