@@ -3,6 +3,21 @@
     <channel>
         <title>Here Island</title>
         <item>
+            <title>2026.8.19</title>
+            <pubDate>Wed, 19 Aug 2026 14:55:00 +0000</pubDate>
+            <sparkle:version>1231</sparkle:version>
+            <sparkle:shortVersionString>2026.8.19</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.19/HereIsland-2026.8.19.dmg" length="2319094" type="application/octet-stream" sparkle:edSignature="tl4tr+gRU3XdnSTKstq0VxaAtHfvsvfdD+b/8FREPfkNUtmh70A9mEZnIhvwwKxBF07CzapeL7IJFfo6WatiBg=="/>
+            <sparkle:deltas>
+                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.19/Here.Island1231-1225.delta" sparkle:deltaFrom="1225" length="223486" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="UX8HU2rb+b8SbuBuorOwW55Ie90VZLu0hZvpYCTbD6BP0RMCGBkPywQtJTbPvcy+OkLwwk1uxtCfXSteJ8hNBQ=="/>
+                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.19/Here.Island1231-1222.delta" sparkle:deltaFrom="1222" length="305098" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="m3Ld3HOpPI7G/BtmUkeR3hmhepcknIkrGZhAZmwjR5o0gGRGgKcNV6t4M8Wmu/GNFNyC8NuBy4wp05rWlGCyDw=="/>
+                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.19/Here.Island1231-1218.delta" sparkle:deltaFrom="1218" length="348758" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="Jv7IDX1ZErxn7rN/hsFsMSwLSULiG66D9NRgiHIREmPFFik2tn/XUOE1JLO35icTUVVeku8NhoI9DqAfD9t+Ag=="/>
+                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.19/Here.Island1231-1214.delta" sparkle:deltaFrom="1214" length="355650" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="2XLN+pNocmknxkNFVVuVS73ZMhcZ60I7bCguYAcseKn8hRSa+q5lmIoUBOy0X/cJSh1DpoSMT5IU5WbYHlkYBw=="/>
+                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.19/Here.Island1231-1212.delta" sparkle:deltaFrom="1212" length="377430" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="IA6asIs7V8i/AceGk74WCm2taEDbDLCgUAXWrM2MInvpywxIaGKzilDqn7uKdRbhY1x6cWPNj2ceputy/ZjLDQ=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>2026.8.12</title>
             <pubDate>Wed, 12 Aug 2026 09:27:31 +0000</pubDate>
             <sparkle:version>1225</sparkle:version>
@@ -30,21 +45,6 @@
                 <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.6/Here.Island1222-1212.delta" sparkle:deltaFrom="1212" length="165698" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="O0iaasgs9wY6tHrtIRR75z7m5Njuzpf5D8t1JBS4uN2h97GImUjegZCfiNe2+xq3c1zWsM8blfIIUESVYMReCg=="/>
                 <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.6/Here.Island1222-1208.delta" sparkle:deltaFrom="1208" length="215898" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="KG8ABm+rjdFq8w3h9oREE/ttb9jQlzvYxX9VlzuRrlMn2E4yx9Exba0vfuaQ9LUjX/Jqvxrdm/QfutJYLP7uAg=="/>
                 <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.6/Here.Island1222-1204.delta" sparkle:deltaFrom="1204" length="304458" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="zZPUQ5w+ioXw/UBXuODF1dTAXOkEfBY7QZoFdFP7DsgWzmmpTAEGyXnKkmIruP4MjJw9awwFzF69U3lA4kZ4Bw=="/>
-            </sparkle:deltas>
-        </item>
-        <item>
-            <title>2026.8.4</title>
-            <pubDate>Tue, 04 Aug 2026 11:06:41 +0000</pubDate>
-            <sparkle:version>1218</sparkle:version>
-            <sparkle:shortVersionString>2026.8.4</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.4.2/HereIsland-2026.8.4.2.dmg" length="2348412" type="application/octet-stream" sparkle:edSignature="V2uhwGLgJsCKIXKqqQ2pf0YdZKIA6W0OOZu3VWxKJJLX6mgyhcvpE7ja0BqZwn9w3zHRULzrQlGQNMbXC0XcDA=="/>
-            <sparkle:deltas>
-                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.4.2/Here.Island1218-1214.delta" sparkle:deltaFrom="1214" length="117022" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="zvhPkT3z4vQ+UKOOiPSX2rJC72Bv8WSTRZIjxFfOI3VE9y2Ap+W2BtBNq1LSex5NLWkm4jQaHOAFnEyersobDQ=="/>
-                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.4.2/Here.Island1218-1212.delta" sparkle:deltaFrom="1212" length="149334" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="20DvDbXfHNTirBTC55+XFocBoaRr5291xGdZFWmDl60sI4+58JjgHpd8eAM9FLcgcH9FvcTo2eSJwUM8HBHDDA=="/>
-                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.4.2/Here.Island1218-1208.delta" sparkle:deltaFrom="1208" length="203826" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="l2SR4sCmCJH0Rc8I3/we5PCfpWmsA5D9G4MWoCs64TX+tzDGAgdlV2wEwtI5J/w+3DRIx7hqbP4mGk7rtfsvAw=="/>
-                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.4.2/Here.Island1218-1204.delta" sparkle:deltaFrom="1204" length="297262" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="+o8FUKBWerFujHHtgEsj8DNxJ6CC6WtArSrRELWyY+rpz3Y5YLtgFNYX5Z5r7nPLb/JNBK3oRXIwpmodkpe8Dw=="/>
-                <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.8.4.2/Here.Island1218-1201.delta" sparkle:deltaFrom="1201" length="298450" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="977808" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="h2UVejzuiUpAVYllPRiabwc6IK+zkfKeqo437h2u3XKxBZTWjcfmb5/hBcfNilhvVzArrUB7yfKDcAxNVgHpCQ=="/>
             </sparkle:deltas>
         </item>
         <!-- Stable releases will be populated by the release workflow -->
