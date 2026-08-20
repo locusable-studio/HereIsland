@@ -18,8 +18,8 @@ import IOKit
 /// uses `.nonactivatingPanel`), so we drive MultitouchSupport's private
 /// `MTActuator` APIs via dlopen — same approach as other notch utilities.
 enum HapticFeedback {
-    /// Strong click-like pattern (MultitouchSupport actuation ID 6).
-    private static let defaultActuationID: Int32 = 6
+    /// Light tap (MultitouchSupport actuation ID 4); 6 is a heavy Force Touch click.
+    private static let defaultActuationID: Int32 = 4
 
     static func perform() {
         if actuateViaMultitouchSupport(actuationID: defaultActuationID) {
