@@ -187,6 +187,22 @@
         }
       }
     },
+    "Display": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示器"
+          }
+        }
+      }
+    },
     "Dynamic Island–style companion this project builds on": {
       "extractionState": "manual",
       "localizations": {

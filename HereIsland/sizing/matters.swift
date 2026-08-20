@@ -21,6 +21,7 @@
  */
 
 import AppKit
+import Defaults
 import Foundation
 import SwiftUI
 
@@ -61,6 +62,19 @@ enum MusicPlayerImageSizes {
 }
 
 extension NSScreen {
+    /// Stable CoreGraphics display ID as a string, used for preference persistence.
+    var displayIDString: String? {
+        guard let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+            return nil
+        }
+        return number.stringValue
+    }
+
+    /// Non-optional identity for SwiftUI lists; falls back to the localized name.
+    var stableDisplayID: String {
+        displayIDString ?? localizedName
+    }
+
     /// Built-in panel (MacBook display), via CoreGraphics.
     var isBuiltIn: Bool {
         guard let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
@@ -76,12 +90,60 @@ extension NSScreen {
     }
 }
 
-/// Host display for the single-display notch window:
-/// built-in when connected, otherwise the focus screen (`NSScreen.main`).
+/// Connected screens with the built-in panel first when present.
+func orderedScreens() -> [NSScreen] {
+    let screens = NSScreen.screens
+    let builtIn = screens.filter(\.isBuiltIn)
+    let external = screens.filter { !$0.isBuiltIn }
+    return builtIn + external
+}
+
+/// Host display for the single-display notch window.
 func resolveNotchHostScreen() -> NSScreen? {
-    NSScreen.screens.first(where: \.isBuiltIn)
-        ?? NSScreen.main
-        ?? NSScreen.screens.first
+    let screens = orderedScreens()
+    let destination = Defaults[.displayDestination]
+    if destination != DisplayDestination.allDisplays,
+       let match = screens.first(where: { $0.stableDisplayID == destination }) {
+        return match
+    }
+    return screens.first
+}
+
+/// Keeps `displayDestination` valid after screen plug/unplug, and migrates legacy keys once.
+@discardableResult
+func reconcileDisplayDestination() -> NSScreen? {
+    migrateLegacyDisplayDefaultsIfNeeded()
+
+    let screens = orderedScreens()
+    guard let first = screens.first else {
+        Defaults[.displayDestination] = DisplayDestination.allDisplays
+        return nil
+    }
+
+    let destination = Defaults[.displayDestination]
+    if destination == DisplayDestination.allDisplays {
+        return first
+    }
+    if screens.contains(where: { $0.stableDisplayID == destination }) {
+        return screens.first(where: { $0.stableDisplayID == destination })
+    }
+
+    // Missing / stale selection → first ordered screen (built-in when present).
+    Defaults[.displayDestination] = first.stableDisplayID
+    return first
+}
+
+/// One-shot migration from the previous boolean + optional screen-id pair.
+private func migrateLegacyDisplayDefaultsIfNeeded() {
+    let defaults = UserDefaults.standard
+    let current = defaults.string(forKey: "displayDestination") ?? ""
+    guard current.isEmpty else { return }
+
+    if defaults.bool(forKey: "showOnAllDisplays") {
+        Defaults[.displayDestination] = DisplayDestination.allDisplays
+    } else if let preferred = defaults.string(forKey: "preferredScreenIdentifier"), !preferred.isEmpty {
+        Defaults[.displayDestination] = preferred
+    }
 }
 
 func getScreenFrame(_ screen: String? = nil) -> CGRect? {

@@ -24,6 +24,16 @@ import SwiftUI
 import Defaults
 import Foundation
 
+/// Shared string tags for the system Display picker.
+enum DisplayDestination {
+    /// Show a notch window on every connected screen.
+    static let allDisplays = "__all_displays__"
+
+    static var showsOnAllDisplays: Bool {
+        Defaults[.displayDestination] == allDisplays
+    }
+}
+
 enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializable {
     case nowPlaying = "Now Playing"
     case appleMusic = "Apple Music"
@@ -67,7 +77,9 @@ enum PlayerTint: String, CaseIterable, Identifiable, Defaults.Serializable {
 
 extension Defaults.Keys {
     // MARK: General (menu bar)
-    static let showOnAllDisplays = Key<Bool>("showOnAllDisplays", default: false)
+    /// Selected display destination for the notch window.
+    /// `"__all_displays__"` shows on every screen; otherwise a `NSScreen.stableDisplayID`.
+    static let displayDestination = Key<String>("displayDestination", default: "")
     static let enableHaptics = Key<Bool>("enableHaptics", default: true)
     static let showAlbumArtBackgroundEffects = Key<Bool>("showAlbumArtBackgroundEffects", default: true)
     static let showWindowShadow = Key<Bool>("showWindowShadow", default: true)

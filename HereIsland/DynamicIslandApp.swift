@@ -26,7 +26,7 @@ import SwiftUI
 struct DynamicNotchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Default(.enableHaptics) var enableHaptics
-    @Default(.showOnAllDisplays) var showOnAllDisplays
+    @Default(.displayDestination) var displayDestination
     @Default(.showAlbumArtBackgroundEffects) var showAlbumArtBackgroundEffects
     @Default(.showWindowShadow) var showWindowShadow
     @Default(.enableRealTimeWaveform) var enableRealTimeWaveform
@@ -51,7 +51,14 @@ struct DynamicNotchApp: App {
                 LaunchAtLogin.Toggle {
                     Text(String(localized: "Launch at login"))
                 }
-                Toggle(String(localized: "Show on all displays"), isOn: $showOnAllDisplays)
+                Picker(String(localized: "Display"), selection: $displayDestination) {
+                    ForEach(orderedScreens(), id: \.stableDisplayID) { screen in
+                        Text(screen.localizedName).tag(screen.stableDisplayID)
+                    }
+                    Divider()
+                    Text(String(localized: "Show on all displays"))
+                        .tag(DisplayDestination.allDisplays)
+                }
                 Toggle(String(localized: "Haptics"), isOn: $enableHaptics)
             }
 
@@ -149,7 +156,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func hideWindowsForLock() {
         guard !windowsHiddenForLock else { return }
         windowsHiddenForLock = true
-        if Defaults[.showOnAllDisplays] {
+        if DisplayDestination.showsOnAllDisplays {
             for window in windows.values {
                 window.alphaValue = 0
                 window.orderOut(nil)
@@ -163,7 +170,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func restoreWindowsAfterLock() {
         guard windowsHiddenForLock else { return }
         windowsHiddenForLock = false
-        if Defaults[.showOnAllDisplays] {
+        if DisplayDestination.showsOnAllDisplays {
             for window in windows.values {
                 window.orderFrontRegardless()
                 window.alphaValue = 1
@@ -175,7 +182,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func cleanupWindows(shouldInvert: Bool = false) {
-        if shouldInvert ? !Defaults[.showOnAllDisplays] : Defaults[.showOnAllDisplays] {
+        if shouldInvert ? !DisplayDestination.showsOnAllDisplays : DisplayDestination.showsOnAllDisplays {
             for (screen, window) in windows {
                 viewModels[screen]?.onViewTeardown?()
                 viewModels[screen]?.onViewTeardown = nil
@@ -265,7 +272,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.setFrame(frame, display: true)
         }
 
-        if Defaults[.showOnAllDisplays] {
+        if DisplayDestination.showsOnAllDisplays {
             for (screen, window) in windows {
                 apply(window, screen)
             }
@@ -317,10 +324,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
-        Defaults.publisher(.showOnAllDisplays, options: [])
+        Defaults.publisher(.displayDestination, options: [])
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.handleShowOnAllDisplaysChanged()
+            .sink { [weak self] change in
+                reconcileDisplayDestination()
+                let wasAll = change.oldValue == DisplayDestination.allDisplays
+                let isAll = Defaults[.displayDestination] == DisplayDestination.allDisplays
+                if wasAll != isAll {
+                    self?.handleShowOnAllDisplaysChanged()
+                } else if !isAll {
+                    self?.handlePreferredScreenChanged()
+                }
             }
             .store(in: &cancellables)
         Defaults.publisher(.showWindowShadow, options: [])
@@ -337,7 +351,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self, selector: #selector(onScreenUnlocked(_:)),
             name: NSNotification.Name(rawValue: "com.apple.screenIsUnlocked"), object: nil)
 
-        if !Defaults[.showOnAllDisplays] {
+        if !DisplayDestination.showsOnAllDisplays {
+            reconcileDisplayDestination()
             let screen = resolvedTargetScreen()
             vm.setScreen(screen.localizedName)
             window = createDynamicIslandWindow(
@@ -357,8 +372,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func screenConfigurationDidChange() {
         let currentScreens = NSScreen.screens
         defer { previousScreens = currentScreens }
+        reconcileDisplayDestination()
         cleanupWindows()
-        if !Defaults[.showOnAllDisplays] {
+        if !DisplayDestination.showsOnAllDisplays {
             let screen = resolvedTargetScreen()
             vm.setScreen(screen.localizedName)
             window = createDynamicIslandWindow(
@@ -372,7 +388,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleShowOnAllDisplaysChanged() {
         cleanupWindows(shouldInvert: true)
-        if !Defaults[.showOnAllDisplays] {
+        if !DisplayDestination.showsOnAllDisplays {
             let screen = resolvedTargetScreen()
             vm.setScreen(screen.localizedName)
             let window = createDynamicIslandWindow(
@@ -388,6 +404,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         syncNotchSpaceMembership()
     }
 
+    private func handlePreferredScreenChanged() {
+        guard let window else {
+            let screen = resolvedTargetScreen()
+            vm.setScreen(screen.localizedName)
+            self.window = createDynamicIslandWindow(for: screen, with: vm)
+            adjustWindowPosition(changeAlpha: true)
+            return
+        }
+        let screen = resolvedTargetScreen()
+        vm.setScreen(screen.localizedName)
+        positionWindow(window, on: screen, changeAlpha: false)
+        syncNotchSpaceMembership()
+        updateWindowSizeIfNeeded()
+    }
+
     private func setWindowShadow(_ enabled: Bool) {
         window?.hasShadow = enabled
         for window in windows.values {
@@ -400,7 +431,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func adjustWindowPosition(changeAlpha: Bool = false) {
-        if Defaults[.showOnAllDisplays] {
+        if DisplayDestination.showsOnAllDisplays {
             let screens = NSScreen.screens
             for screen in screens {
                 if windows[screen] == nil {
