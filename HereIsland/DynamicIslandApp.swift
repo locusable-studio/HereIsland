@@ -29,8 +29,9 @@ struct DynamicNotchApp: App {
     @Default(.showOnAllDisplays) var showOnAllDisplays
     @Default(.showAlbumArtBackgroundEffects) var showAlbumArtBackgroundEffects
     @Default(.showWindowShadow) var showWindowShadow
+    @Default(.enableRealTimeWaveform) var enableRealTimeWaveform
     @Default(.mediaController) var mediaController
-    @Default(.sliderColor) var sliderColor
+    @Default(.playerTint) var playerTint
     @ObservedObject private var musicManager = MusicManager.shared
 
     let updaterController: SPUStandardUpdaterController
@@ -57,8 +58,9 @@ struct DynamicNotchApp: App {
             Section(String(localized: "Appearance")) {
                 Toggle(String(localized: "Album art background"), isOn: $showAlbumArtBackgroundEffects)
                 Toggle(String(localized: "Window shadow"), isOn: $showWindowShadow)
-                Picker(String(localized: "Progress bar color"), selection: $sliderColor) {
-                    ForEach(SliderColorEnum.allCases) { option in
+                Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
+                Picker(String(localized: "Accent color"), selection: $playerTint) {
+                    ForEach(PlayerTint.allCases) { option in
                         Text(option.localizedName).tag(option)
                     }
                 }
@@ -130,6 +132,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         windowSizeUpdateWorkItem?.cancel()
         NotificationCenter.default.removeObserver(self)
+        AudioTap.shared.stopCapture()
     }
 
     @objc func onScreenLocked(_: Notification) {
@@ -289,6 +292,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if Defaults[.enableRealTimeWaveform] {
+            Task { await AudioTap.shared.startCapture() }
+        }
+        Defaults.publisher(.enableRealTimeWaveform, options: [])
+            .sink { change in
+                if change.newValue {
+                    Task { await AudioTap.shared.startCapture() }
+                } else {
+                    AudioTap.shared.stopCapture()
+                }
+            }
+            .store(in: &cancellables)
+
         coordinator.$currentView
             .sink { [weak self] _ in
                 DispatchQueue.main.async { self?.updateWindowSizeIfNeeded() }

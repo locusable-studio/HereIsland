@@ -35,6 +35,7 @@ struct ContentView: View {
     @ObservedObject var musicManager = MusicManager.shared
 
     @Default(.enableHaptics) private var enableHaptics
+    @Default(.playerTint) private var playerTint
 
     @Namespace private var albumArtNamespace
     @State private var isHovering = false
@@ -211,7 +212,7 @@ struct ContentView: View {
                 .frame(width: center, height: height)
 
             Rectangle()
-                .fill(Color(nsColor: musicManager.avgColor).spectrogramGradient())
+                .fill(playerTint.resolvedColor(albumArt: musicManager.avgColor))
                 .mask {
                     AudioVisualizerView(isPlaying: .constant(musicManager.isPlaying))
                         .frame(width: max(wing - 4, 12), height: max(height - 4, 10))

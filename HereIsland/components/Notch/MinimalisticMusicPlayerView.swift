@@ -29,6 +29,7 @@ struct MinimalisticMusicPlayerView: View {
     private let useMusicVisualizer = true
     private let skipMagnitude: CGFloat = 8
     private let visualizerBarCount = 4
+    @Default(.playerTint) private var playerTint
 
     var body: some View {
         if !musicManager.hasActiveSession {
@@ -86,7 +87,7 @@ struct MinimalisticMusicPlayerView: View {
 
                                 Text(musicManager.artistName)
                                     .font(.system(size: 10, weight: .regular))
-                                    .foregroundColor(Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6))
+                                    .foregroundColor(artistNameColor)
                                     .lineLimit(1)
 
                             }
@@ -214,7 +215,7 @@ struct MinimalisticMusicPlayerView: View {
 
                     Text(musicManager.artistName)
                         .font(.system(size: 10, weight: .regular))
-                        .foregroundColor(Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6))
+                        .foregroundColor(artistNameColor)
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -227,10 +228,16 @@ struct MinimalisticMusicPlayerView: View {
         .frame(height: 26) // Only the text portion is in-flow; album art overlaps upward
     }
 
+    /// Dimmed slightly so the artist stays subordinate to the white song title,
+    /// which matters most when the tint is white too.
+    private var artistNameColor: Color {
+        playerTint.resolvedColor(albumArt: musicManager.avgColor).opacity(0.85)
+    }
+
     private var visualizer: some View {
         let width = CGFloat(visualizerBarCount) * 4
         return Rectangle()
-            .fill(Color(nsColor: MusicManager.shared.avgColor).spectrogramGradient())
+            .fill(playerTint.resolvedColor(albumArt: MusicManager.shared.avgColor))
             .mask {
                 AudioVisualizerView(isPlaying: .constant(MusicManager.shared.isPlaying))
                     .frame(width: width, height: 16)

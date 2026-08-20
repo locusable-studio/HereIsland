@@ -38,7 +38,9 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
     }
 }
 
-enum SliderColorEnum: String, CaseIterable, Identifiable, Defaults.Serializable {
+/// Tint applied to the notch player's colored elements: progress bar, time labels,
+/// artist name, and the waveform.
+enum PlayerTint: String, CaseIterable, Identifiable, Defaults.Serializable {
     case white = "White"
     case albumArt = "Match album art"
     case accent = "Accent color"
@@ -49,7 +51,16 @@ enum SliderColorEnum: String, CaseIterable, Identifiable, Defaults.Serializable 
         switch self {
         case .white: return String(localized: "White")
         case .albumArt: return String(localized: "Match album art")
-        case .accent: return String(localized: "Accent color")
+        case .accent: return String(localized: "Follow system")
+        }
+    }
+
+    /// Album art colors get a brightness floor so dark artwork stays visible on the black notch.
+    func resolvedColor(albumArt: NSColor) -> Color {
+        switch self {
+        case .white: return .white
+        case .albumArt: return Color(nsColor: albumArt).ensureMinimumBrightness(factor: 0.6)
+        case .accent: return .accentColor
         }
     }
 }
@@ -63,8 +74,15 @@ extension Defaults.Keys {
 
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: .nowPlaying)
-    static let sliderColor = Key<SliderColorEnum>(
+
+    // MARK: Appearance
+    /// Keeps the legacy storage key so an existing progress-bar choice carries over.
+    static let playerTint = Key<PlayerTint>(
         "sliderUseAlbumArtColor",
-        default: .white
+        default: .albumArt
     )
+
+    // MARK: Waveform
+    static let enableRealTimeWaveform = Key<Bool>("enableRealTimeWaveform", default: false)
+    static let visualizerBarCount = Key<Int>("visualizerBarCount", default: 4)
 }

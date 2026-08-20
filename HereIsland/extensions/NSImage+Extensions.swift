@@ -341,34 +341,4 @@ extension Color {
         
         return Color(red: Double(red), green: Double(green), blue: Double(blue), opacity: Double(alpha))
     }
-    
-    /// Creates a top-down gradient using the current color and its complementary (opposing) color.
-    func spectrogramGradient(secondary: Color? = nil) -> AnyShapeStyle {
-        if let secondary = secondary {
-            return AnyShapeStyle(LinearGradient(
-                colors: [self, secondary],
-                startPoint: .top,
-                endPoint: .bottom
-            ))
-        }
-        
-        let nsColor = NSColor(self).usingColorSpace(.sRGB) ?? NSColor.black
-        
-        var hue: CGFloat = 0
-        var saturation: CGFloat = 0
-        var brightness: CGFloat = 0
-        var alpha: CGFloat = 0
-        
-        nsColor.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
-        
-        // Shift hue by 180 degrees (0.5 in 0-1 scale)
-        let opposingHue = fmod(hue + 0.5, 1.0)
-        let opposingColor = Color(hue: Double(opposingHue), saturation: Double(saturation), brightness: Double(brightness), opacity: Double(alpha))
-        
-        return AnyShapeStyle(LinearGradient(
-            colors: [self, opposingColor],
-            startPoint: .top,
-            endPoint: .bottom
-        ))
-    }
 }

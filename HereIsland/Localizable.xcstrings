@@ -171,6 +171,22 @@
         }
       }
     },
+    "Couldn't start real-time waveform": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't start real-time waveform"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法启动实时波形"
+          }
+        }
+      }
+    },
     "Dynamic Island–style companion this project builds on": {
       "extractionState": "manual",
       "localizations": {
@@ -189,6 +205,22 @@
       }
     },
     "dynamic.island": {},
+    "Follow system": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow system"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跟随系统"
+          }
+        }
+      }
+    },
     "General": {
       "extractionState": "manual",
       "localizations": {
@@ -271,6 +303,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Here Island 基于早期开源灵动岛项目衍生而来。"
+          }
+        }
+      }
+    },
+    "Here Island needs audio capture permission. Grant access in System Settings → Privacy & Security, then turn Real-time waveform on again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Here Island needs audio capture permission. Grant access in System Settings → Privacy & Security, then turn Real-time waveform on again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Here Island 需要音频采集权限。请在「系统设置 → 隐私与安全性」中授权后，重新打开「实时波形」。"
           }
         }
       }
@@ -513,6 +561,38 @@
         }
       }
     },
+    "OK": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "好"
+          }
+        }
+      }
+    },
+    "Open System Settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open System Settings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开系统设置"
+          }
+        }
+      }
+    },
     "Original Bored Team notch experience": {
       "extractionState": "manual",
       "localizations": {
@@ -564,23 +644,6 @@
         }
       }
     },
-    "Progress bar color": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Progress bar color"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "进度条颜色"
-          }
-        }
-      }
-    },
     "Quit": {
       "extractionState": "manual",
       "localizations": {
@@ -599,7 +662,6 @@
       }
     },
     "Real-time audio capture foundation": {
-      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -616,7 +678,6 @@
       }
     },
     "Real-time waveform": {
-      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {

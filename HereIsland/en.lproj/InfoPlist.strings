@@ -2,5 +2,6 @@
 "CFBundleDisplayName" = "Here Island";
 "CFBundleName" = "Here Island";
 "NSAppleMusicUsageDescription" = "Here Island uses Apple Music to fetch animated artwork.";
+"NSAudioCaptureUsageDescription" = "Here Island needs audio capture permission to display the real-time music waveform visualizer.";
 "NSScreenCaptureUsageDescription" = "Here Island needs screen recording permission to hide the notch while screen sharing.";
 "NSAppleEventsUsageDescription" = "Here Island uses AppleScript to control Apple Music.";

@@ -22,7 +22,7 @@ Here Island is a menu bar app that lives in the MacBook notch and shows a compac
 - Album art, title, and artist
 - Progress and playback controls: shuffle, previous, play/pause, next, repeat
 - Real-time waveform while playing
-- Media source: **Now Playing** (default, system-wide — including apps like Spotify) or **Apple Music**
+- Media source: **Now Playing** (default, system-wide) or **Apple Music**
 
 Settings live in the menu bar extra: display scope, haptics, launch at login, and media source.
 
@@ -51,5 +51,7 @@ Here Island stands on the work of earlier open-source notch projects:
 
 - **[boring.notch](https://github.com/TheBoredTeam/boring.notch)** — the original Bored Team project that pioneered a rich, native notch experience on macOS. This lineage begins there.
 - **[Atoll](https://github.com/Ebullioscopic/Atoll)** — Ebullioscopic’s Dynamic Island–style companion for Mac. Here Island is a further modified, minimalistic work derived from Atoll (itself based on boring.notch). We are grateful to the Atoll maintainers and contributors for the foundation this project builds on.
+
+Real-time waveform capture is adapted from **[rtaudio](https://github.com/ZephyrCodesStuff/rtaudio)** by ZephyrCodesStuff (integrated via Atoll under GPL-3.0 for this lineage).
 
 Thank you to everyone who built, maintained, and shared that software under the GPL.

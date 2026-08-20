@@ -8,6 +8,12 @@ This product includes software derived from:
 2. Atoll / DynamicIsland (https://github.com/Ebullioscopic/Atoll)
    A modified and extended work based on boring.notch, also under GPL-3.0.
 
+3. rtaudio (https://github.com/ZephyrCodesStuff/rtaudio)
+   Original work Copyright (C) 2026 ZephyrCodesStuff.
+   Real-time audio capture / spectrum code adapted into Here Island under
+   GPL-3.0 for this lineage (via Atoll), as an alternative to the upstream
+   AGPL-3.0 license for that specific integration.
+
 Here Island is a further modified work of that lineage.
 See the LICENSE file for the full GPL-3.0 text.
 
