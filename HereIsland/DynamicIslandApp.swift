@@ -51,6 +51,7 @@ struct DynamicNotchApp: App {
                 LaunchAtLogin.Toggle {
                     Text(String(localized: "Launch at login"))
                 }
+                Toggle(String(localized: "Haptics"), isOn: $enableHaptics)
                 Picker(String(localized: "Display"), selection: $displayDestination) {
                     ForEach(orderedScreens(), id: \.stableDisplayID) { screen in
                         Text(screen.localizedName).tag(screen.stableDisplayID)
@@ -59,7 +60,6 @@ struct DynamicNotchApp: App {
                     Text(String(localized: "Show on all displays"))
                         .tag(DisplayDestination.allDisplays)
                 }
-                Toggle(String(localized: "Haptics"), isOn: $enableHaptics)
             }
 
             Section(String(localized: "Appearance")) {
