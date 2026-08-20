@@ -34,18 +34,28 @@ final class CheckForUpdatesViewModel: ObservableObject {
 
 struct CheckForUpdatesView: View {
     @ObservedObject private var checkForUpdatesViewModel: CheckForUpdatesViewModel
+    @ObservedObject private var readyState: UpdateReadyState
     private let updater: SPUUpdater
+    private let updaterDelegate: HereIslandUpdaterDelegate
     
-    init(updater: SPUUpdater) {
+    init(updater: SPUUpdater, updaterDelegate: HereIslandUpdaterDelegate) {
         self.updater = updater
+        self.updaterDelegate = updaterDelegate
+        self.readyState = updaterDelegate.readyState
         
         // Create our view model for our CheckForUpdatesView
         self.checkForUpdatesViewModel = CheckForUpdatesViewModel(updater: updater)
     }
     
     var body: some View {
-        Button(String(localized: "Check for Updates…"), action: updater.checkForUpdates)
-            .disabled(!checkForUpdatesViewModel.canCheckForUpdates)
+        if readyState.isReady {
+            Button(String(localized: "Update Ready — Restart to Install")) {
+                updaterDelegate.installDownloadedUpdate()
+            }
+        } else {
+            Button(String(localized: "Check for Updates…"), action: updater.checkForUpdates)
+                .disabled(!checkForUpdatesViewModel.canCheckForUpdates)
+        }
     }
 }
 

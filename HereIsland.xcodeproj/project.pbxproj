@@ -528,7 +528,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1236;
+				CURRENT_PROJECT_VERSION = 1237;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"HereIsland/Preview Content\"";
 				DEVELOPMENT_TEAM = BQF6YM3NLN;
@@ -560,7 +560,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2026.8.19;
+				MARKETING_VERSION = 2026.8.20;
 				PRODUCT_BUNDLE_IDENTIFIER = com.locusable.hereisland;
 				PRODUCT_NAME = "Here Island";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -590,7 +590,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1236;
+				CURRENT_PROJECT_VERSION = 1237;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"HereIsland/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
@@ -623,7 +623,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2026.8.19;
+				MARKETING_VERSION = 2026.8.20;
 				PRODUCT_BUNDLE_IDENTIFIER = com.locusable.hereisland;
 				PRODUCT_NAME = "Here Island";
 				PROVISIONING_PROFILE_SPECIFIER = "";
