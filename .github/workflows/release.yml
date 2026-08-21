@@ -348,3 +348,69 @@ jobs:
             git commit -m "ci: update appcast for ${VERSION}"
             git push origin "HEAD:${DEFAULT_BRANCH}"
           fi
+
+      - name: Update Homebrew tap
+        env:
+          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TAP_DEPLOY_KEY:-}" ]; then
+            echo "::error::TAP_DEPLOY_KEY secret is not set"
+            exit 1
+          fi
+
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG_NAME="${{ steps.version.outputs.dmg_name }}"
+          SHA256=$(shasum -a 256 "build/${DMG_NAME}" | awk '{print $1}')
+          if [ -z "$SHA256" ]; then
+            echo "::error::Failed to hash build/${DMG_NAME}"
+            exit 1
+          fi
+
+          KEY="$RUNNER_TEMP/tap_deploy"
+          printf '%s\n' "$TAP_DEPLOY_KEY" > "$KEY"
+          chmod 600 "$KEY"
+          cleanup() { rm -f "$KEY"; }
+          trap cleanup EXIT
+
+          TAP_DIR="$RUNNER_TEMP/homebrew-tap"
+          export GIT_SSH_COMMAND="ssh -i $KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git clone --depth 1 git@github.com:locusable-studio/homebrew-tap.git "$TAP_DIR"
+
+          python3 - "$TAP_DIR/Casks/here-island.rb" "$VERSION" "$SHA256" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          version, sha256 = sys.argv[2], sys.argv[3]
+          text = path.read_text()
+          text, n_version = re.subn(
+              r'^  version "[^"]+"',
+              f'  version "{version}"',
+              text,
+              count=1,
+              flags=re.M,
+          )
+          text, n_sha = re.subn(
+              r'^  sha256 "[^"]+"',
+              f'  sha256 "{sha256}"',
+              text,
+              count=1,
+              flags=re.M,
+          )
+          if n_version != 1 or n_sha != 1:
+              raise SystemExit(f"failed to bump cask: version={n_version} sha256={n_sha}")
+          path.write_text(text)
+          PY
+
+          git -C "$TAP_DIR" config user.name "github-actions[bot]"
+          git -C "$TAP_DIR" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$TAP_DIR" add Casks/here-island.rb
+          if git -C "$TAP_DIR" diff --cached --quiet; then
+            echo "Tap already at ${VERSION}"
+          else
+            git -C "$TAP_DIR" commit -m "chore: bump here-island to ${VERSION}"
+            git -C "$TAP_DIR" push origin HEAD
+            echo "Updated tap to here-island ${VERSION} (${SHA256})"
+          fi
