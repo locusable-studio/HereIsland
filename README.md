@@ -31,7 +31,9 @@ No battery HUD, system OSD replacement, or configurable control layouts — just
 ## Download
 
 ```bash
-brew tap locusable-studio/tap && brew trust --cask locusable-studio/tap/here-island && brew install --cask here-island
+brew tap locusable-studio/tap
+brew trust --cask locusable-studio/tap/here-island
+brew install --cask here-island
 ```
 
 - **[Latest DMG](https://github.com/locusable-studio/HereIsland/releases/latest/download/HereIsland.dmg)** from [GitHub Releases](https://github.com/locusable-studio/HereIsland/releases)
