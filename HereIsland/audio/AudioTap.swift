@@ -179,9 +179,7 @@ class AudioTap: NSObject, @unchecked Sendable {
 
         // Play state or the preference may have changed while CoreAudio setup ran.
         guard wantsCapture, Defaults[.enableRealTimeWaveform] else {
-            if let ioProcID {
-                AudioDeviceStop(aggregateDeviceID, ioProcID)
-            }
+            AudioDeviceStop(aggregateDeviceID, ioProcID)
             teardownCoreAudioObjects()
             return
         }
