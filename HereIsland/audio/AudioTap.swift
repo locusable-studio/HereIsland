@@ -35,8 +35,6 @@ let audioIOProc: AudioDeviceIOProc = {
     guard let clientData else { return noErr }
     let tap = Unmanaged<AudioTap>.fromOpaque(clientData).takeUnretainedValue()
 
-    if tap.isPaused { return noErr }
-
     let mutableInputData = UnsafeMutablePointer(mutating: inInputData)
     let bufferList = UnsafeMutableAudioBufferListPointer(mutableInputData)
 
@@ -53,13 +51,13 @@ class AudioTap: NSObject, @unchecked Sendable {
     static let shared = AudioTap()
 
     let bridge = AudioBridge()
-    var isPaused: Bool = false
     private var displayMagnitudes: [Float] = Array(repeating: 0, count: 6)
 
     private var tapID: AudioObjectID = kAudioObjectUnknown
     private var aggregateDeviceID: AudioObjectID = kAudioObjectUnknown
     private var ioProcID: AudioDeviceIOProcID?
     private var captureIsRunning = false
+    private var wantsCapture = false
     private var updateTimer: Timer?
 
     private let audioQueue = DispatchQueue(label: "com.locusable.hereisland.audiotap", qos: .userInitiated)
@@ -83,17 +81,21 @@ class AudioTap: NSObject, @unchecked Sendable {
         }
     }
 
-    func startCapture() async {
-        await withCheckedContinuation { continuation in
-            audioQueue.async { [weak self] in
-                self?.startCaptureSync()
-                continuation.resume()
+    func setWantsCapture(_ wants: Bool) {
+        audioQueue.async { [weak self] in
+            guard let self else { return }
+            wantsCapture = wants
+            if wants {
+                startCaptureSync()
+            } else {
+                stopCaptureSync()
             }
         }
     }
 
     func stopCapture() {
         audioQueue.sync { [weak self] in
+            self?.wantsCapture = false
             self?.stopCaptureSync()
         }
     }
@@ -101,8 +103,7 @@ class AudioTap: NSObject, @unchecked Sendable {
     /// A global tap covers every app that outputs audio, so it never needs to be
     /// rebuilt when the user switches players.
     private func startCaptureSync() {
-        // The preference may have been turned back off while this was queued.
-        guard Defaults[.enableRealTimeWaveform], !captureIsRunning else { return }
+        guard wantsCapture, Defaults[.enableRealTimeWaveform], !captureIsRunning else { return }
 
         let description = CATapDescription(monoGlobalTapButExcludeProcesses: [])
         description.name = "HereIsland_Tap"
@@ -173,6 +174,15 @@ class AudioTap: NSObject, @unchecked Sendable {
             os_log(.error, log: audioTapLog, "Device start failed: %d", status)
             teardownCoreAudioObjects()
             reportCaptureFailure()
+            return
+        }
+
+        // Play state or the preference may have changed while CoreAudio setup ran.
+        guard wantsCapture, Defaults[.enableRealTimeWaveform] else {
+            if let ioProcID {
+                AudioDeviceStop(aggregateDeviceID, ioProcID)
+            }
+            teardownCoreAudioObjects()
             return
         }
 

@@ -130,6 +130,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowsHiddenForLock = false
     private var windowSizeUpdateWorkItem: DispatchWorkItem?
     private var closeNotchWorkItem: DispatchWorkItem?
+    private var audioTapStopWorkItem: DispatchWorkItem?
     private var previousScreens: [NSScreen]?
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -138,8 +139,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         windowSizeUpdateWorkItem?.cancel()
+        audioTapStopWorkItem?.cancel()
         NotificationCenter.default.removeObserver(self)
         AudioTap.shared.stopCapture()
+    }
+
+    /// Process Tap must be torn down when idle — soft-pausing still keeps the
+    /// system “using microphone / system audio” indicator visible.
+    private func syncAudioTapCapture() {
+        let enabled = Defaults[.enableRealTimeWaveform]
+        let shouldCapture = enabled && MusicManager.shared.isPlaying
+
+        audioTapStopWorkItem?.cancel()
+        audioTapStopWorkItem = nil
+
+        if shouldCapture {
+            AudioTap.shared.setWantsCapture(true)
+        } else if enabled {
+            let work = DispatchWorkItem {
+                AudioTap.shared.setWantsCapture(false)
+            }
+            audioTapStopWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+        } else {
+            AudioTap.shared.setWantsCapture(false)
+        }
     }
 
     @objc func onScreenLocked(_: Notification) {
@@ -299,18 +323,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if Defaults[.enableRealTimeWaveform] {
-            Task { await AudioTap.shared.startCapture() }
+        Publishers.CombineLatest(
+            Defaults.publisher(.enableRealTimeWaveform, options: [.initial]),
+            MusicManager.shared.$isPlaying
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _, _ in
+            self?.syncAudioTapCapture()
         }
-        Defaults.publisher(.enableRealTimeWaveform, options: [])
-            .sink { change in
-                if change.newValue {
-                    Task { await AudioTap.shared.startCapture() }
-                } else {
-                    AudioTap.shared.stopCapture()
-                }
-            }
-            .store(in: &cancellables)
+        .store(in: &cancellables)
 
         coordinator.$currentView
             .sink { [weak self] _ in
