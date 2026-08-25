@@ -83,6 +83,8 @@ extension Defaults.Keys {
     static let enableHaptics = Key<Bool>("enableHaptics", default: true)
     static let showAlbumArtBackgroundEffects = Key<Bool>("showAlbumArtBackgroundEffects", default: true)
     static let showWindowShadow = Key<Bool>("showWindowShadow", default: true)
+    /// Menu: “Hide during screenshots and recordings”. Atoll’s hideDynamicIslandFromScreenCapture; default off.
+    static let hideFromScreenCapture = Key<Bool>("hideFromScreenCapture", default: false)
 
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: .nowPlaying)

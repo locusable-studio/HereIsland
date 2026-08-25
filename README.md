@@ -23,8 +23,9 @@ Here Island is a menu bar app that lives in the MacBook notch and shows a compac
 - Progress and playback controls: shuffle, previous, play/pause, next, repeat
 - Real-time waveform while playing
 - Media source: **Now Playing** (default, system-wide) or **Apple Music**
+- Optional hide during screenshots and recordings (menu bar → Appearance, off by default)
 
-Settings live in the menu bar extra: display scope, haptics, launch at login, and media source.
+Settings live in the menu bar extra: display scope, haptics, launch at login, media source, and hide during screenshots and recordings.
 
 No battery HUD, system OSD replacement, or configurable control layouts — just media in the notch.
 
