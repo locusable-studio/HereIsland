@@ -29,6 +29,8 @@ struct DynamicNotchApp: App {
     @Default(.displayDestination) var displayDestination
     @Default(.showAlbumArtBackgroundEffects) var showAlbumArtBackgroundEffects
     @Default(.showWindowShadow) var showWindowShadow
+    @Default(.hideFromScreenshots) var hideFromScreenshots
+    @Default(.hideFromScreenShare) var hideFromScreenShare
     @Default(.enableRealTimeWaveform) var enableRealTimeWaveform
     @Default(.mediaController) var mediaController
     @Default(.playerTint) var playerTint
@@ -65,6 +67,8 @@ struct DynamicNotchApp: App {
             Section(String(localized: "Appearance")) {
                 Toggle(String(localized: "Album art background"), isOn: $showAlbumArtBackgroundEffects)
                 Toggle(String(localized: "Window shadow"), isOn: $showWindowShadow)
+                Toggle(String(localized: "Hide during screen sharing or recording"), isOn: $hideFromScreenShare)
+                Toggle(String(localized: "Hide in screenshots"), isOn: $hideFromScreenshots)
                 Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
                 Picker(String(localized: "Accent color"), selection: $playerTint) {
                     ForEach(PlayerTint.allCases) { option in
@@ -128,6 +132,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     private var cancellables = Set<AnyCancellable>()
     private var windowsHiddenForLock = false
+    private var windowsHiddenForCapture = false
     private var windowSizeUpdateWorkItem: DispatchWorkItem?
     private var closeNotchWorkItem: DispatchWorkItem?
     private var audioTapStopWorkItem: DispatchWorkItem?
@@ -141,6 +146,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         windowSizeUpdateWorkItem?.cancel()
         audioTapStopWorkItem?.cancel()
         NotificationCenter.default.removeObserver(self)
+        ScreenCaptureVisibilityManager.shared.stop()
         AudioTap.shared.stopCapture()
     }
 
@@ -180,6 +186,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func hideWindowsForLock() {
         guard !windowsHiddenForLock else { return }
         windowsHiddenForLock = true
+        hideNotchWindows()
+    }
+
+    private func restoreWindowsAfterLock() {
+        guard windowsHiddenForLock else { return }
+        windowsHiddenForLock = false
+        guard !windowsHiddenForCapture else { return }
+        showNotchWindows()
+    }
+
+    func setHiddenForCapture(_ hide: Bool) {
+        if hide {
+            guard !windowsHiddenForCapture else { return }
+            windowsHiddenForCapture = true
+            hideNotchWindows()
+        } else {
+            guard windowsHiddenForCapture else { return }
+            windowsHiddenForCapture = false
+            guard !windowsHiddenForLock else { return }
+            showNotchWindows()
+        }
+    }
+
+    private func hideNotchWindows() {
         if DisplayDestination.showsOnAllDisplays {
             for window in windows.values {
                 window.alphaValue = 0
@@ -191,9 +221,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func restoreWindowsAfterLock() {
-        guard windowsHiddenForLock else { return }
-        windowsHiddenForLock = false
+    private func showNotchWindows() {
         if DisplayDestination.showsOnAllDisplays {
             for window in windows.values {
                 window.orderFrontRegardless()
@@ -255,7 +283,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let newX = (centerX - (roundedWidth / 2)).rounded()
         let newY = (screenFrame.origin.y + screenFrame.height - roundedHeight).rounded()
         window.setFrame(NSRect(x: newX, y: newY, width: roundedWidth, height: roundedHeight), display: false)
-        if changeAlpha { window.alphaValue = 1 }
+        if changeAlpha, !windowsHiddenForLock, !windowsHiddenForCapture {
+            window.alphaValue = 1
+        }
     }
 
     /// Window is always sized for the open notch (original behavior).
@@ -388,6 +418,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         previousScreens = NSScreen.screens
         syncNotchSpaceMembership()
         debouncedUpdateWindowSize()
+        ScreenCaptureVisibilityManager.shared.start()
     }
 
     @objc func screenConfigurationDidChange() {

@@ -83,6 +83,10 @@ extension Defaults.Keys {
     static let enableHaptics = Key<Bool>("enableHaptics", default: true)
     static let showAlbumArtBackgroundEffects = Key<Bool>("showAlbumArtBackgroundEffects", default: true)
     static let showWindowShadow = Key<Bool>("showWindowShadow", default: true)
+    /// Exclude the notch from still screenshots via NSWindow.sharingType.
+    static let hideFromScreenshots = Key<Bool>("hideFromScreenshots", default: true)
+    /// Exclude the notch from screen share/record, and hide it locally while capture is active.
+    static let hideFromScreenShare = Key<Bool>("hideFromScreenShare", default: true)
 
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: .nowPlaying)
