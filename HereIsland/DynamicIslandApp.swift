@@ -53,6 +53,7 @@ struct DynamicNotchApp: App {
                     Text(String(localized: "Launch at login"))
                 }
                 Toggle(String(localized: "Haptics"), isOn: $enableHaptics)
+                Toggle(String(localized: "Hide during screenshots and recordings"), isOn: $hideFromScreenCapture)
                 Picker(String(localized: "Display"), selection: $displayDestination) {
                     ForEach(orderedScreens(), id: \.stableDisplayID) { screen in
                         Text(screen.localizedName).tag(screen.stableDisplayID)
@@ -66,7 +67,6 @@ struct DynamicNotchApp: App {
             Section(String(localized: "Appearance")) {
                 Toggle(String(localized: "Album art background"), isOn: $showAlbumArtBackgroundEffects)
                 Toggle(String(localized: "Window shadow"), isOn: $showWindowShadow)
-                Toggle(String(localized: "Hide during screenshots and recordings"), isOn: $hideFromScreenCapture)
                 Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
                 Picker(String(localized: "Accent color"), selection: $playerTint) {
                     ForEach(PlayerTint.allCases) { option in
