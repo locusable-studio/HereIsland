@@ -72,10 +72,9 @@ final class ScreenCaptureVisibilityManager {
         started = true
         registerWatcherNotifications()
 
-        Defaults.publisher(.hideFromScreenshots, options: [.initial])
-            .combineLatest(Defaults.publisher(.hideFromScreenShare, options: [.initial]))
+        Defaults.publisher(.hideFromScreenCapture, options: [.initial])
             .receive(on: RunLoop.main)
-            .sink { [weak self] _, _ in
+            .sink { [weak self] _ in
                 self?.updateAllWindows()
                 self?.refreshCaptureVisibility()
             }
@@ -117,12 +116,12 @@ final class ScreenCaptureVisibilityManager {
     }
 
     private func applyVisibility(to window: NSWindow) {
-        let shouldHide = Defaults[.hideFromScreenshots] || Defaults[.hideFromScreenShare]
+        let shouldHide = Defaults[.hideFromScreenCapture]
         window.sharingType = shouldHide ? .none : .readOnly
     }
 
     private func refreshCaptureVisibility() {
-        let active = Defaults[.hideFromScreenShare] && CGSIsScreenWatcherPresent()
+        let active = Defaults[.hideFromScreenCapture] && CGSIsScreenWatcherPresent()
         guard active != lastCaptureActive else { return }
         lastCaptureActive = active
         AppDelegate.shared?.setHiddenForCapture(active)

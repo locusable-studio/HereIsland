@@ -29,8 +29,7 @@ struct DynamicNotchApp: App {
     @Default(.displayDestination) var displayDestination
     @Default(.showAlbumArtBackgroundEffects) var showAlbumArtBackgroundEffects
     @Default(.showWindowShadow) var showWindowShadow
-    @Default(.hideFromScreenshots) var hideFromScreenshots
-    @Default(.hideFromScreenShare) var hideFromScreenShare
+    @Default(.hideFromScreenCapture) var hideFromScreenCapture
     @Default(.enableRealTimeWaveform) var enableRealTimeWaveform
     @Default(.mediaController) var mediaController
     @Default(.playerTint) var playerTint
@@ -67,8 +66,7 @@ struct DynamicNotchApp: App {
             Section(String(localized: "Appearance")) {
                 Toggle(String(localized: "Album art background"), isOn: $showAlbumArtBackgroundEffects)
                 Toggle(String(localized: "Window shadow"), isOn: $showWindowShadow)
-                Toggle(String(localized: "Hide during screen sharing or recording"), isOn: $hideFromScreenShare)
-                Toggle(String(localized: "Hide in screenshots"), isOn: $hideFromScreenshots)
+                Toggle(String(localized: "Hide during screenshots and recordings"), isOn: $hideFromScreenCapture)
                 Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
                 Picker(String(localized: "Accent color"), selection: $playerTint) {
                     ForEach(PlayerTint.allCases) { option in

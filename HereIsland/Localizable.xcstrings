@@ -1015,36 +1015,19 @@
         }
       }
     },
-    "Hide during screen sharing or recording": {
+    "Hide during screenshots and recordings": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hide during screen sharing or recording"
+            "value": "Hide during screenshots and recordings"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "投屏或录屏时隐藏"
-          }
-        }
-      }
-    },
-    "Hide in screenshots": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hide in screenshots"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "截图时隐藏"
+            "value": "截图和录屏时隐藏"
           }
         }
       }
