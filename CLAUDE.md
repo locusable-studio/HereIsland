@@ -38,11 +38,11 @@ Optional theme suffix when useful: `Here Island 2026.8.1 — …`
 
 ```markdown
 ## Highlights
-- Up to 3 user-facing points for this release
+- Up to 3 user-facing points for this release @github-username
 
 ## Changes
-- Concrete changes, ordered by importance (not by commit type)
-- Prefer product language over conventional-commit subjects
+- Concrete changes, ordered by importance (not by commit type) @github-username
+- Prefer product language over conventional-commit subjects @github-username
 
 ## Notes
 - Optional: upgrade caveats, permissions, system requirements, feed URL
@@ -51,6 +51,7 @@ Optional theme suffix when useful: `Here Island 2026.8.1 — …`
 ### Rules
 
 - CI creates the Release with **title only** (empty body); fill in Highlights / Changes / Notes manually after the tag ships
+- End every Highlights / Changes bullet with the commit author's GitHub `@username` (resolves from the commit author email → GitHub account). That drives the Release page Contributors avatar list.
 - Keep it short; one screen is enough
 - No download-link sections (GitHub Assets already list DMGs)
 - Sparkle feed (stable): `https://raw.githubusercontent.com/locusable-studio/HereIsland/main/Updates/appcast.xml`
