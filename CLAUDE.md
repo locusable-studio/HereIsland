@@ -10,12 +10,23 @@ Before every code commit, increment `CURRENT_PROJECT_VERSION` (build number) by 
 - Bump both Debug and Release values in sync
 - Include the build number change in the same commit as the functional changes
 
-### Tag / release: do not bump project versions
+### Marketing version: three-part CalVer only
 
-Creating a `v*` tag does **not** require changing `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` in the Xcode project.
+`MARKETING_VERSION` in `HereIsland.xcodeproj/project.pbxproj` is always `YYYY.M.D` (no zero-padding, no hotfix suffix).
 
-- Tag name is the release version (e.g. `v2026.8.12` → CI stamps that version into the build)
-- Do not bump engineering versions just to “match” the tag before tagging
+- Example: `2026.8.25`
+- Never `2026.8.25.1` or any other four-part string
+- Bump this in the project only when the calendar day of the product version changes (both Debug and Release, in sync)
+
+### Tag / release
+
+Git tags are `vYYYY.M.D`. Same-day hotfixes append `.N` **on the tag only**.
+
+- First ship of the day: `v2026.8.25`
+- Same-day hotfix: `v2026.8.25.1`, then `.2`, …
+- Do **not** copy that `.N` into `MARKETING_VERSION`
+- Creating a `v*` tag does **not** require changing `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` just to “match” the tag
+- Pushing a `v*` tag runs Release CI (it may stamp the tag string into the archive; the project file on `main` still stays three-part)
 
 ## Release notes
 
