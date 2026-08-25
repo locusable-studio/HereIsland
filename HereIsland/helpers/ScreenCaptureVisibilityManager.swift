@@ -29,102 +29,43 @@ enum ScreenCaptureScope: Int {
     case entireInterface
 }
 
-/// SkyLight private API, same as Atoll ScreenRecordingManager.
-/// 1502 = watcher connected, 1503 = disconnected. Not public API.
-@_silgen_name("CGSIsScreenWatcherPresent")
-func CGSIsScreenWatcherPresent() -> Bool
-
-@_silgen_name("CGSRegisterNotifyProc")
-func CGSRegisterNotifyProc(
-    _ callback: (@convention(c) (Int32, Int32, Int32, UnsafeMutableRawPointer?) -> Void)?,
-    _ event: Int32,
-    _ context: UnsafeMutableRawPointer?
-) -> Bool
-
-private func screenCaptureEventCallback(
-    eventType: Int32,
-    _: Int32,
-    _: Int32,
-    context: UnsafeMutableRawPointer?
-) {
-    guard let context else { return }
-    let manager = Unmanaged<ScreenCaptureVisibilityManager>.fromOpaque(context).takeUnretainedValue()
-    DispatchQueue.main.async {
-        manager.handleScreenWatcherEvent(eventType)
-    }
-}
-
-/// One Appearance toggle: hide during screenshots and recordings.
-/// Exclusion is `NSWindow.sharingType` (Atoll). While a screen watcher is present,
-/// the notch is also ordered out locally via `CGSIsScreenWatcherPresent`.
+/// Menu toggle “Hide during screenshots and recordings”.
+/// Same as Atoll: only `NSWindow.sharingType`. Does not order the notch out.
 final class ScreenCaptureVisibilityManager {
     static let shared = ScreenCaptureVisibilityManager()
 
     private let scopedWindows = NSMapTable<NSWindow, NSNumber>(keyOptions: .weakMemory, valueOptions: .strongMemory)
     private var cancellables = Set<AnyCancellable>()
-    private var lastCaptureActive = false
-    private var started = false
-    private var registeredNotify = false
 
-    private init() {}
-
-    func start() {
-        guard !started else { return }
-        started = true
-        registerWatcherNotifications()
-
-        Defaults.publisher(.hideFromScreenCapture, options: [.initial])
+    private init() {
+        Defaults.publisher(.hideFromScreenCapture)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.updateAllWindows()
-                self?.refreshCaptureVisibility()
             }
             .store(in: &cancellables)
     }
 
-    func stop() {
-        lastCaptureActive = false
-        AppDelegate.shared?.setHiddenForCapture(false)
-    }
-
     func register(_ window: NSWindow, scope: ScreenCaptureScope) {
         scopedWindows.setObject(NSNumber(value: scope.rawValue), forKey: window)
-        applyVisibility(to: window)
+        applyVisibility(to: window, scope: scope)
     }
 
     func unregister(_ window: NSWindow) {
         scopedWindows.removeObject(forKey: window)
     }
 
-    func handleScreenWatcherEvent(_ eventType: Int32) {
-        refreshCaptureVisibility()
-    }
-
-    private func registerWatcherNotifications() {
-        guard !registeredNotify else { return }
-        let context = Unmanaged.passUnretained(self).toOpaque()
-        let connect = CGSRegisterNotifyProc(screenCaptureEventCallback, 1502, context)
-        let disconnect = CGSRegisterNotifyProc(screenCaptureEventCallback, 1503, context)
-        registeredNotify = connect && disconnect
-        refreshCaptureVisibility()
-    }
-
     private func updateAllWindows() {
         guard let windows = scopedWindows.keyEnumerator().allObjects as? [NSWindow] else { return }
         for window in windows {
-            applyVisibility(to: window)
+            guard let raw = scopedWindows.object(forKey: window)?.intValue,
+                  let scope = ScreenCaptureScope(rawValue: raw) else { continue }
+            applyVisibility(to: window, scope: scope)
         }
     }
 
-    private func applyVisibility(to window: NSWindow) {
+    private func applyVisibility(to window: NSWindow, scope _: ScreenCaptureScope) {
         let shouldHide = Defaults[.hideFromScreenCapture]
         window.sharingType = shouldHide ? .none : .readOnly
-    }
-
-    private func refreshCaptureVisibility() {
-        let active = Defaults[.hideFromScreenCapture] && CGSIsScreenWatcherPresent()
-        guard active != lastCaptureActive else { return }
-        lastCaptureActive = active
-        AppDelegate.shared?.setHiddenForCapture(active)
     }
 }
