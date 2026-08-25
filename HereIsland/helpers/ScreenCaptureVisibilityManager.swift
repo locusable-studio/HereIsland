@@ -1,6 +1,6 @@
 /*
- * Here Island
- * Copyright (C) 2024-2026 Atoll Contributors / Here Island
+ * Atoll (DynamicIsland)
+ * Copyright (C) 2024-2026 Atoll Contributors
  *
  * Originally from boring.notch project
  * Modified and adapted for Atoll (DynamicIsland)
@@ -25,131 +25,106 @@ import Combine
 import Defaults
 
 enum ScreenCaptureScope: Int {
-    /// Settings / about panels: apply sharingType only, stay on screen.
     case panelsOnly
-    /// Notch windows: apply sharingType, and hide locally while capture is active.
     case entireInterface
 }
 
-/// Applies the two menu-bar hide toggles to registered windows.
-///
-/// macOS exposes one window-level exclusion knob (`NSWindow.sharingType`).
-/// Either toggle sets `.none` so the window is left out of screenshots and
-/// most share/record pipelines. The share/record toggle additionally hides
-/// the notch on the local display while a capture UI is running.
+/// SkyLight private API used by Atoll's ScreenRecordingManager.
+/// Event-driven: 1502 connect / 1503 disconnect. Not a public API.
+@_silgen_name("CGSIsScreenWatcherPresent")
+func CGSIsScreenWatcherPresent() -> Bool
+
+@_silgen_name("CGSRegisterNotifyProc")
+func CGSRegisterNotifyProc(
+    _ callback: (@convention(c) (Int32, Int32, Int32, UnsafeMutableRawPointer?) -> Void)?,
+    _ event: Int32,
+    _ context: UnsafeMutableRawPointer?
+) -> Bool
+
+private func screenCaptureEventCallback(
+    eventType: Int32,
+    _: Int32,
+    _: Int32,
+    context: UnsafeMutableRawPointer?
+) {
+    guard let context else { return }
+    let manager = Unmanaged<ScreenCaptureVisibilityManager>.fromOpaque(context).takeUnretainedValue()
+    DispatchQueue.main.async {
+        manager.handleScreenWatcherEvent(eventType)
+    }
+}
+
+/// Same hide path as Atoll: `NSWindow.sharingType`.
+/// Share/record local hide follows Atoll's CGS screen-watcher, not process polling.
 final class ScreenCaptureVisibilityManager {
     static let shared = ScreenCaptureVisibilityManager()
 
     private let scopedWindows = NSMapTable<NSWindow, NSNumber>(keyOptions: .weakMemory, valueOptions: .strongMemory)
     private var cancellables = Set<AnyCancellable>()
-    private var capturePoll: Timer?
     private var lastCaptureActive = false
     private var started = false
+    private var registeredNotify = false
 
     private init() {}
 
     func start() {
         guard !started else { return }
         started = true
+        registerWatcherNotifications()
 
         Defaults.publisher(.hideFromScreenshots, options: [.initial])
             .combineLatest(Defaults.publisher(.hideFromScreenShare, options: [.initial]))
-            .receive(on: DispatchQueue.main)
+            .receive(on: RunLoop.main)
             .sink { [weak self] _, _ in
-                self?.apply()
+                self?.updateAllWindows()
+                self?.refreshCaptureVisibility()
             }
             .store(in: &cancellables)
     }
 
     func stop() {
-        capturePoll?.invalidate()
-        capturePoll = nil
         lastCaptureActive = false
         AppDelegate.shared?.setHiddenForCapture(false)
     }
 
     func register(_ window: NSWindow, scope: ScreenCaptureScope) {
         scopedWindows.setObject(NSNumber(value: scope.rawValue), forKey: window)
-        apply(to: window)
+        applyVisibility(to: window)
     }
 
     func unregister(_ window: NSWindow) {
         scopedWindows.removeObject(forKey: window)
     }
 
-    private func apply() {
-        for window in registeredWindows() {
-            apply(to: window)
-        }
-        syncCapturePolling()
+    func handleScreenWatcherEvent(_ eventType: Int32) {
+        refreshCaptureVisibility()
     }
 
-    private func apply(to window: NSWindow) {
-        let exclude = Defaults[.hideFromScreenshots] || Defaults[.hideFromScreenShare]
-        window.sharingType = exclude ? .none : .readOnly
+    private func registerWatcherNotifications() {
+        guard !registeredNotify else { return }
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        let connect = CGSRegisterNotifyProc(screenCaptureEventCallback, 1502, context)
+        let disconnect = CGSRegisterNotifyProc(screenCaptureEventCallback, 1503, context)
+        registeredNotify = connect && disconnect
+        refreshCaptureVisibility()
     }
 
-    private func syncCapturePolling() {
-        if Defaults[.hideFromScreenShare] {
-            if capturePoll == nil {
-                let timer = Timer(timeInterval: 0.75, repeats: true) { [weak self] _ in
-                    self?.evaluateCaptureState()
-                }
-                RunLoop.main.add(timer, forMode: .common)
-                capturePoll = timer
-                evaluateCaptureState()
-            }
-        } else {
-            capturePoll?.invalidate()
-            capturePoll = nil
-            if lastCaptureActive {
-                lastCaptureActive = false
-                AppDelegate.shared?.setHiddenForCapture(false)
-            }
+    private func updateAllWindows() {
+        guard let windows = scopedWindows.keyEnumerator().allObjects as? [NSWindow] else { return }
+        for window in windows {
+            applyVisibility(to: window)
         }
     }
 
-    private func evaluateCaptureState() {
-        let active = isCaptureUIActive()
+    private func applyVisibility(to window: NSWindow) {
+        let shouldHide = Defaults[.hideFromScreenshots] || Defaults[.hideFromScreenShare]
+        window.sharingType = shouldHide ? .none : .readOnly
+    }
+
+    private func refreshCaptureVisibility() {
+        let active = Defaults[.hideFromScreenShare] && CGSIsScreenWatcherPresent()
         guard active != lastCaptureActive else { return }
         lastCaptureActive = active
         AppDelegate.shared?.setHiddenForCapture(active)
-    }
-
-    /// Best-effort public signal that a system screenshot/record/share UI is up.
-    /// Zoom/Meet-style in-app share is covered by `sharingType = .none` instead.
-    private func isCaptureUIActive() -> Bool {
-        let captureBundleIDs: Set<String> = [
-            "com.apple.screencaptureui",
-            "com.apple.ScreenSharing",
-            "com.apple.screensharing.agent",
-            "com.apple.QuickTimePlayerX",
-        ]
-        if NSWorkspace.shared.runningApplications.contains(where: {
-            captureBundleIDs.contains($0.bundleIdentifier ?? "")
-        }) {
-            return true
-        }
-
-        let options = CGWindowListOption(arrayLiteral: .optionOnScreenOnly, .excludeDesktopElements)
-        guard let info = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
-            return false
-        }
-        let names = [
-            "screencaptureui",
-            "screen recording",
-            "screen sharing",
-            "屏幕录制",
-            "屏幕共享",
-        ]
-        return info.contains { window in
-            let owner = (window[kCGWindowOwnerName as String] as? String ?? "").lowercased()
-            let title = (window[kCGWindowName as String] as? String ?? "").lowercased()
-            return names.contains { owner.contains($0) || title.contains($0) }
-        }
-    }
-
-    private func registeredWindows() -> [NSWindow] {
-        (scopedWindows.keyEnumerator().allObjects as? [NSWindow]) ?? []
     }
 }
