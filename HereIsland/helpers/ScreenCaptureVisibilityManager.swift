@@ -29,8 +29,8 @@ enum ScreenCaptureScope: Int {
     case entireInterface
 }
 
-/// SkyLight private API used by Atoll's ScreenRecordingManager.
-/// Event-driven: 1502 connect / 1503 disconnect. Not a public API.
+/// SkyLight private API, same as Atoll ScreenRecordingManager.
+/// 1502 = watcher connected, 1503 = disconnected. Not public API.
 @_silgen_name("CGSIsScreenWatcherPresent")
 func CGSIsScreenWatcherPresent() -> Bool
 
@@ -54,8 +54,9 @@ private func screenCaptureEventCallback(
     }
 }
 
-/// Same hide path as Atoll: `NSWindow.sharingType`.
-/// Share/record local hide follows Atoll's CGS screen-watcher, not process polling.
+/// One Appearance toggle: hide during screenshots and recordings.
+/// Exclusion is `NSWindow.sharingType` (Atoll). While a screen watcher is present,
+/// the notch is also ordered out locally via `CGSIsScreenWatcherPresent`.
 final class ScreenCaptureVisibilityManager {
     static let shared = ScreenCaptureVisibilityManager()
 

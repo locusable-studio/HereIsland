@@ -83,7 +83,7 @@ extension Defaults.Keys {
     static let enableHaptics = Key<Bool>("enableHaptics", default: true)
     static let showAlbumArtBackgroundEffects = Key<Bool>("showAlbumArtBackgroundEffects", default: true)
     static let showWindowShadow = Key<Bool>("showWindowShadow", default: true)
-    /// Hide the notch in screenshots and recordings (Atoll: hideDynamicIslandFromScreenCapture).
+    /// Menu: “Hide during screenshots and recordings”. Same idea as Atoll’s hideDynamicIslandFromScreenCapture.
     static let hideFromScreenCapture = Key<Bool>("hideFromScreenCapture", default: true)
 
     // MARK: Media Controller
