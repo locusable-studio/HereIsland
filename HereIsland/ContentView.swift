@@ -113,12 +113,8 @@ struct ContentView: View {
         return base
     }
 
-    private var flashTitleSlotWidth: CGFloat {
-        Self.flashTitleSlotWidth
-    }
-
     private var flashTitleInnerWidth: CGFloat {
-        max(flashTitleSlotWidth - (Self.flashTitleHorizontalInset * 2), 80)
+        max(Self.flashTitleSlotWidth - (Self.flashTitleHorizontalInset * 2), 80)
     }
 
     private func normalizedTitle(_ title: String) -> String {
@@ -261,7 +257,7 @@ struct ContentView: View {
         let height = max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
         let wing = max(0, height)
         let baseCenter = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
-        let titleWidth = isFlashing ? flashTitleSlotWidth : 0
+        let titleWidth = isFlashing ? Self.flashTitleSlotWidth : 0
         return HStack(spacing: 0) {
             Image(nsImage: musicManager.albumArt)
                 .resizable()
