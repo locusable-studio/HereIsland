@@ -97,16 +97,16 @@ struct ContentView: View {
     private static let placeholderTitles: Set<String> = [
         "i'm handsome", "unknown", "not playing"
     ]
-    private static let flashTitleFontSize: CGFloat = 14
+    private static let flashTitleFontSize: CGFloat = 12
     private static let flashWidthExtra: CGFloat = 80
-    private static let flashTitleHorizontalInset: CGFloat = 10
+    private static let flashTitleHorizontalInset: CGFloat = 6
 
     private var flashTitleFont: Font {
-        .system(size: Self.flashTitleFontSize, weight: .semibold, design: .rounded)
+        .system(size: Self.flashTitleFontSize, weight: .medium, design: .rounded)
     }
 
     private var flashTitleMeasurementFont: NSFont {
-        let base = NSFont.systemFont(ofSize: Self.flashTitleFontSize, weight: .semibold)
+        let base = NSFont.systemFont(ofSize: Self.flashTitleFontSize, weight: .medium)
         if let rounded = base.fontDescriptor.withDesign(.rounded) {
             return NSFont(descriptor: rounded, size: Self.flashTitleFontSize) ?? base
         }
@@ -255,9 +255,16 @@ struct ContentView: View {
         let wing = max(0, height)
         let baseCenter = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
         let closedWidth = wing + baseCenter + wing
-        let titleWidth = isFlashing ? wing + Self.flashWidthExtra : 0
+        let sideGrow = isFlashing ? Self.flashWidthExtra / 2 : 0
+        let titleWidth = isFlashing ? wing + sideGrow : 0
         let titleInner = max(titleWidth - (Self.flashTitleHorizontalInset * 2), 40)
         return HStack(spacing: 0) {
+            if isFlashing {
+                Rectangle()
+                    .fill(.black)
+                    .frame(width: sideGrow, height: height)
+            }
+
             Image(nsImage: musicManager.albumArt)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
@@ -292,7 +299,7 @@ struct ContentView: View {
                     .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
             }
         }
-        .frame(width: isFlashing ? closedWidth + Self.flashWidthExtra : closedWidth, height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
+        .frame(width: closedWidth + (sideGrow * 2), height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
     }
 
     private func handleHover(_ hovering: Bool) {
