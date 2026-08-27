@@ -24,6 +24,9 @@ import SwiftUI
 
 /// One-pass closed-island title flash. Hold if the title fits; otherwise marquee once, then finish.
 /// Used only by the closed-island track-change peek. Never loops — unlike `MarqueeText`.
+///
+/// Offset is driven by `TimelineView` from elapsed time, not `withAnimation`. Parent
+/// island springs and MusicManager updates must not own the glyph position.
 struct OneShotMarqueeText: View {
     let text: String
     let font: Font
@@ -33,11 +36,8 @@ struct OneShotMarqueeText: View {
     var holdDuration: Double = 1.2
     var onFinished: () -> Void
 
-    @State private var offset: CGFloat = 0
+    @State private var scrollStart: Date?
     @State private var runTask: Task<Void, Never>?
-    @State private var settleTask: Task<Void, Never>?
-    @State private var startedAtWidth: CGFloat = 0
-    @State private var motionLocked: Bool = false
 
     private var textWidth: CGFloat {
         ceil((text as NSString).size(withAttributes: [.font: measurementFont]).width)
@@ -47,91 +47,66 @@ struct OneShotMarqueeText: View {
         frameWidth > 8
     }
 
-    private func needsScrolling(in width: CGFloat) -> Bool {
-        width > 8 && textWidth > width
+    private var needsScrolling: Bool {
+        isFrameUsable && textWidth > frameWidth
+    }
+
+    private var distance: CGFloat {
+        max(textWidth - frameWidth, 0)
+    }
+
+    private var scrollDuration: Double {
+        max(Double(distance) / 36.0, 0.45)
     }
 
     var body: some View {
-        Text(text)
-            .font(font)
-            .foregroundColor(textColor)
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
-            .offset(x: offset)
-            .frame(width: frameWidth, alignment: .leading)
-            .clipped()
-            .onAppear { scheduleStart() }
-            .onDisappear {
-                settleTask?.cancel()
-                settleTask = nil
-                runTask?.cancel()
-                runTask = nil
-                motionLocked = false
-            }
-            .onChange(of: text) { _, _ in
-                runTask?.cancel()
-                settleTask?.cancel()
-                motionLocked = false
-                snapOffset(to: 0)
-                startedAtWidth = 0
-                scheduleStart()
-            }
-            .onChange(of: frameWidth) { _, newWidth in
-                // Peek spring interpolates the slot. Hold still until it settles.
-                // After motion starts, ignore jitter from album-art / tint updates.
-                guard newWidth > 8, !motionLocked else { return }
-                if runTask != nil, abs(newWidth - startedAtWidth) <= 1 {
-                    return
-                }
-                runTask?.cancel()
-                snapOffset(to: 0)
-                scheduleStart()
-            }
-    }
-
-    private func snapOffset(to value: CGFloat) {
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            offset = value
+        TimelineView(.animation(paused: scrollStart == nil)) { context in
+            Text(text)
+                .font(font)
+                .foregroundColor(textColor)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .offset(x: offset(at: context.date))
+                .frame(width: frameWidth, alignment: .leading)
+                .clipped()
         }
-    }
-
-    private func scheduleStart() {
-        settleTask?.cancel()
-        guard isFrameUsable else {
+        .transaction { $0.animation = nil }
+        .onAppear { begin() }
+        .onDisappear {
+            runTask?.cancel()
             runTask = nil
-            return
+            scrollStart = nil
         }
-        settleTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(90))
-            guard !Task.isCancelled else { return }
-            start()
+        .onChange(of: text) { _, _ in
+            runTask?.cancel()
+            scrollStart = nil
+            begin()
         }
     }
 
-    private func start() {
+    private func offset(at date: Date) -> CGFloat {
+        guard let start = scrollStart, distance > 0 else { return 0 }
+        let elapsed = date.timeIntervalSince(start)
+        if elapsed <= 0 { return 0 }
+        if elapsed >= scrollDuration { return -distance }
+        return -distance * CGFloat(elapsed / scrollDuration)
+    }
+
+    private func begin() {
         runTask?.cancel()
-        snapOffset(to: 0)
+        scrollStart = nil
         guard isFrameUsable else {
             runTask = nil
             return
         }
-        let width = frameWidth
-        startedAtWidth = width
-        motionLocked = true
-        let scrolling = needsScrolling(in: width)
+        let scrolling = needsScrolling
+        let duration = scrollDuration
         runTask = Task { @MainActor in
             if scrolling {
-                // Brief beat so the leading words are readable, then one linear pass.
-                try? await Task.sleep(for: .milliseconds(350))
+                // Wait out the island spring (response ~0.36, no overshoot) before moving glyphs.
+                try? await Task.sleep(for: .milliseconds(420))
                 guard !Task.isCancelled else { return }
-                let distance = max(textWidth - width, 0)
-                let duration = max(Double(distance) / 36.0, 0.45)
-                var transaction = Transaction(animation: .linear(duration: duration))
-                withTransaction(transaction) {
-                    offset = -distance
-                }
+                scrollStart = Date()
                 try? await Task.sleep(for: .seconds(duration + 0.2))
             } else {
                 try? await Task.sleep(for: .seconds(holdDuration))
