@@ -40,6 +40,11 @@ struct ContentView: View {
     @Namespace private var albumArtNamespace
     @State private var isHovering = false
     @State private var hoverTask: Task<Void, Never>?
+    @State private var isFlashing = false
+    @State private var peekTitle = ""
+    @State private var lastFlashedTitle = ""
+    @State private var flashTask: Task<Void, Never>?
+    @State private var debounceTask: Task<Void, Never>?
 
     private var isIslandMode: Bool {
         shouldUseDynamicIslandMode(for: vm.screen)
@@ -89,6 +94,50 @@ struct ContentView: View {
         vm.notchState == .open ? cornerInsets.opened.bottom : cornerInsets.closed.bottom
     }
 
+    private static let placeholderTitles: Set<String> = [
+        "i'm handsome", "unknown", "not playing"
+    ]
+    private static let flashTitleFontSize: CGFloat = 12
+    private static let flashTitleMaxWidth: CGFloat = 160
+    private static let flashTitleMinWidth: CGFloat = 72
+
+    private var flashTitleFont: Font {
+        .system(size: Self.flashTitleFontSize, weight: .semibold, design: .rounded)
+    }
+
+    private var flashTitleMeasurementFont: NSFont {
+        let base = NSFont.systemFont(ofSize: Self.flashTitleFontSize, weight: .semibold)
+        if let rounded = base.fontDescriptor.withDesign(.rounded) {
+            return NSFont(descriptor: rounded, size: Self.flashTitleFontSize) ?? base
+        }
+        return base
+    }
+
+    private func measuredTitleWidth(_ title: String) -> CGFloat {
+        ceil((title as NSString).size(withAttributes: [.font: flashTitleMeasurementFont]).width)
+    }
+
+    private var flashTitleSlotWidth: CGFloat {
+        min(max(measuredTitleWidth(peekTitle) + 16, Self.flashTitleMinWidth), Self.flashTitleMaxWidth)
+    }
+
+    private func normalizedTitle(_ title: String) -> String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func isFlashableTitle(_ title: String) -> Bool {
+        let trimmed = normalizedTitle(title)
+        guard !trimmed.isEmpty else { return false }
+        return !Self.placeholderTitles.contains(trimmed.lowercased())
+    }
+
+    private func rememberTitle(_ title: String) {
+        let trimmed = normalizedTitle(title)
+        if isFlashableTitle(trimmed) {
+            lastFlashedTitle = trimmed
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             notchChrome
@@ -116,9 +165,21 @@ struct ContentView: View {
                 animated: false,
                 force: true
             )
+            rememberTitle(musicManager.songTitle)
         }
         .onDisappear {
             hoverTask?.cancel()
+            flashTask?.cancel()
+            debounceTask?.cancel()
+        }
+        .onChange(of: musicManager.songTitle) { _, newTitle in
+            handleSongTitleChange(newTitle)
+        }
+        .onChange(of: vm.notchState) { _, newState in
+            if newState == .open {
+                cancelFlashForOpen()
+                rememberTitle(musicManager.songTitle)
+            }
         }
     }
 
@@ -141,6 +202,7 @@ struct ContentView: View {
         // Match original: animation driven by state value, not withAnimation(wrong spring).
         .animation(.bouncy.speed(1.2), value: isHovering)
         .animation(vm.notchState == .open ? openSpring : closeSpring, value: vm.notchState)
+        .animation(isFlashing ? openSpring : closeSpring, value: isFlashing)
     }
 
     private var chromeBase: some View {
@@ -198,7 +260,8 @@ struct ContentView: View {
     private var closedMusicActivity: some View {
         let height = max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
         let wing = max(0, height)
-        let center = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
+        let baseCenter = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
+        let titleWidth = isFlashing ? flashTitleSlotWidth : 0
         return HStack(spacing: 0) {
             Image(nsImage: musicManager.albumArt)
                 .resizable()
@@ -209,7 +272,20 @@ struct ContentView: View {
 
             Rectangle()
                 .fill(.black)
-                .frame(width: center, height: height)
+                .frame(width: baseCenter, height: height)
+
+            if isFlashing {
+                OneShotMarqueeText(
+                    text: peekTitle,
+                    font: flashTitleFont,
+                    measurementFont: flashTitleMeasurementFont,
+                    textColor: .white.opacity(0.92),
+                    frameWidth: titleWidth,
+                    holdDuration: 1.2,
+                    onFinished: handleFlashFinished
+                )
+                .frame(width: titleWidth, height: height)
+            }
 
             Rectangle()
                 .fill(playerTint.resolvedColor(albumArt: musicManager.avgColor))
@@ -220,7 +296,7 @@ struct ContentView: View {
                 .frame(width: wing, height: height)
                 .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
         }
-        .frame(width: wing + center + wing, height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
+        .frame(width: wing + baseCenter + titleWidth + wing, height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
     }
 
     private func handleHover(_ hovering: Bool) {
@@ -246,6 +322,7 @@ struct ContentView: View {
 
     private func openNotch() {
         guard vm.notchState == .closed else { return }
+        cancelFlashForOpen()
         if enableHaptics {
             // NSHapticFeedbackManager is ignored for .nonactivatingPanel; use MTActuator.
             HapticFeedback.perform()
@@ -255,6 +332,63 @@ struct ContentView: View {
     }
 
     private func closeNotch() {
+        rememberTitle(musicManager.songTitle)
         vm.close()
+    }
+
+    private func handleSongTitleChange(_ newTitle: String) {
+        let trimmed = normalizedTitle(newTitle)
+        guard vm.notchState == .closed, !vm.hideOnClosed else {
+            rememberTitle(trimmed)
+            return
+        }
+        guard isFlashableTitle(trimmed) else { return }
+        guard trimmed != lastFlashedTitle else { return }
+        debounceTask?.cancel()
+        debounceTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            guard vm.notchState == .closed, !vm.hideOnClosed else { return }
+            let settled = normalizedTitle(musicManager.songTitle)
+            guard isFlashableTitle(settled), settled != lastFlashedTitle else { return }
+            startFlash(title: settled)
+        }
+    }
+
+    private func startFlash(title: String) {
+        flashTask?.cancel()
+        lastFlashedTitle = title
+        peekTitle = title
+        isFlashing = true
+        // Safety retract if the one-shot view never reports finished.
+        flashTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(12))
+            guard !Task.isCancelled else { return }
+            retractFlash()
+        }
+    }
+
+    private func retractFlash() {
+        flashTask?.cancel()
+        flashTask = nil
+        isFlashing = false
+    }
+
+    private func cancelFlashForOpen() {
+        debounceTask?.cancel()
+        debounceTask = nil
+        flashTask?.cancel()
+        flashTask = nil
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            isFlashing = false
+            peekTitle = ""
+        }
+    }
+
+    private func handleFlashFinished() {
+        guard isFlashing, vm.notchState == .closed else { return }
+        retractFlash()
     }
 }

@@ -142,6 +142,73 @@ struct MarqueeText: View {
     }
 }
 
+
+/// One pass of a closed-island title: hold if it fits, otherwise marquee once, then finish.
+/// Unlike `MarqueeText`, this never loops.
+struct OneShotMarqueeText: View {
+    let text: String
+    let font: Font
+    let measurementFont: NSFont
+    let textColor: Color
+    let frameWidth: CGFloat
+    var holdDuration: Double = 1.2
+    var onFinished: () -> Void
+
+    @State private var offset: CGFloat = 0
+    @State private var runTask: Task<Void, Never>?
+
+    private var textWidth: CGFloat {
+        ceil((text as NSString).size(withAttributes: [.font: measurementFont]).width)
+    }
+
+    private var needsScrolling: Bool {
+        textWidth > frameWidth + 0.5
+    }
+
+    var body: some View {
+        Text(text)
+            .font(font)
+            .foregroundColor(textColor)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .offset(x: offset)
+            .frame(width: frameWidth, alignment: needsScrolling ? .leading : .center)
+            .clipped()
+            .onAppear { start() }
+            .onDisappear {
+                runTask?.cancel()
+                runTask = nil
+            }
+            .onChange(of: text) { _, _ in
+                runTask?.cancel()
+                offset = 0
+                start()
+            }
+    }
+
+    private func start() {
+        runTask?.cancel()
+        offset = 0
+        runTask = Task { @MainActor in
+            if needsScrolling {
+                // Brief beat so the leading words are readable, then one linear pass.
+                try? await Task.sleep(for: .milliseconds(350))
+                guard !Task.isCancelled else { return }
+                let distance = max(textWidth - frameWidth, 0)
+                let duration = max(Double(distance) / 36.0, 0.45)
+                withAnimation(.linear(duration: duration)) {
+                    offset = -distance
+                }
+                try? await Task.sleep(for: .seconds(duration + 0.2))
+            } else {
+                try? await Task.sleep(for: .seconds(holdDuration))
+            }
+            guard !Task.isCancelled else { return }
+            onFinished()
+        }
+    }
+}
+
 struct MusicExplicitBadge: View {
     var label: String = "E"
     var fontSize: CGFloat = 9
