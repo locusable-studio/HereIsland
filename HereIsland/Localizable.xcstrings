@@ -677,6 +677,23 @@
         }
       }
     },
+    "Quick peek": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick peek"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快速预览"
+          }
+        }
+      }
+    },
     "Real-time audio capture foundation": {
       "localizations": {
         "en": {
@@ -773,23 +790,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "在所有显示器上显示"
-          }
-        }
-      }
-    },
-    "Show title on track change": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show title on track change"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "切歌时显示歌名"
           }
         }
       }

@@ -70,7 +70,7 @@ struct DynamicNotchApp: App {
                 Toggle(String(localized: "Album art background"), isOn: $showAlbumArtBackgroundEffects)
                 Toggle(String(localized: "Window shadow"), isOn: $showWindowShadow)
                 Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
-                Toggle(String(localized: "Show title on track change"), isOn: $showTitleOnTrackChange)
+                Toggle(String(localized: "Quick peek"), isOn: $showTitleOnTrackChange)
                 Picker(String(localized: "Accent color"), selection: $playerTint) {
                     ForEach(PlayerTint.allCases) { option in
                         Text(option.localizedName).tag(option)
