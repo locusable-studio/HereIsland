@@ -17,6 +17,7 @@
  */
 
 import AppKit
+import Defaults
 import SwiftUI
 
 struct AboutView: View {
@@ -98,7 +99,7 @@ struct AboutView: View {
                 }
 
                 LabeledContent(String(localized: "Channel")) {
-                    Text(UpdateChannel.displayName)
+                    Text(Defaults[.updateChannel].localizedName)
                         .foregroundStyle(.secondary)
                 }
             }
