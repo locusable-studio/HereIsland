@@ -24,9 +24,6 @@ import SwiftUI
 
 /// One-pass closed-island title flash. Hold if the title fits; otherwise marquee once, then finish.
 /// Used only by the closed-island track-change peek. Never loops — unlike `MarqueeText`.
-///
-/// Offset is driven by `TimelineView` from elapsed time, not `withAnimation`. Parent
-/// island springs and MusicManager updates must not own the glyph position.
 struct OneShotMarqueeText: View {
     let text: String
     let font: Font
@@ -36,77 +33,65 @@ struct OneShotMarqueeText: View {
     var holdDuration: Double = 1.2
     var onFinished: () -> Void
 
-    @State private var scrollStart: Date?
+    @State private var offset: CGFloat = 0
     @State private var runTask: Task<Void, Never>?
 
     private var textWidth: CGFloat {
         ceil((text as NSString).size(withAttributes: [.font: measurementFont]).width)
     }
 
+    private var needsScrolling: Bool {
+        frameWidth > 8 && textWidth > frameWidth
+    }
+
     private var isFrameUsable: Bool {
         frameWidth > 8
     }
 
-    private var needsScrolling: Bool {
-        isFrameUsable && textWidth > frameWidth
-    }
-
-    private var distance: CGFloat {
-        max(textWidth - frameWidth, 0)
-    }
-
-    private var scrollDuration: Double {
-        max(Double(distance) / 36.0, 0.45)
-    }
-
     var body: some View {
-        TimelineView(.animation(paused: scrollStart == nil)) { context in
-            Text(text)
-                .font(font)
-                .foregroundColor(textColor)
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-                .offset(x: offset(at: context.date))
-                .frame(width: frameWidth, alignment: .leading)
-                .clipped()
-        }
-        .transaction { $0.animation = nil }
-        .onAppear { begin() }
-        .onDisappear {
-            runTask?.cancel()
-            runTask = nil
-            scrollStart = nil
-        }
-        .onChange(of: text) { _, _ in
-            runTask?.cancel()
-            scrollStart = nil
-            begin()
-        }
+        Text(text)
+            .font(font)
+            .foregroundColor(textColor)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .offset(x: offset)
+            .frame(width: frameWidth, alignment: .leading)
+            .clipped()
+            .onAppear { start() }
+            .onDisappear {
+                runTask?.cancel()
+                runTask = nil
+            }
+            .onChange(of: text) { _, _ in
+                runTask?.cancel()
+                offset = 0
+                start()
+            }
+            .onChange(of: frameWidth) { _, _ in
+                // Peek spring can first lay out a 0-width slot; start only once it is usable.
+                if isFrameUsable, runTask == nil {
+                    start()
+                }
+            }
     }
 
-    private func offset(at date: Date) -> CGFloat {
-        guard let start = scrollStart, distance > 0 else { return 0 }
-        let elapsed = date.timeIntervalSince(start)
-        if elapsed <= 0 { return 0 }
-        if elapsed >= scrollDuration { return -distance }
-        return -distance * CGFloat(elapsed / scrollDuration)
-    }
-
-    private func begin() {
+    private func start() {
         runTask?.cancel()
-        scrollStart = nil
+        offset = 0
         guard isFrameUsable else {
             runTask = nil
             return
         }
-        let scrolling = needsScrolling
-        let duration = scrollDuration
         runTask = Task { @MainActor in
-            if scrolling {
-                // Wait out the island spring (response ~0.36, no overshoot) before moving glyphs.
-                try? await Task.sleep(for: .milliseconds(420))
+            if needsScrolling {
+                // Brief beat so the leading words are readable, then one linear pass.
+                try? await Task.sleep(for: .milliseconds(350))
                 guard !Task.isCancelled else { return }
-                scrollStart = Date()
+                let distance = max(textWidth - frameWidth, 0)
+                let duration = max(Double(distance) / 36.0, 0.45)
+                withAnimation(.linear(duration: duration)) {
+                    offset = -distance
+                }
                 try? await Task.sleep(for: .seconds(duration + 0.2))
             } else {
                 try? await Task.sleep(for: .seconds(holdDuration))
