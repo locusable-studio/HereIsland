@@ -43,6 +43,9 @@ struct ContentView: View {
     @State private var hoverTask: Task<Void, Never>?
     @State private var isFlashing = false
     @State private var peekTitle = ""
+    @State private var peekTitleColor: Color = .white
+    @State private var peekSlotWidth: CGFloat = 0
+    @State private var peekAlbumArt: NSImage = NSImage()
     @State private var lastFlashedTitle = ""
     @State private var flashTask: Task<Void, Never>?
     @State private var debounceTask: Task<Void, Never>?
@@ -203,7 +206,7 @@ struct ContentView: View {
         // Match original: animation driven by state value, not withAnimation(wrong spring).
         .animation(.bouncy.speed(1.2), value: isHovering)
         .animation(vm.notchState == .open ? openSpring : closeSpring, value: vm.notchState)
-        .animation(isFlashing ? openSpring : closeSpring, value: isFlashing)
+        .animation(isFlashing ? flashSpring : closeSpring, value: isFlashing)
     }
 
     private var chromeBase: some View {
@@ -216,6 +219,11 @@ struct ContentView: View {
 
     private var openSpring: Animation {
         .spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
+    }
+
+    /// Peek grow/retract: no bounce. Overshoot was sliding the title clip under the glyphs.
+    private var flashSpring: Animation {
+        .spring(response: 0.36, dampingFraction: 1.0, blendDuration: 0)
     }
 
     private var closeSpring: Animation {
@@ -263,13 +271,13 @@ struct ContentView: View {
         let wing = max(0, height)
         let baseCenter = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
         let closedWidth = wing + baseCenter + wing
-        let neededSlot = flashTitleTextWidth
+        let neededSlot = peekSlotWidth > 0 ? peekSlotWidth : flashTitleTextWidth
         let maxSideGrow = Self.flashWidthExtraMax / 2
         let titleWidth = isFlashing ? min(max(neededSlot, wing), wing + maxSideGrow) : 0
         let sideGrow = isFlashing ? max(titleWidth - wing, 0) : 0
-        let titleInner = max(titleWidth, 8)
+        let titleInner = max(peekSlotWidth > 0 ? peekSlotWidth : titleWidth, 8)
         return HStack(spacing: 0) {
-            Image(nsImage: musicManager.albumArt)
+            Image(nsImage: isFlashing ? peekAlbumArt : musicManager.albumArt)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
@@ -291,11 +299,12 @@ struct ContentView: View {
                     text: peekTitle,
                     font: flashTitleFont,
                     measurementFont: flashTitleMeasurementFont,
-                    textColor: peekForegroundColor,
+                    textColor: peekTitleColor,
                     frameWidth: titleInner,
                     holdDuration: 1.2,
                     onFinished: handleFlashFinished
                 )
+                .transaction { $0.animation = nil }
                 .frame(width: titleWidth, height: height, alignment: .leading)
             } else {
                 Rectangle()
@@ -384,18 +393,12 @@ struct ContentView: View {
     }
 
 
-
-
-    /// Color only. Same opacity as the pre-accent peek; does not change marquee timing or layout.
-    private var peekForegroundColor: Color {
-        switch playerTint {
-        case .white:
-            return .white.opacity(0.92)
-        case .albumArt:
-            return Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.6)
-        case .accent:
-            return Color.accentColor
-        }
+    private func peekSlotWidth(for title: String) -> CGFloat {
+        let height = max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
+        let wing = max(0, height)
+        let needed = ceil((title as NSString).size(withAttributes: [.font: flashTitleMeasurementFont]).width)
+        let maxSideGrow = Self.flashWidthExtraMax / 2
+        return min(max(needed, wing), wing + maxSideGrow)
     }
 
     private func startFlash(title: String) {
@@ -406,6 +409,9 @@ struct ContentView: View {
         flashTask?.cancel()
         lastFlashedTitle = title
         peekTitle = title
+        peekTitleColor = playerTint.resolvedColor(albumArt: musicManager.avgColor)
+        peekSlotWidth = peekSlotWidth(for: title)
+        peekAlbumArt = musicManager.albumArt
         isFlashing = true
         // Safety retract if the one-shot view never reports finished.
         flashTask = Task { @MainActor in
