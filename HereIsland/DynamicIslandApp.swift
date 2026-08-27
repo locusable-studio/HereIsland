@@ -85,6 +85,7 @@ struct DynamicNotchApp: App {
             }
 
             Section(String(localized: "Updates")) {
+                CheckForUpdatesView(updater: updaterController.updater, updaterDelegate: updaterDelegate)
                 Picker(String(localized: "Channel"), selection: $updateChannel) {
                     ForEach(UpdateChannel.allCases) { channel in
                         Text(channel.localizedName).tag(channel)
@@ -93,7 +94,6 @@ struct DynamicNotchApp: App {
                 .onChange(of: updateChannel) { _, _ in
                     updaterController.updater.resetUpdateCycle()
                 }
-                CheckForUpdatesView(updater: updaterController.updater, updaterDelegate: updaterDelegate)
                 Menu(String(localized: "Update Settings")) {
                     UpdaterSettingsView(updater: updaterController.updater)
                 }
