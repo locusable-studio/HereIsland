@@ -44,6 +44,7 @@ struct ContentView: View {
     @State private var peekTitle = ""
     @State private var lastFlashedTitle = ""
     @State private var flashTask: Task<Void, Never>?
+    @State private var debounceTask: Task<Void, Never>?
 
     private var isIslandMode: Bool {
         shouldUseDynamicIslandMode(for: vm.screen)
@@ -169,6 +170,7 @@ struct ContentView: View {
         .onDisappear {
             hoverTask?.cancel()
             flashTask?.cancel()
+            debounceTask?.cancel()
         }
         .onChange(of: musicManager.songTitle) { _, newTitle in
             handleSongTitleChange(newTitle)
@@ -259,8 +261,7 @@ struct ContentView: View {
         let height = max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
         let wing = max(0, height)
         let baseCenter = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
-        let center = baseCenter + (isFlashing ? flashTitleSlotWidth : 0)
-        let titleWidth = max(center - 16, 0)
+        let titleWidth = isFlashing ? flashTitleSlotWidth : 0
         return HStack(spacing: 0) {
             Image(nsImage: musicManager.albumArt)
                 .resizable()
@@ -269,22 +270,22 @@ struct ContentView: View {
                 .frame(width: wing, height: height)
                 .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
 
-            ZStack {
-                Rectangle()
-                    .fill(.black)
-                if isFlashing {
-                    OneShotMarqueeText(
-                        text: peekTitle,
-                        font: flashTitleFont,
-                        measurementFont: flashTitleMeasurementFont,
-                        textColor: .white.opacity(0.92),
-                        frameWidth: titleWidth,
-                        holdDuration: 1.2,
-                        onFinished: handleFlashFinished
-                    )
-                }
+            Rectangle()
+                .fill(.black)
+                .frame(width: baseCenter, height: height)
+
+            if isFlashing {
+                OneShotMarqueeText(
+                    text: peekTitle,
+                    font: flashTitleFont,
+                    measurementFont: flashTitleMeasurementFont,
+                    textColor: .white.opacity(0.92),
+                    frameWidth: titleWidth,
+                    holdDuration: 1.2,
+                    onFinished: handleFlashFinished
+                )
+                .frame(width: titleWidth, height: height)
             }
-            .frame(width: center, height: height)
 
             Rectangle()
                 .fill(playerTint.resolvedColor(albumArt: musicManager.avgColor))
@@ -295,7 +296,7 @@ struct ContentView: View {
                 .frame(width: wing, height: height)
                 .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
         }
-        .frame(width: wing + center + wing, height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
+        .frame(width: wing + baseCenter + titleWidth + wing, height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
     }
 
     private func handleHover(_ hovering: Bool) {
@@ -343,7 +344,15 @@ struct ContentView: View {
         }
         guard isFlashableTitle(trimmed) else { return }
         guard trimmed != lastFlashedTitle else { return }
-        startFlash(title: trimmed)
+        debounceTask?.cancel()
+        debounceTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            guard vm.notchState == .closed, !vm.hideOnClosed else { return }
+            let settled = normalizedTitle(musicManager.songTitle)
+            guard isFlashableTitle(settled), settled != lastFlashedTitle else { return }
+            startFlash(title: settled)
+        }
     }
 
     private func startFlash(title: String) {
@@ -366,6 +375,8 @@ struct ContentView: View {
     }
 
     private func cancelFlashForOpen() {
+        debounceTask?.cancel()
+        debounceTask = nil
         flashTask?.cancel()
         flashTask = nil
         var transaction = Transaction()
