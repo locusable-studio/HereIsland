@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-sparkle-feeds
   cancel-in-progress: false
 
 env:
@@ -46,14 +46,29 @@ jobs:
           # Archive marketing version: strip -beta.M. 3-part or 4-part both OK.
           MARKETING_VERSION="${VERSION%-beta.*}"
 
-          COMMIT_COUNT=$(git rev-list --count HEAD)
-          HIGHEST_PUBLISHED=$(grep -h 'sparkle:version' Updates/appcast.xml Updates/appcast-beta.xml 2>/dev/null \
-            | grep -oE '[0-9]+' | sort -rn | head -1)
+          # sparkle:version is global across channels. Read already-published
+          # values from latest origin/main — the tag tree can predate a feed
+          # that already shipped (stable vX and beta vX-beta.N otherwise collide).
+          git fetch origin main
+          LIVE_APPCAST_VERSIONS=$(
+            {
+              git show origin/main:Updates/appcast.xml 2>/dev/null || true
+              git show origin/main:Updates/appcast-beta.xml 2>/dev/null || true
+            } | grep -oE '<sparkle:version>[0-9]+</sparkle:version>' \
+              | grep -oE '[0-9]+' || true
+          )
+          HIGHEST_PUBLISHED=$(printf '%s\n' $LIVE_APPCAST_VERSIONS | sort -rn | head -1)
           HIGHEST_PUBLISHED=${HIGHEST_PUBLISHED:-0}
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          # BUILD_NUMBER = max(commit_count, highest_published + 1)
           if [ "$COMMIT_COUNT" -gt "$HIGHEST_PUBLISHED" ]; then
             BUILD_NUMBER=$COMMIT_COUNT
           else
             BUILD_NUMBER=$((HIGHEST_PUBLISHED + 1))
+          fi
+          if printf '%s\n' $LIVE_APPCAST_VERSIONS | grep -qx "$BUILD_NUMBER"; then
+            echo "::error::BUILD_NUMBER ${BUILD_NUMBER} already appears in a live Sparkle feed on origin/main. Refusing to stamp a duplicate sparkle:version."
+            exit 1
           fi
 
           # Versioned asset: immutable forever for this tag.
@@ -392,7 +407,33 @@ jobs:
             --verify-tag \
             "${PRERELEASE_FLAG[@]}"
 
-          python3 - "$ARCHIVES_DIR/appcast.xml" "$CHANNEL" <<'PY'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          DEFAULT_BRANCH=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
+          DEFAULT_BRANCH=${DEFAULT_BRANCH:-main}
+          BUILD_NUMBER="${{ steps.version.outputs.build_number }}"
+
+          # Re-apply generated items onto latest main so a concurrent release
+          # cannot land a duplicate sparkle:version. generate_appcast output
+          # stays in $ARCHIVES_DIR; the feed write below runs after each fetch.
+          for attempt in 1 2 3; do
+            git fetch origin "$DEFAULT_BRANCH"
+            LIVE_APPCAST_VERSIONS=$(
+              {
+                git show "origin/${DEFAULT_BRANCH}:Updates/appcast.xml" 2>/dev/null || true
+                git show "origin/${DEFAULT_BRANCH}:Updates/appcast-beta.xml" 2>/dev/null || true
+              } | grep -oE '<sparkle:version>[0-9]+</sparkle:version>' \
+                | grep -oE '[0-9]+' || true
+            )
+            if printf '%s\n' $LIVE_APPCAST_VERSIONS | grep -qx "$BUILD_NUMBER"; then
+              echo "::error::BUILD_NUMBER ${BUILD_NUMBER} already appears in a live Sparkle feed on origin/${DEFAULT_BRANCH}. Refusing to publish a duplicate sparkle:version."
+              exit 1
+            fi
+
+            git checkout -f -B "$DEFAULT_BRANCH" "origin/${DEFAULT_BRANCH}"
+
+            python3 - "$ARCHIVES_DIR/appcast.xml" "$CHANNEL" <<'PY'
           import pathlib, re, sys
           generated = pathlib.Path(sys.argv[1])
           channel = sys.argv[2]
@@ -434,23 +475,21 @@ jobs:
               prepend(pathlib.Path("Updates/appcast-beta.xml"), item_no_delta, "Here Island Beta")
           PY
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          DEFAULT_BRANCH=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
-          DEFAULT_BRANCH=${DEFAULT_BRANCH:-main}
-
-          git fetch origin "$DEFAULT_BRANCH"
-          git stash push -u -m "appcast" -- Updates/appcast.xml Updates/appcast-beta.xml
-          git checkout -B "$DEFAULT_BRANCH" "origin/${DEFAULT_BRANCH}"
-          git stash pop || true
-          git add Updates/appcast.xml Updates/appcast-beta.xml
-          if git diff --cached --quiet; then
-            echo "No appcast changes"
-          else
+            git add Updates/appcast.xml Updates/appcast-beta.xml
+            if git diff --cached --quiet; then
+              echo "No appcast changes"
+              break
+            fi
             git commit -m "ci: update appcast for ${VERSION}"
-            git push origin "HEAD:${DEFAULT_BRANCH}"
-          fi
+            if git push origin "HEAD:${DEFAULT_BRANCH}"; then
+              break
+            fi
+            echo "Appcast push rejected (attempt ${attempt}/3); re-fetching latest ${DEFAULT_BRANCH} and retrying"
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Failed to push appcast after 3 attempts. BUILD_NUMBER ${BUILD_NUMBER} was not published."
+              exit 1
+            fi
+          done
 
       - name: Update Homebrew tap
         if: ${{ steps.version.outputs.channel == 'stable' }}

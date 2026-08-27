@@ -29,6 +29,7 @@ Git tags are `vYYYY.M.D` or `vYYYY.M.D.N`. Beta tags append `-beta.M`.
 - Pushing a `v*` tag runs Release CI. Tags containing `-beta.` are prereleases
 - Creating a tag does **not** require changing `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` on `main` just to “match” the tag
 - `sparkle:version` is a single monotonic integer shared by both channels
+- Release CI reads already-published `sparkle:version` values from both live feeds on latest `main` (`Updates/appcast.xml` and `Updates/appcast-beta.xml`), not from the tag checkout. `BUILD_NUMBER = max(git rev-list --count HEAD, highest_published + 1)`. The job fails if that number is already in either live feed (checked again immediately before the appcast commit)
 
 ### Update channels
 
@@ -40,6 +41,7 @@ Git tags are `vYYYY.M.D` or `vYYYY.M.D.N`. Beta tags append `-beta.M`.
 - The beta feed has no Sparkle deltas, including stable items copied into it
 - Beta releases must not update `/releases/latest`, `HereIsland.dmg`, or the Homebrew tap
 - Switching Beta → Stable does not downgrade; wait for a higher `sparkle:version` on the stable feed
+- Build numbers are taken from the live `main` feeds so a stable tag and a same-day beta tag cannot reuse the same `sparkle:version`
 
 ## Release notes
 
