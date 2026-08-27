@@ -284,7 +284,7 @@ struct ContentView: View {
 
             if isFlashing {
                 Rectangle()
-                    .fill(.black)
+                    .fill(.clear)
                     .frame(width: sideGrow, height: height)
             }
 
