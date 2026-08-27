@@ -257,7 +257,8 @@ struct ContentView: View {
         let height = max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
         let wing = max(0, height)
         let baseCenter = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
-        let titleWidth = isFlashing ? Self.flashTitleSlotWidth : 0
+        let titleWidth = isFlashing ? Self.flashTitleSlotWidth + wing : 0
+        let titleInner = max(titleWidth - (Self.flashTitleHorizontalInset * 2), 80)
         return HStack(spacing: 0) {
             Image(nsImage: musicManager.albumArt)
                 .resizable()
@@ -276,24 +277,24 @@ struct ContentView: View {
                     font: flashTitleFont,
                     measurementFont: flashTitleMeasurementFont,
                     textColor: .white.opacity(0.92),
-                    frameWidth: flashTitleInnerWidth,
+                    frameWidth: titleInner,
                     holdDuration: 1.2,
                     onFinished: handleFlashFinished
                 )
                 .padding(.horizontal, Self.flashTitleHorizontalInset)
                 .frame(width: titleWidth, height: height, alignment: .leading)
+            } else {
+                Rectangle()
+                    .fill(playerTint.resolvedColor(albumArt: musicManager.avgColor))
+                    .mask {
+                        AudioVisualizerView(isPlaying: .constant(musicManager.isPlaying))
+                            .frame(width: max(wing - 4, 12), height: max(height - 4, 10))
+                    }
+                    .frame(width: wing, height: height)
+                    .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
             }
-
-            Rectangle()
-                .fill(playerTint.resolvedColor(albumArt: musicManager.avgColor))
-                .mask {
-                    AudioVisualizerView(isPlaying: .constant(musicManager.isPlaying))
-                        .frame(width: max(wing - 4, 12), height: max(height - 4, 10))
-                }
-                .frame(width: wing, height: height)
-                .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
         }
-        .frame(width: wing + baseCenter + titleWidth + wing, height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
+        .frame(width: wing + baseCenter + titleWidth + (isFlashing ? 0 : wing), height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
     }
 
     private func handleHover(_ hovering: Bool) {
