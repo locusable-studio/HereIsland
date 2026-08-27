@@ -48,12 +48,13 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
     }
 }
 
-/// Tint applied to the notch player's colored elements: progress bar, time labels,
-/// song title, artist name, and the waveform.
+/// Tint applied to the notch player's colored elements: song title, artist name,
+/// waveform, and the active shuffle/repeat glyphs. Progress still uses raw avgColor.
 enum PlayerTint: String, CaseIterable, Identifiable, Defaults.Serializable {
     case white = "White"
     case albumArt = "Match album art"
     case accent = "Accent color"
+    case appleMusic = "Apple Music"
 
     var id: String { rawValue }
 
@@ -62,6 +63,7 @@ enum PlayerTint: String, CaseIterable, Identifiable, Defaults.Serializable {
         case .white: return String(localized: "White")
         case .albumArt: return String(localized: "Match album art")
         case .accent: return String(localized: "Follow system")
+        case .appleMusic: return String(localized: "Apple Music")
         }
     }
 
@@ -71,6 +73,7 @@ enum PlayerTint: String, CaseIterable, Identifiable, Defaults.Serializable {
         case .white: return .white
         case .albumArt: return Color(nsColor: albumArt).ensureMinimumBrightness(factor: 0.6)
         case .accent: return .accentColor
+        case .appleMusic: return Color(red: 0.999, green: 0.171, blue: 0.331)
         }
     }
 }
