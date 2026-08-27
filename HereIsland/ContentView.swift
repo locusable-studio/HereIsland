@@ -98,7 +98,7 @@ struct ContentView: View {
         "i'm handsome", "unknown", "not playing"
     ]
     private static let flashTitleFontSize: CGFloat = 14
-    private static let flashTitleSlotWidth: CGFloat = 260
+    private static let flashWidthExtra: CGFloat = 80
     private static let flashTitleHorizontalInset: CGFloat = 10
 
     private var flashTitleFont: Font {
@@ -254,8 +254,9 @@ struct ContentView: View {
         let height = max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
         let wing = max(0, height)
         let baseCenter = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
-        let titleWidth = isFlashing ? Self.flashTitleSlotWidth + wing : 0
-        let titleInner = max(titleWidth - (Self.flashTitleHorizontalInset * 2), 80)
+        let closedWidth = wing + baseCenter + wing
+        let titleWidth = isFlashing ? wing + Self.flashWidthExtra : 0
+        let titleInner = max(titleWidth - (Self.flashTitleHorizontalInset * 2), 40)
         return HStack(spacing: 0) {
             Image(nsImage: musicManager.albumArt)
                 .resizable()
@@ -291,7 +292,7 @@ struct ContentView: View {
                     .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
             }
         }
-        .frame(width: wing + baseCenter + titleWidth + (isFlashing ? 0 : wing), height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
+        .frame(width: isFlashing ? closedWidth + Self.flashWidthExtra : closedWidth, height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
     }
 
     private func handleHover(_ hovering: Bool) {
