@@ -36,7 +36,26 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
-          BUILD_NUMBER=$(git rev-list --count HEAD)
+          if [[ "$VERSION" == *-beta.* ]]; then
+            CHANNEL="beta"
+            PRERELEASE="true"
+          else
+            CHANNEL="stable"
+            PRERELEASE="false"
+          fi
+          # Archive marketing version: strip -beta.M. 3-part or 4-part both OK.
+          MARKETING_VERSION="${VERSION%-beta.*}"
+
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          HIGHEST_PUBLISHED=$(grep -h 'sparkle:version' Updates/appcast.xml Updates/appcast-beta.xml 2>/dev/null \
+            | grep -oE '[0-9]+' | sort -rn | head -1)
+          HIGHEST_PUBLISHED=${HIGHEST_PUBLISHED:-0}
+          if [ "$COMMIT_COUNT" -gt "$HIGHEST_PUBLISHED" ]; then
+            BUILD_NUMBER=$COMMIT_COUNT
+          else
+            BUILD_NUMBER=$((HIGHEST_PUBLISHED + 1))
+          fi
+
           # Versioned asset: immutable forever for this tag.
           DMG_NAME="${DMG_PREFIX}-${VERSION}.dmg"
           # Website / marketing asset: fixed name so /releases/latest/download stays stable.
@@ -46,24 +65,29 @@ jobs:
           DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/${DMG_NAME}"
           # Official site button should use this URL (never changes across releases).
           LATEST_DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${STABLE_DMG_NAME}"
-          # Sparkle feed URL (path stable; file content updates on main).
           APPCAST_URL="https://raw.githubusercontent.com/${REPO}/main/Updates/appcast.xml"
+          BETA_APPCAST_URL="https://raw.githubusercontent.com/${REPO}/main/Updates/appcast-beta.xml"
 
           {
             echo "tag=$TAG"
             echo "version=$VERSION"
+            echo "marketing_version=$MARKETING_VERSION"
+            echo "channel=$CHANNEL"
+            echo "prerelease=$PRERELEASE"
             echo "build_number=$BUILD_NUMBER"
             echo "dmg_name=$DMG_NAME"
             echo "stable_dmg_name=$STABLE_DMG_NAME"
             echo "download_url=$DOWNLOAD_URL"
             echo "latest_download_url=$LATEST_DOWNLOAD_URL"
             echo "appcast_url=$APPCAST_URL"
+            echo "beta_appcast_url=$BETA_APPCAST_URL"
           } >> "$GITHUB_OUTPUT"
 
-          echo "Version: $VERSION (build $BUILD_NUMBER)"
+          echo "Version: $VERSION (marketing $MARKETING_VERSION, build $BUILD_NUMBER, channel $CHANNEL)"
           echo "Immutable release asset: $DOWNLOAD_URL"
           echo "Stable website download: $LATEST_DOWNLOAD_URL"
           echo "Sparkle appcast: $APPCAST_URL"
+          echo "Sparkle beta appcast: $BETA_APPCAST_URL"
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -146,7 +170,7 @@ jobs:
 
       - name: Stamp version
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ steps.version.outputs.marketing_version }}"
           BUILD="${{ steps.version.outputs.build_number }}"
           xcrun agvtool new-marketing-version "$VERSION"
           xcrun agvtool new-version -all "$BUILD"
@@ -229,7 +253,10 @@ jobs:
 
           # Fixed-name copy for a permanent /releases/latest/download/HereIsland.dmg URL.
           # Copy after notarization+staple so the ticket is preserved; do not re-sign.
-          cp "build/${DMG_NAME}" "build/${STABLE_DMG_NAME}"
+          # Beta must not publish this alias.
+          if [ "${{ steps.version.outputs.channel }}" = "stable" ]; then
+            cp "build/${DMG_NAME}" "build/${STABLE_DMG_NAME}"
+          fi
 
           DERIVED_DATA=$(xcodebuild -project "$PROJECT" -scheme "$SCHEME" -showBuildSettings 2>/dev/null \
             | grep -m1 BUILD_DIR | awk '{print $3}' | sed 's|/Build/Products||')
@@ -246,14 +273,21 @@ jobs:
           rm -rf "$ARCHIVES_DIR"
           mkdir -p "$ARCHIVES_DIR"
           cp "build/${DMG_NAME}" "$ARCHIVES_DIR/"
-          if [ -f Updates/appcast.xml ]; then
+          # Only the stable feed is generate_appcast history. Beta is item-prepend, no deltas.
+          if [ "${{ steps.version.outputs.channel }}" = "stable" ] && [ -f Updates/appcast.xml ]; then
             cp Updates/appcast.xml "$ARCHIVES_DIR/appcast.xml"
           fi
 
           # Fetch previous versioned DMGs so generate_appcast can build deltas
           # (Sparkle default --maximum-deltas is 5). Skip the always-latest HereIsland.dmg.
-          PREV_TAGS=$(gh release list --repo "$REPO" --limit 20 --json tagName,isDraft \
-            --jq '[.[] | select(.isDraft == false) | .tagName | select(startswith("v"))] | .[:5] | .[]')
+          CHANNEL="${{ steps.version.outputs.channel }}"
+          # Stable deltas must never be built from GitHub prereleases or drafts.
+          if [ "$CHANNEL" = "stable" ]; then
+            PREV_TAGS=$(gh release list --repo "$REPO" --limit 30 --json tagName,isDraft,isPrerelease \
+              --jq '[.[] | select(.isDraft == false and .isPrerelease == false) | .tagName | select(startswith("v"))] | .[:5] | .[]')
+          else
+            PREV_TAGS=""
+          fi
           for prev in $PREV_TAGS; do
             if [ "$prev" = "$TAG" ]; then
               continue
@@ -321,15 +355,84 @@ jobs:
           done
           shopt -u nullglob
 
+          CHANNEL="${{ steps.version.outputs.channel }}"
+          PRERELEASE="${{ steps.version.outputs.prerelease }}"
+
+          # Appcast title / Sparkle shortVersion follow the full tag (minus v).
+          python3 - "$ARCHIVES_DIR/appcast.xml" "$VERSION" <<'PY'
+          import pathlib, re, sys
+          path = pathlib.Path(sys.argv[1])
+          version = sys.argv[2]
+          text = path.read_text()
+          text = re.sub(r"(<item>\s*<title>)[^<]+(</title>)", r"\g<1>" + version + r"\2", text, count=1, flags=re.S)
+          text = re.sub(
+              r"(<sparkle:shortVersionString>)[^<]+(</sparkle:shortVersionString>)",
+              r"\g<1>" + version + r"\2",
+              text,
+              count=1,
+          )
+          path.write_text(text)
+          PY
+
+          RELEASE_ARGS=("build/${DMG_NAME}")
+          if [ "$CHANNEL" = "stable" ]; then
+            RELEASE_ARGS+=("build/${STABLE_DMG_NAME}")
+            RELEASE_ARGS+=("${DELTA_ARGS[@]}")
+          fi
+
+          PRERELEASE_FLAG=()
+          if [ "$PRERELEASE" = "true" ]; then
+            PRERELEASE_FLAG=(--prerelease)
+          fi
+
           gh release create "$TAG" \
-            "build/${DMG_NAME}" \
-            "build/${STABLE_DMG_NAME}" \
-            "${DELTA_ARGS[@]}" \
+            "${RELEASE_ARGS[@]}" \
             --title "Here Island ${VERSION}" \
             --notes "" \
-            --verify-tag
+            --verify-tag \
+            "${PRERELEASE_FLAG[@]}"
 
-          cp "$ARCHIVES_DIR/appcast.xml" Updates/appcast.xml
+          python3 - "$ARCHIVES_DIR/appcast.xml" "$CHANNEL" <<'PY'
+          import pathlib, re, sys
+          generated = pathlib.Path(sys.argv[1])
+          channel = sys.argv[2]
+          text = generated.read_text()
+          # Newest item is the first <item>…</item>
+          m = re.search(r"[ \t]*<item>.*?</item>", text, flags=re.S)
+          if not m:
+              raise SystemExit("generated appcast missing item")
+          item = m.group(0)
+          item_no_delta = re.sub(r"\n[ \t]*<sparkle:deltas>.*?</sparkle:deltas>", "", item, flags=re.S)
+
+          def prepend(path: pathlib.Path, item_xml: str, title: str):
+              if path.exists():
+                  body = path.read_text()
+              else:
+                  body = (
+                      '<?xml version="1.0" standalone="yes"?>\n'
+                      '<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">\n'
+                      "    <channel>\n"
+                      f"        <title>{title}</title>\n"
+                      "    </channel>\n"
+                      "</rss>\n"
+                  )
+              if "<title>" in body:
+                  body = re.sub(
+                      r"(<title>[^<]*</title>)",
+                      r"\1\n" + item_xml,
+                      body,
+                      count=1,
+                  )
+              else:
+                  body = body.replace("<channel>", "<channel>\n" + item_xml, 1)
+              path.write_text(body)
+
+          if channel == "stable":
+              pathlib.Path("Updates/appcast.xml").write_text(text)
+              prepend(pathlib.Path("Updates/appcast-beta.xml"), item_no_delta, "Here Island Beta")
+          else:
+              prepend(pathlib.Path("Updates/appcast-beta.xml"), item_no_delta, "Here Island Beta")
+          PY
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -338,10 +441,10 @@ jobs:
           DEFAULT_BRANCH=${DEFAULT_BRANCH:-main}
 
           git fetch origin "$DEFAULT_BRANCH"
-          git stash push -u -m "appcast" -- Updates/appcast.xml
+          git stash push -u -m "appcast" -- Updates/appcast.xml Updates/appcast-beta.xml
           git checkout -B "$DEFAULT_BRANCH" "origin/${DEFAULT_BRANCH}"
           git stash pop || true
-          git add Updates/appcast.xml
+          git add Updates/appcast.xml Updates/appcast-beta.xml
           if git diff --cached --quiet; then
             echo "No appcast changes"
           else
@@ -350,6 +453,7 @@ jobs:
           fi
 
       - name: Update Homebrew tap
+        if: ${{ steps.version.outputs.channel == 'stable' }}
         env:
           TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
         run: |

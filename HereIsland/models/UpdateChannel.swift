@@ -16,15 +16,28 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import Defaults
 import Foundation
 
-/// Sparkle update feed. Here Island only ships a single stable channel.
-enum UpdateChannel {
-    static let feedURL = URL(
-        string: "https://raw.githubusercontent.com/locusable-studio/HereIsland/main/Updates/appcast.xml"
-    )!
+/// Sparkle update feed. Stable never sees beta items; beta also receives graduating stables.
+enum UpdateChannel: String, CaseIterable, Identifiable, Codable, Defaults.Serializable {
+    case stable
+    case beta
 
-    static var displayName: String {
-        String(localized: "Stable")
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .stable: return String(localized: "Stable")
+        case .beta: return String(localized: "Beta")
+        }
+    }
+
+    var feedURL: URL {
+        let base = "https://raw.githubusercontent.com/locusable-studio/HereIsland/main/Updates"
+        switch self {
+        case .stable: return URL(string: "\(base)/appcast.xml")!
+        case .beta: return URL(string: "\(base)/appcast-beta.xml")!
+        }
     }
 }

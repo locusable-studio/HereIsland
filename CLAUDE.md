@@ -10,23 +10,36 @@ Before every code commit, increment `CURRENT_PROJECT_VERSION` (build number) by 
 - Bump both Debug and Release values in sync
 - Include the build number change in the same commit as the functional changes
 
-### Marketing version: three-part CalVer only
+### Marketing version
 
-`MARKETING_VERSION` in `HereIsland.xcodeproj/project.pbxproj` is always `YYYY.M.D` (no zero-padding, no hotfix suffix).
+`MARKETING_VERSION` in `HereIsland.xcodeproj/project.pbxproj` is CalVer `YYYY.M.D` with an optional same-day `.N`. No zero-padding.
 
-- Example: `2026.8.25`
-- Never `2026.8.25.1` or any other four-part string
-- Bump this in the project only when the calendar day of the product version changes (both Debug and Release, in sync)
+- First ship of the day on `main`: `2026.8.27`
+- Same-day hotfix on `main`: `2026.8.27.1`
+- Do not write a `-beta.M` suffix into the project file
+- Release CI stamps the archive from the tag (`agvtool` gets the tag with `-beta.M` stripped). `main` does not need to match a beta tag
 
 ### Tag / release
 
-Git tags are `vYYYY.M.D`. Same-day hotfixes append `.N` **on the tag only**.
+Git tags are `vYYYY.M.D` or `vYYYY.M.D.N`. Beta tags append `-beta.M`.
 
-- First ship of the day: `v2026.8.25`
-- Same-day hotfix: `v2026.8.25.1`, then `.2`, …
-- Do **not** copy that `.N` into `MARKETING_VERSION`
-- Creating a `v*` tag does **not** require changing `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` just to “match” the tag
-- Pushing a `v*` tag runs Release CI (it may stamp the tag string into the archive; the project file on `main` still stays three-part)
+- Stable first ship of the day: `v2026.8.27`
+- Stable same-day hotfix: `v2026.8.27.1`
+- Beta: `v2026.8.27-beta.1` or `v2026.8.27.1-beta.1`
+- Pushing a `v*` tag runs Release CI. Tags containing `-beta.` are prereleases
+- Creating a tag does **not** require changing `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` on `main` just to “match” the tag
+- `sparkle:version` is a single monotonic integer shared by both channels
+
+### Update channels
+
+- Menu Extra → Updates → Channel: Stable (default) or Beta
+- Stable feed: `https://raw.githubusercontent.com/locusable-studio/HereIsland/main/Updates/appcast.xml`
+- Beta feed: `https://raw.githubusercontent.com/locusable-studio/HereIsland/main/Updates/appcast-beta.xml`
+- Stable Release CI writes both feeds (so Beta users can graduate). Beta CI writes only the beta feed
+- Stable `generate_appcast` previous DMGs skip drafts and GitHub prereleases
+- The beta feed has no Sparkle deltas, including stable items copied into it
+- Beta releases must not update `/releases/latest`, `HereIsland.dmg`, or the Homebrew tap
+- Switching Beta → Stable does not downgrade; wait for a higher `sparkle:version` on the stable feed
 
 ## Release notes
 
@@ -66,3 +79,5 @@ Optional theme suffix when useful: `Here Island 2026.8.1 — …`
 - Keep it short; one screen is enough
 - No download-link sections (GitHub Assets already list DMGs)
 - Sparkle feed (stable): `https://raw.githubusercontent.com/locusable-studio/HereIsland/main/Updates/appcast.xml`
+- Sparkle feed (beta): `https://raw.githubusercontent.com/locusable-studio/HereIsland/main/Updates/appcast-beta.xml`
+- Release title uses the full tag without `v` (e.g. `Here Island 2026.8.27-beta.1`)

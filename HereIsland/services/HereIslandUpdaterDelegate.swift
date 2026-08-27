@@ -16,6 +16,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import Defaults
 import Foundation
 import Sparkle
 
@@ -30,7 +31,7 @@ class HereIslandUpdaterDelegate: NSObject, SPUUpdaterDelegate {
     private var immediateInstallHandler: (() -> Void)?
 
     func feedURLString(for updater: SPUUpdater) -> String? {
-        UpdateChannel.feedURL.absoluteString
+        Defaults[.updateChannel].feedURL.absoluteString
     }
 
     /// With automatic downloads enabled, Sparkle installs silently on termination and shows no UI.
