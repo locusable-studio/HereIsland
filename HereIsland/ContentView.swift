@@ -358,7 +358,7 @@ struct ContentView: View {
     }
 
     private func handleSongTitleChange(_ newTitle: String) {
-        // Drop any in-flight flash immediately — no queue, then debounce the settled title.
+        // Drop any in-flight flash immediately — no queue. Title is ready: flash now.
         debounceTask?.cancel()
         debounceTask = nil
         if isFlashing {
@@ -377,7 +377,6 @@ struct ContentView: View {
         guard isFlashableTitle(trimmed) else { return }
         guard trimmed != lastFlashedTitle else { return }
         debounceTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
             guard vm.notchState == .closed, !vm.hideOnClosed else {
                 rememberTitle(musicManager.songTitle)
