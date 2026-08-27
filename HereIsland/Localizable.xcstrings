@@ -677,6 +677,23 @@
         }
       }
     },
+    "Quick peek": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick peek"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快速预览"
+          }
+        }
+      }
+    },
     "Real-time audio capture foundation": {
       "localizations": {
         "en": {

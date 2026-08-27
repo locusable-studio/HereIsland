@@ -49,7 +49,7 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
 }
 
 /// Tint applied to the notch player's colored elements: progress bar, time labels,
-/// artist name, and the waveform.
+/// song title, artist name, and the waveform.
 enum PlayerTint: String, CaseIterable, Identifiable, Defaults.Serializable {
     case white = "White"
     case albumArt = "Match album art"
@@ -98,6 +98,7 @@ extension Defaults.Keys {
         "sliderUseAlbumArtColor",
         default: .albumArt
     )
+    static let showTitleOnTrackChange = Key<Bool>("showTitleOnTrackChange", default: true)
 
     // MARK: Waveform
     static let enableRealTimeWaveform = Key<Bool>("enableRealTimeWaveform", default: false)
