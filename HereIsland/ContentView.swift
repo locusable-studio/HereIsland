@@ -99,8 +99,6 @@ struct ContentView: View {
     ]
     private static let flashTitleFontSize: CGFloat = 12
     private static let flashWidthExtraMax: CGFloat = 80
-    private static let flashTitleHorizontalInset: CGFloat = 6
-
     private var flashTitleFont: Font {
         .system(size: Self.flashTitleFontSize, weight: .medium, design: .rounded)
     }
@@ -262,7 +260,7 @@ struct ContentView: View {
         let maxSideGrow = Self.flashWidthExtraMax / 2
         let titleWidth = isFlashing ? min(max(neededSlot, wing), wing + maxSideGrow) : 0
         let sideGrow = isFlashing ? max(titleWidth - wing, 0) : 0
-        let titleInner = max(titleWidth - (Self.flashTitleHorizontalInset * 2), 8)
+        let titleInner = max(titleWidth, 8)
         return HStack(spacing: 0) {
             Image(nsImage: musicManager.albumArt)
                 .resizable()
@@ -291,7 +289,6 @@ struct ContentView: View {
                     holdDuration: 1.2,
                     onFinished: handleFlashFinished
                 )
-                .padding(.horizontal, Self.flashTitleHorizontalInset)
                 .frame(width: titleWidth, height: height, alignment: .leading)
             } else {
                 Rectangle()
