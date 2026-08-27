@@ -332,6 +332,7 @@ struct MinimalisticMusicPlayerView: View {
         size: CGFloat = 18,
         isActive: Bool = false,
         activeColor: Color? = nil,
+        inactiveColor: Color = .white.opacity(0.85),
         pressEffect: MinimalisticSquircircleButton.PressEffect = .none,
         symbolEffect: MinimalisticSquircircleButton.SymbolEffectStyle = .none,
         action: @escaping () -> Void
@@ -343,7 +344,7 @@ struct MinimalisticMusicPlayerView: View {
             fontWeight: .medium,
             frameSize: CGSize(width: 36, height: 36),
             cornerRadius: 14,
-            foregroundColor: isActive ? resolvedActiveColor : .white.opacity(0.85),
+            foregroundColor: isActive ? resolvedActiveColor : inactiveColor,
             pressEffect: pressEffect,
             symbolEffectStyle: symbolEffect,
             action: action
@@ -375,7 +376,8 @@ struct MinimalisticMusicPlayerView: View {
             controlButton(
                 icon: "shuffle",
                 isActive: musicManager.isShuffled,
-                activeColor: playerTint.resolvedColor(albumArt: musicManager.avgColor)
+                activeColor: playerTint.resolvedColor(albumArt: musicManager.avgColor),
+                inactiveColor: .white.opacity(0.65)
             ) {
                 musicManager.toggleShuffle()
             }
@@ -384,6 +386,7 @@ struct MinimalisticMusicPlayerView: View {
                 icon: repeatIcon,
                 isActive: musicManager.repeatMode != .off,
                 activeColor: playerTint.resolvedColor(albumArt: musicManager.avgColor),
+                inactiveColor: .white.opacity(0.65),
                 symbolEffect: .replace
             ) {
                 musicManager.toggleRepeat()
