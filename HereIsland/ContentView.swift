@@ -98,9 +98,7 @@ struct ContentView: View {
         "i'm handsome", "unknown", "not playing"
     ]
     private static let flashTitleFontSize: CGFloat = 12
-    private static let flashWidthExtra: CGFloat = 80
-    private static let flashTitleHorizontalInset: CGFloat = 6
-
+    private static let flashWidthExtraMax: CGFloat = 80
     private var flashTitleFont: Font {
         .system(size: Self.flashTitleFontSize, weight: .medium, design: .rounded)
     }
@@ -113,6 +111,9 @@ struct ContentView: View {
         return base
     }
 
+    private var flashTitleTextWidth: CGFloat {
+        ceil((peekTitle as NSString).size(withAttributes: [.font: flashTitleMeasurementFont]).width)
+    }
 
     private func normalizedTitle(_ title: String) -> String {
         title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -255,22 +256,24 @@ struct ContentView: View {
         let wing = max(0, height)
         let baseCenter = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
         let closedWidth = wing + baseCenter + wing
-        let sideGrow = isFlashing ? Self.flashWidthExtra / 2 : 0
-        let titleWidth = isFlashing ? wing + sideGrow : 0
-        let titleInner = max(titleWidth - (Self.flashTitleHorizontalInset * 2), 40)
+        let neededSlot = flashTitleTextWidth
+        let maxSideGrow = Self.flashWidthExtraMax / 2
+        let titleWidth = isFlashing ? min(max(neededSlot, wing), wing + maxSideGrow) : 0
+        let sideGrow = isFlashing ? max(titleWidth - wing, 0) : 0
+        let titleInner = max(titleWidth, 8)
         return HStack(spacing: 0) {
-            if isFlashing {
-                Rectangle()
-                    .fill(.black)
-                    .frame(width: sideGrow, height: height)
-            }
-
             Image(nsImage: musicManager.albumArt)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .frame(width: wing, height: height)
                 .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
+
+            if isFlashing {
+                Rectangle()
+                    .fill(.black)
+                    .frame(width: sideGrow, height: height)
+            }
 
             Rectangle()
                 .fill(.black)
@@ -286,7 +289,6 @@ struct ContentView: View {
                     holdDuration: 1.2,
                     onFinished: handleFlashFinished
                 )
-                .padding(.horizontal, Self.flashTitleHorizontalInset)
                 .frame(width: titleWidth, height: height, alignment: .leading)
             } else {
                 Rectangle()

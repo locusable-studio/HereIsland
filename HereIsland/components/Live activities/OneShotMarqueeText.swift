@@ -40,9 +40,8 @@ struct OneShotMarqueeText: View {
         ceil((text as NSString).size(withAttributes: [.font: measurementFont]).width)
     }
 
-    /// Fudge so slightly-narrow NSFont measurements still marquee instead of clipping.
     private var needsScrolling: Bool {
-        textWidth > frameWidth - 4
+        frameWidth > 8 && textWidth > frameWidth
     }
 
     private var isFrameUsable: Bool {
