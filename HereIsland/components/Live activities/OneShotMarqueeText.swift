@@ -41,7 +41,7 @@ struct OneShotMarqueeText: View {
     }
 
     private var needsScrolling: Bool {
-        textWidth > frameWidth + 0.5
+        frameWidth > 8 && textWidth > frameWidth - 4
     }
 
     var body: some View {
@@ -51,7 +51,7 @@ struct OneShotMarqueeText: View {
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .offset(x: offset)
-            .frame(width: frameWidth, alignment: needsScrolling ? .leading : .center)
+            .frame(width: frameWidth, alignment: .leading)
             .clipped()
             .onAppear { start() }
             .onDisappear {
@@ -63,12 +63,23 @@ struct OneShotMarqueeText: View {
                 offset = 0
                 start()
             }
+            .onChange(of: frameWidth) { _, _ in
+                runTask?.cancel()
+                offset = 0
+                start()
+            }
     }
 
     private func start() {
         runTask?.cancel()
         offset = 0
         runTask = Task { @MainActor in
+            var waited = 0
+            while frameWidth <= 8, waited < 10, !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(16))
+                waited += 1
+            }
+            guard !Task.isCancelled, frameWidth > 8 else { return }
             if needsScrolling {
                 // Brief beat so the leading words are readable, then one linear pass.
                 try? await Task.sleep(for: .milliseconds(350))
