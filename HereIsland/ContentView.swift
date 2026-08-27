@@ -97,8 +97,9 @@ struct ContentView: View {
     private static let placeholderTitles: Set<String> = [
         "i'm handsome", "unknown", "not playing"
     ]
-    private static let flashTitleFontSize: CGFloat = 12
-    private static let flashTitleHorizontalInset: CGFloat = 2
+    private static let flashTitleFontSize: CGFloat = 14
+    private static let flashTitleSlotWidth: CGFloat = 260
+    private static let flashTitleHorizontalInset: CGFloat = 10
 
     private var flashTitleFont: Font {
         .system(size: Self.flashTitleFontSize, weight: .semibold, design: .rounded)
@@ -253,7 +254,8 @@ struct ContentView: View {
         let height = max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
         let wing = max(0, height)
         let baseCenter = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
-        let titleInner = max(wing - (Self.flashTitleHorizontalInset * 2), 8)
+        let titleWidth = isFlashing ? Self.flashTitleSlotWidth + wing : 0
+        let titleInner = max(titleWidth - (Self.flashTitleHorizontalInset * 2), 80)
         return HStack(spacing: 0) {
             Image(nsImage: musicManager.albumArt)
                 .resizable()
@@ -277,7 +279,7 @@ struct ContentView: View {
                     onFinished: handleFlashFinished
                 )
                 .padding(.horizontal, Self.flashTitleHorizontalInset)
-                .frame(width: wing, height: height, alignment: .leading)
+                .frame(width: titleWidth, height: height, alignment: .leading)
             } else {
                 Rectangle()
                     .fill(playerTint.resolvedColor(albumArt: musicManager.avgColor))
@@ -289,7 +291,7 @@ struct ContentView: View {
                     .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
             }
         }
-        .frame(width: wing + baseCenter + wing, height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
+        .frame(width: wing + baseCenter + titleWidth + (isFlashing ? 0 : wing), height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
     }
 
     private func handleHover(_ hovering: Bool) {
