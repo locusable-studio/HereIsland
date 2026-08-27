@@ -36,6 +36,7 @@ struct ContentView: View {
 
     @Default(.enableHaptics) private var enableHaptics
     @Default(.playerTint) private var playerTint
+    @Default(.showTitleOnTrackChange) private var showTitleOnTrackChange
 
     @Namespace private var albumArtNamespace
     @State private var isHovering = false
@@ -175,6 +176,12 @@ struct ContentView: View {
                 rememberTitle(musicManager.songTitle)
             }
         }
+        .onChange(of: showTitleOnTrackChange) { _, enabled in
+            if !enabled {
+                cancelFlashForOpen()
+                rememberTitle(musicManager.songTitle)
+            }
+        }
     }
 
     private var notchChrome: some View {
@@ -284,7 +291,7 @@ struct ContentView: View {
                     text: peekTitle,
                     font: flashTitleFont,
                     measurementFont: flashTitleMeasurementFont,
-                    textColor: .white.opacity(0.92),
+                    textColor: playerTint.resolvedColor(albumArt: musicManager.avgColor),
                     frameWidth: titleInner,
                     holdDuration: 1.2,
                     onFinished: handleFlashFinished
@@ -357,12 +364,20 @@ struct ContentView: View {
             rememberTitle(trimmed)
             return
         }
+        guard showTitleOnTrackChange else {
+            rememberTitle(trimmed)
+            return
+        }
         guard isFlashableTitle(trimmed) else { return }
         guard trimmed != lastFlashedTitle else { return }
         debounceTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
             guard vm.notchState == .closed, !vm.hideOnClosed else {
+                rememberTitle(musicManager.songTitle)
+                return
+            }
+            guard showTitleOnTrackChange else {
                 rememberTitle(musicManager.songTitle)
                 return
             }
@@ -373,6 +388,7 @@ struct ContentView: View {
     }
 
     private func startFlash(title: String) {
+        guard showTitleOnTrackChange else { return }
         flashTask?.cancel()
         lastFlashedTitle = title
         peekTitle = title
