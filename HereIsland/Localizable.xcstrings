@@ -777,6 +777,23 @@
         }
       }
     },
+    "Show title on track change": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show title on track change"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切歌时显示歌名"
+          }
+        }
+      }
+    },
     "Shuffle": {
       "extractionState": "manual",
       "localizations": {

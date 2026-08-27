@@ -31,6 +31,7 @@ struct DynamicNotchApp: App {
     @Default(.showWindowShadow) var showWindowShadow
     @Default(.hideFromScreenCapture) var hideFromScreenCapture
     @Default(.enableRealTimeWaveform) var enableRealTimeWaveform
+    @Default(.showTitleOnTrackChange) var showTitleOnTrackChange
     @Default(.mediaController) var mediaController
     @Default(.playerTint) var playerTint
     @Default(.updateChannel) var updateChannel
@@ -69,6 +70,7 @@ struct DynamicNotchApp: App {
                 Toggle(String(localized: "Album art background"), isOn: $showAlbumArtBackgroundEffects)
                 Toggle(String(localized: "Window shadow"), isOn: $showWindowShadow)
                 Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
+                Toggle(String(localized: "Show title on track change"), isOn: $showTitleOnTrackChange)
                 Picker(String(localized: "Accent color"), selection: $playerTint) {
                     ForEach(PlayerTint.allCases) { option in
                         Text(option.localizedName).tag(option)

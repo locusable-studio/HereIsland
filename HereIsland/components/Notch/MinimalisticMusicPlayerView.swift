@@ -79,7 +79,7 @@ struct MinimalisticMusicPlayerView: View {
                                         isExplicit: musicManager.isCurrentTrackExplicit,
                                         font: .system(size: 12, weight: .semibold),
                                         nsFont: .subheadline,
-                                        textColor: .white,
+                                        textColor: playerTint.resolvedColor(albumArt: musicManager.avgColor),
                                         frameWidth: textWidth,
                                         badgeHeight: 13
                                     )
@@ -207,7 +207,7 @@ struct MinimalisticMusicPlayerView: View {
                             isExplicit: musicManager.isCurrentTrackExplicit,
                             font: .system(size: 12, weight: .semibold),
                             nsFont: .subheadline,
-                            textColor: .white,
+                            textColor: playerTint.resolvedColor(albumArt: musicManager.avgColor),
                             frameWidth: textAreaWidth,
                             badgeHeight: 13
                         )
@@ -228,7 +228,7 @@ struct MinimalisticMusicPlayerView: View {
         .frame(height: 26) // Only the text portion is in-flow; album art overlaps upward
     }
 
-    /// Dimmed slightly so the artist stays subordinate to the white song title,
+    /// Dimmed slightly so the artist stays subordinate to the song title,
     /// which matters most when the tint is white too.
     private var artistNameColor: Color {
         playerTint.resolvedColor(albumArt: musicManager.avgColor).opacity(0.85)
