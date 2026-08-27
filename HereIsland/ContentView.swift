@@ -302,6 +302,9 @@ struct ContentView: View {
     private func handleHover(_ hovering: Bool) {
         hoverTask?.cancel()
         if hovering {
+            // Open wins: cancel flash immediately, then take the existing hover-open path.
+            cancelFlashForOpen()
+            rememberTitle(musicManager.songTitle)
             withAnimation(.bouncy.speed(1.2)) { isHovering = true }
             guard vm.notchState == .closed else { return }
             hoverTask = Task { @MainActor in
