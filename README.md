@@ -8,6 +8,8 @@
 A minimal live activity in your MacBook notch — album art, controls, and a real-time waveform for what’s playing now.
 
 <p align="center">
+  <img src="docs/peek.gif" alt="Here Island Quick peek on track change" width="394">
+  <br>
   <img src="docs/shot-expanded.jpg" alt="Here Island expanded media controls" width="890">
   <br>
   <img src="docs/shot-compact.jpg" alt="Here Island compact notch player" width="722">
