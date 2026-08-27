@@ -43,6 +43,7 @@ struct ContentView: View {
     @State private var hoverTask: Task<Void, Never>?
     @State private var isFlashing = false
     @State private var peekTitle = ""
+    @State private var peekTitleColor: Color = .white
     @State private var lastFlashedTitle = ""
     @State private var flashTask: Task<Void, Never>?
     @State private var debounceTask: Task<Void, Never>?
@@ -291,11 +292,12 @@ struct ContentView: View {
                     text: peekTitle,
                     font: flashTitleFont,
                     measurementFont: flashTitleMeasurementFont,
-                    textColor: playerTint.resolvedColor(albumArt: musicManager.avgColor),
+                    textColor: peekTitleColor,
                     frameWidth: titleInner,
                     holdDuration: 1.2,
                     onFinished: handleFlashFinished
                 )
+                .transaction { $0.animation = nil }
                 .frame(width: titleWidth, height: height, alignment: .leading)
             } else {
                 Rectangle()
@@ -391,6 +393,7 @@ struct ContentView: View {
         flashTask?.cancel()
         lastFlashedTitle = title
         peekTitle = title
+        peekTitleColor = playerTint.resolvedColor(albumArt: musicManager.avgColor)
         isFlashing = true
         // Safety retract if the one-shot view never reports finished.
         flashTask = Task { @MainActor in
