@@ -181,6 +181,10 @@ struct ContentView: View {
                 rememberTitle(musicManager.songTitle)
             }
         }
+        .onChange(of: musicManager.avgColor) { _, newColor in
+            guard isFlashing else { return }
+            peekTitleColor = playerTint.resolvedColor(albumArt: newColor)
+        }
     }
 
     private var notchChrome: some View {
