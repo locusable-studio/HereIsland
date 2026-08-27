@@ -107,7 +107,7 @@ struct OneShotMarqueeText: View {
                 try? await Task.sleep(for: .milliseconds(420))
                 guard !Task.isCancelled else { return }
                 scrollStart = Date()
-                try? await Task.sleep(for: .seconds(duration + 0.2))
+                try? await Task.sleep(for: .seconds(duration + 0.6))
             } else {
                 try? await Task.sleep(for: .seconds(holdDuration))
             }
