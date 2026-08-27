@@ -37,6 +37,7 @@ struct OneShotMarqueeText: View {
     @State private var runTask: Task<Void, Never>?
     @State private var settleTask: Task<Void, Never>?
     @State private var startedAtWidth: CGFloat = 0
+    @State private var motionLocked: Bool = false
 
     private var textWidth: CGFloat {
         ceil((text as NSString).size(withAttributes: [.font: measurementFont]).width)
@@ -65,18 +66,20 @@ struct OneShotMarqueeText: View {
                 settleTask = nil
                 runTask?.cancel()
                 runTask = nil
+                motionLocked = false
             }
             .onChange(of: text) { _, _ in
                 runTask?.cancel()
                 settleTask?.cancel()
+                motionLocked = false
                 snapOffset(to: 0)
                 startedAtWidth = 0
                 scheduleStart()
             }
             .onChange(of: frameWidth) { _, newWidth in
-                // Peek spring interpolates the slot. Hold still until it settles,
-                // otherwise the linear scroll fights the changing clip.
-                guard newWidth > 8 else { return }
+                // Peek spring interpolates the slot. Hold still until it settles.
+                // After motion starts, ignore jitter from album-art / tint updates.
+                guard newWidth > 8, !motionLocked else { return }
                 if runTask != nil, abs(newWidth - startedAtWidth) <= 1 {
                     return
                 }
@@ -116,6 +119,7 @@ struct OneShotMarqueeText: View {
         }
         let width = frameWidth
         startedAtWidth = width
+        motionLocked = true
         let scrolling = needsScrolling(in: width)
         runTask = Task { @MainActor in
             if scrolling {
