@@ -97,9 +97,9 @@ struct ContentView: View {
     private static let placeholderTitles: Set<String> = [
         "i'm handsome", "unknown", "not playing"
     ]
-    private static let flashTitleFontSize: CGFloat = 12
-    private static let flashTitleMaxWidth: CGFloat = 160
-    private static let flashTitleMinWidth: CGFloat = 72
+    private static let flashTitleFontSize: CGFloat = 14
+    private static let flashTitleSlotWidth: CGFloat = 260
+    private static let flashTitleHorizontalInset: CGFloat = 10
 
     private var flashTitleFont: Font {
         .system(size: Self.flashTitleFontSize, weight: .semibold, design: .rounded)
@@ -113,12 +113,12 @@ struct ContentView: View {
         return base
     }
 
-    private func measuredTitleWidth(_ title: String) -> CGFloat {
-        ceil((title as NSString).size(withAttributes: [.font: flashTitleMeasurementFont]).width)
+    private var flashTitleSlotWidth: CGFloat {
+        Self.flashTitleSlotWidth
     }
 
-    private var flashTitleSlotWidth: CGFloat {
-        min(max(measuredTitleWidth(peekTitle) + 16, Self.flashTitleMinWidth), Self.flashTitleMaxWidth)
+    private var flashTitleInnerWidth: CGFloat {
+        max(flashTitleSlotWidth - (Self.flashTitleHorizontalInset * 2), 80)
     }
 
     private func normalizedTitle(_ title: String) -> String {
@@ -280,11 +280,12 @@ struct ContentView: View {
                     font: flashTitleFont,
                     measurementFont: flashTitleMeasurementFont,
                     textColor: .white.opacity(0.92),
-                    frameWidth: titleWidth,
+                    frameWidth: flashTitleInnerWidth,
                     holdDuration: 1.2,
                     onFinished: handleFlashFinished
                 )
-                .frame(width: titleWidth, height: height)
+                .padding(.horizontal, Self.flashTitleHorizontalInset)
+                .frame(width: titleWidth, height: height, alignment: .leading)
             }
 
             Rectangle()
@@ -340,6 +341,12 @@ struct ContentView: View {
     }
 
     private func handleSongTitleChange(_ newTitle: String) {
+        debounceTask?.cancel()
+        debounceTask = nil
+        if isFlashing {
+            retractFlash()
+        }
+
         let trimmed = normalizedTitle(newTitle)
         guard vm.notchState == .closed, !vm.hideOnClosed else {
             rememberTitle(trimmed)
@@ -347,11 +354,13 @@ struct ContentView: View {
         }
         guard isFlashableTitle(trimmed) else { return }
         guard trimmed != lastFlashedTitle else { return }
-        debounceTask?.cancel()
         debounceTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
-            guard vm.notchState == .closed, !vm.hideOnClosed else { return }
+            guard vm.notchState == .closed, !vm.hideOnClosed else {
+                rememberTitle(musicManager.songTitle)
+                return
+            }
             let settled = normalizedTitle(musicManager.songTitle)
             guard isFlashableTitle(settled), settled != lastFlashedTitle else { return }
             startFlash(title: settled)
