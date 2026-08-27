@@ -97,16 +97,16 @@ struct ContentView: View {
     private static let placeholderTitles: Set<String> = [
         "i'm handsome", "unknown", "not playing"
     ]
-    private static let flashTitleFontSize: CGFloat = 14
+    private static let flashTitleFontSize: CGFloat = 12
     private static let flashWidthExtra: CGFloat = 80
-    private static let flashTitleHorizontalInset: CGFloat = 10
+    private static let flashTitleHorizontalInset: CGFloat = 6
 
     private var flashTitleFont: Font {
-        .system(size: Self.flashTitleFontSize, weight: .semibold, design: .rounded)
+        .system(size: Self.flashTitleFontSize, weight: .medium, design: .rounded)
     }
 
     private var flashTitleMeasurementFont: NSFont {
-        let base = NSFont.systemFont(ofSize: Self.flashTitleFontSize, weight: .semibold)
+        let base = NSFont.systemFont(ofSize: Self.flashTitleFontSize, weight: .medium)
         if let rounded = base.fontDescriptor.withDesign(.rounded) {
             return NSFont(descriptor: rounded, size: Self.flashTitleFontSize) ?? base
         }
@@ -293,6 +293,9 @@ struct ContentView: View {
             }
         }
         .frame(width: isFlashing ? closedWidth + Self.flashWidthExtra : closedWidth, height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
+        // Keep the left edge pinned so the title sits fully right of the hardware notch.
+        // A centered grow hides extra/2 of the title under the cutout (only the last glyphs show).
+        .offset(x: isFlashing ? Self.flashWidthExtra / 2 : 0)
     }
 
     private func handleHover(_ hovering: Bool) {
