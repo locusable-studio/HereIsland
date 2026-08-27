@@ -372,11 +372,20 @@ struct MinimalisticMusicPlayerView: View {
                 action: { musicManager.nextTrack() }
             )
         case .shuffle:
-            controlButton(icon: "shuffle", isActive: musicManager.isShuffled) {
+            controlButton(
+                icon: "shuffle",
+                isActive: musicManager.isShuffled,
+                activeColor: playerTint.resolvedColor(albumArt: musicManager.avgColor)
+            ) {
                 musicManager.toggleShuffle()
             }
         case .repeatMode:
-            controlButton(icon: repeatIcon, isActive: musicManager.repeatMode != .off, symbolEffect: .replace) {
+            controlButton(
+                icon: repeatIcon,
+                isActive: musicManager.repeatMode != .off,
+                activeColor: playerTint.resolvedColor(albumArt: musicManager.avgColor),
+                symbolEffect: .replace
+            ) {
                 musicManager.toggleRepeat()
             }
         }
