@@ -185,6 +185,10 @@ struct ContentView: View {
             guard isFlashing else { return }
             peekTitleColor = playerTint.resolvedColor(albumArt: newColor)
         }
+        .onChange(of: musicManager.albumArt) { _, newArt in
+            guard isFlashing else { return }
+            peekAlbumArt = newArt
+        }
     }
 
     private var notchChrome: some View {
