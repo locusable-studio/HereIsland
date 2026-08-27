@@ -86,6 +86,9 @@ extension Defaults.Keys {
     /// Menu (General, after Haptics): “Hide during screenshots and recordings”. Atoll’s hideDynamicIslandFromScreenCapture; default off.
     static let hideFromScreenCapture = Key<Bool>("hideFromScreenCapture", default: false)
 
+    /// Menu (Updates): Channel — Stable (default) or Beta.
+    static let updateChannel = Key<UpdateChannel>("updateChannel", default: .stable)
+
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: .nowPlaying)
 

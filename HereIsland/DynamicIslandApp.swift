@@ -33,6 +33,7 @@ struct DynamicNotchApp: App {
     @Default(.enableRealTimeWaveform) var enableRealTimeWaveform
     @Default(.mediaController) var mediaController
     @Default(.playerTint) var playerTint
+    @Default(.updateChannel) var updateChannel
     @ObservedObject private var musicManager = MusicManager.shared
 
     let updaterController: SPUStandardUpdaterController
@@ -84,6 +85,14 @@ struct DynamicNotchApp: App {
             }
 
             Section(String(localized: "Updates")) {
+                Picker(String(localized: "Channel"), selection: $updateChannel) {
+                    ForEach(UpdateChannel.allCases) { channel in
+                        Text(channel.localizedName).tag(channel)
+                    }
+                }
+                .onChange(of: updateChannel) { _, _ in
+                    updaterController.updater.resetUpdateCycle()
+                }
                 CheckForUpdatesView(updater: updaterController.updater, updaterDelegate: updaterDelegate)
                 Menu(String(localized: "Update Settings")) {
                     UpdaterSettingsView(updater: updaterController.updater)
