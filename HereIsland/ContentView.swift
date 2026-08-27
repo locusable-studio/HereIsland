@@ -302,7 +302,8 @@ struct ContentView: View {
     private func handleHover(_ hovering: Bool) {
         hoverTask?.cancel()
         if hovering {
-            // Open wins: cancel flash immediately, then take the existing hover-open path.
+            // Open wins: drop an in-progress flash immediately, then use the
+            // existing hover-to-open path. After close, lastFlashedTitle prevents a re-flash.
             cancelFlashForOpen()
             rememberTitle(musicManager.songTitle)
             withAnimation(.bouncy.speed(1.2)) { isHovering = true }
@@ -340,18 +341,27 @@ struct ContentView: View {
     }
 
     private func handleSongTitleChange(_ newTitle: String) {
+        debounceTask?.cancel()
+        debounceTask = nil
+
+        // A newer title invalidates any in-flight flash. No queue.
+        if isFlashing {
+            retractFlash()
+        }
+
         let trimmed = normalizedTitle(newTitle)
         guard vm.notchState == .closed, !vm.hideOnClosed else {
             rememberTitle(trimmed)
             return
         }
-        guard isFlashableTitle(trimmed) else { return }
-        guard trimmed != lastFlashedTitle else { return }
-        debounceTask?.cancel()
+
         debounceTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
-            guard vm.notchState == .closed, !vm.hideOnClosed else { return }
+            guard vm.notchState == .closed, !vm.hideOnClosed else {
+                rememberTitle(musicManager.songTitle)
+                return
+            }
             let settled = normalizedTitle(musicManager.songTitle)
             guard isFlashableTitle(settled), settled != lastFlashedTitle else { return }
             startFlash(title: settled)
