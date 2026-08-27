@@ -560,7 +560,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2026.8.25;
+				MARKETING_VERSION = 2026.8.27;
 				PRODUCT_BUNDLE_IDENTIFIER = com.locusable.hereisland;
 				PRODUCT_NAME = "Here Island";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -624,7 +624,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2026.8.25;
+				MARKETING_VERSION = 2026.8.27;
 				PRODUCT_BUNDLE_IDENTIFIER = com.locusable.hereisland;
 				PRODUCT_NAME = "Here Island";
 				PROVISIONING_PROFILE_SPECIFIER = "";

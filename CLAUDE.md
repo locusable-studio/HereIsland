@@ -12,12 +12,12 @@ Before every code commit, increment `CURRENT_PROJECT_VERSION` (build number) by 
 
 ### Marketing version
 
-`MARKETING_VERSION` in `HereIsland.xcodeproj/project.pbxproj` is CalVer `YYYY.M.D` with an optional same-day `.N`. No zero-padding.
+`MARKETING_VERSION` in `HereIsland.xcodeproj/project.pbxproj` is always three-part CalVer `YYYY.M.D`. No zero-padding. No fourth/hotfix segment.
 
 - First ship of the day on `main`: `2026.8.27`
-- Same-day hotfix on `main`: `2026.8.27.1`
-- Do not write a `-beta.M` suffix into the project file
-- Release CI stamps the archive from the tag (`agvtool` gets the tag with `-beta.M` stripped). `main` does not need to match a beta tag
+- Same-day hotfix: still `2026.8.27` in the project. The `.1` / `.2` suffix is for the git tag only
+- Do not write `2026.8.27.1` or a `-beta.M` suffix into the project file
+- Before every tag, set this to that day's date. The in-app About version is this project value (`GENERATE_INFOPLIST_FILE = YES`). Do not rely on Release CI `agvtool` to stamp it
 
 ### Tag / release
 
@@ -27,7 +27,7 @@ Git tags are `vYYYY.M.D` or `vYYYY.M.D.N`. Beta tags append `-beta.M`.
 - Stable same-day hotfix: `v2026.8.27.1`
 - Beta: `v2026.8.27-beta.1` or `v2026.8.27.1-beta.1`
 - Pushing a `v*` tag runs Release CI. Tags containing `-beta.` are prereleases
-- Creating a tag does **not** require changing `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` on `main` just to “match” the tag
+- Before every tag, set `MARKETING_VERSION` on `main` to that day’s `YYYY.M.D`. Do not change `CURRENT_PROJECT_VERSION` just to match the tag
 - `sparkle:version` is a single monotonic integer shared by both channels
 - Release CI reads already-published `sparkle:version` values from both live feeds on latest `main` (`Updates/appcast.xml` and `Updates/appcast-beta.xml`), not from the tag checkout. `BUILD_NUMBER = max(git rev-list --count HEAD, highest_published + 1)`. The job fails if that number is already in either live feed (checked again immediately before the appcast commit)
 
