@@ -40,8 +40,13 @@ struct OneShotMarqueeText: View {
         ceil((text as NSString).size(withAttributes: [.font: measurementFont]).width)
     }
 
+    /// Fudge so slightly-narrow NSFont measurements still marquee instead of clipping.
     private var needsScrolling: Bool {
-        textWidth > frameWidth + 0.5
+        textWidth > frameWidth - 4
+    }
+
+    private var isFrameUsable: Bool {
+        frameWidth > 8
     }
 
     var body: some View {
@@ -51,7 +56,7 @@ struct OneShotMarqueeText: View {
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .offset(x: offset)
-            .frame(width: frameWidth, alignment: needsScrolling ? .leading : .center)
+            .frame(width: frameWidth, alignment: .leading)
             .clipped()
             .onAppear { start() }
             .onDisappear {
@@ -63,11 +68,21 @@ struct OneShotMarqueeText: View {
                 offset = 0
                 start()
             }
+            .onChange(of: frameWidth) { _, _ in
+                // Peek spring can first lay out a 0-width slot; start only once it is usable.
+                if isFrameUsable, runTask == nil {
+                    start()
+                }
+            }
     }
 
     private func start() {
         runTask?.cancel()
         offset = 0
+        guard isFrameUsable else {
+            runTask = nil
+            return
+        }
         runTask = Task { @MainActor in
             if needsScrolling {
                 // Brief beat so the leading words are readable, then one linear pass.
