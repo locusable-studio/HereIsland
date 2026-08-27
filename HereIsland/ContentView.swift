@@ -255,9 +255,16 @@ struct ContentView: View {
         let wing = max(0, height)
         let baseCenter = max(vm.closedNotchSize.width + (isHovering ? 8 : 0), 96)
         let closedWidth = wing + baseCenter + wing
-        let titleWidth = isFlashing ? wing + Self.flashWidthExtra : 0
+        let sideGrow = isFlashing ? Self.flashWidthExtra / 2 : 0
+        let titleWidth = isFlashing ? wing + sideGrow : 0
         let titleInner = max(titleWidth - (Self.flashTitleHorizontalInset * 2), 40)
         return HStack(spacing: 0) {
+            if isFlashing {
+                Rectangle()
+                    .fill(.black)
+                    .frame(width: sideGrow, height: height)
+            }
+
             Image(nsImage: musicManager.albumArt)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
@@ -292,10 +299,7 @@ struct ContentView: View {
                     .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
             }
         }
-        .frame(width: isFlashing ? closedWidth + Self.flashWidthExtra : closedWidth, height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
-        // Keep the left edge pinned so the title sits fully right of the hardware notch.
-        // A centered grow hides extra/2 of the title under the cutout (only the last glyphs show).
-        .offset(x: isFlashing ? Self.flashWidthExtra / 2 : 0)
+        .frame(width: closedWidth + (sideGrow * 2), height: vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), alignment: .center)
     }
 
     private func handleHover(_ hovering: Bool) {
