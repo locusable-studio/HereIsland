@@ -35,17 +35,19 @@ struct OneShotMarqueeText: View {
 
     @State private var offset: CGFloat = 0
     @State private var runTask: Task<Void, Never>?
+    @State private var settleTask: Task<Void, Never>?
+    @State private var startedAtWidth: CGFloat = 0
 
     private var textWidth: CGFloat {
         ceil((text as NSString).size(withAttributes: [.font: measurementFont]).width)
     }
 
-    private var needsScrolling: Bool {
-        frameWidth > 8 && textWidth > frameWidth
-    }
-
     private var isFrameUsable: Bool {
         frameWidth > 8
+    }
+
+    private func needsScrolling(in width: CGFloat) -> Bool {
+        width > 8 && textWidth > width
     }
 
     var body: some View {
@@ -57,39 +59,73 @@ struct OneShotMarqueeText: View {
             .offset(x: offset)
             .frame(width: frameWidth, alignment: .leading)
             .clipped()
-            .onAppear { start() }
+            .onAppear { scheduleStart() }
             .onDisappear {
+                settleTask?.cancel()
+                settleTask = nil
                 runTask?.cancel()
                 runTask = nil
             }
             .onChange(of: text) { _, _ in
                 runTask?.cancel()
-                offset = 0
-                start()
+                settleTask?.cancel()
+                snapOffset(to: 0)
+                startedAtWidth = 0
+                scheduleStart()
             }
-            .onChange(of: frameWidth) { _, _ in
-                // Peek spring can first lay out a 0-width slot; start only once it is usable.
-                if isFrameUsable, runTask == nil {
-                    start()
+            .onChange(of: frameWidth) { _, newWidth in
+                // Peek spring interpolates the slot. Hold still until it settles,
+                // otherwise the linear scroll fights the changing clip.
+                guard newWidth > 8 else { return }
+                if runTask != nil, abs(newWidth - startedAtWidth) <= 1 {
+                    return
                 }
+                runTask?.cancel()
+                snapOffset(to: 0)
+                scheduleStart()
             }
     }
 
-    private func start() {
-        runTask?.cancel()
-        offset = 0
+    private func snapOffset(to value: CGFloat) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            offset = value
+        }
+    }
+
+    private func scheduleStart() {
+        settleTask?.cancel()
         guard isFrameUsable else {
             runTask = nil
             return
         }
+        settleTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(90))
+            guard !Task.isCancelled else { return }
+            start()
+        }
+    }
+
+    private func start() {
+        runTask?.cancel()
+        snapOffset(to: 0)
+        guard isFrameUsable else {
+            runTask = nil
+            return
+        }
+        let width = frameWidth
+        startedAtWidth = width
+        let scrolling = needsScrolling(in: width)
         runTask = Task { @MainActor in
-            if needsScrolling {
+            if scrolling {
                 // Brief beat so the leading words are readable, then one linear pass.
                 try? await Task.sleep(for: .milliseconds(350))
                 guard !Task.isCancelled else { return }
-                let distance = max(textWidth - frameWidth, 0)
+                let distance = max(textWidth - width, 0)
                 let duration = max(Double(distance) / 36.0, 0.45)
-                withAnimation(.linear(duration: duration)) {
+                var transaction = Transaction(animation: .linear(duration: duration))
+                withTransaction(transaction) {
                     offset = -distance
                 }
                 try? await Task.sleep(for: .seconds(duration + 0.2))
