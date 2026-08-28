@@ -1046,36 +1046,19 @@
         }
       }
     },
-    "Lock screen media panel inspiration": {
+    "Hide when fullscreen": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lock screen media panel inspiration"
+            "value": "Hide when fullscreen"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "锁屏媒体面板的灵感来源"
-          }
-        }
-      }
-    },
-    "Lock screen widget": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lock screen widget"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "锁屏组件"
+            "value": "全屏时隐藏"
           }
         }
       }
@@ -1110,6 +1093,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "测试版"
+          }
+        }
+      }
+    },
+    "Lock screen widget": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lock screen widget"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "锁屏组件"
+          }
+        }
+      }
+    },
+    "Lock screen media panel inspiration": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lock screen media panel inspiration"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "锁屏媒体面板的灵感来源"
           }
         }
       }

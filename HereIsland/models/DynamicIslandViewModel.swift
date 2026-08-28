@@ -17,6 +17,7 @@
  */
 
 import Combine
+import Defaults
 import SwiftUI
 
 @MainActor
@@ -82,7 +83,18 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] shouldHide in
                 withAnimation(.smooth) {
-                    self?.hideOnClosed = shouldHide
+                    self?.hideOnClosed = Defaults[.hideWhenFullscreen] && shouldHide
+                }
+            }
+            .store(in: &cancellables)
+
+        Defaults.publisher(.hideWhenFullscreen)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] change in
+                guard let self, let name = self.screen else { return }
+                let flagged = self.detector.fullscreenStatus[name] ?? false
+                withAnimation(.smooth) {
+                    self.hideOnClosed = change.newValue && flagged
                 }
             }
             .store(in: &cancellables)
