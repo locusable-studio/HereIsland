@@ -20,6 +20,7 @@
  */
 
 import AppKit
+import CoreGraphics
 import Defaults
 import SwiftUI
 
@@ -51,14 +52,23 @@ final class LockScreenPanelManager {
         }
     }
 
+    /// Menu-bar / clock display (`CGMainDisplayID`), not the notch Display picker
+    /// and not `NSScreen.main` (that's the key-window screen).
     func targetScreens() -> [NSScreen] {
-        if DisplayDestination.showsOnAllDisplays {
-            return orderedScreens()
+        menuBarScreen().map { [$0] } ?? []
+    }
+
+    private func menuBarScreen() -> NSScreen? {
+        let mainID = CGMainDisplayID()
+        if let match = NSScreen.screens.first(where: { screen in
+            guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+                return false
+            }
+            return CGDirectDisplayID(number.uint32Value) == mainID
+        }) {
+            return match
         }
-        if let screen = resolveNotchHostScreen() {
-            return [screen]
-        }
-        return NSScreen.screens.first.map { [$0] } ?? []
+        return NSScreen.screens.first
     }
 
     func showPanel() {
