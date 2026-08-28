@@ -57,10 +57,10 @@ struct LockScreenMusicPanel: View {
             width: LockScreenPanelManager.panelSize.width,
             height: LockScreenPanelManager.panelSize.height
         )
-        .background {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(.ultraThinMaterial)
-        }
+        .glassEffect(
+            .regular,
+            in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+        )
     }
 
     private var artwork: some View {
