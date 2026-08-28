@@ -1046,6 +1046,23 @@
         }
       }
     },
+    "Lock screen media panel inspiration": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lock screen media panel inspiration"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "锁屏媒体面板的灵感来源"
+          }
+        }
+      }
+    },
     "Lock screen widget": {
       "extractionState": "manual",
       "localizations": {
