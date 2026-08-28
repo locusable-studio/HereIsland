@@ -49,7 +49,7 @@ struct DynamicNotchApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("dynamic.island", systemImage: "inset.filled.capsule") {
+        MenuBarExtra("Here Island", systemImage: "inset.filled.capsule") {
             Section(String(localized: "General")) {
                 LaunchAtLogin.Toggle {
                     Text(String(localized: "Launch at login"))
@@ -223,7 +223,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             for (screen, window) in windows {
                 viewModels[screen]?.onViewTeardown?()
                 viewModels[screen]?.onViewTeardown = nil
-                NotchSpaceManager.shared.notchSpace.windows.remove(window)
                 window.close()
             }
             windows.removeAll()
@@ -231,16 +230,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else if let window {
             vm.onViewTeardown?()
             vm.onViewTeardown = nil
-            NotchSpaceManager.shared.notchSpace.windows.remove(window)
             window.close()
             self.window = nil
         }
     }
 
-    @MainActor
-    private func syncNotchSpaceMembership() {
-        NotchSpaceManager.shared.notchSpace.windows = []
-    }
 
     private func createDynamicIslandWindow(for screen: NSScreen, with viewModel: DynamicIslandViewModel) -> NSWindow {
         let baseSize = calculateRequiredNotchSize()
@@ -274,15 +268,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Window is always sized for the open notch (original behavior).
     /// Closed live activities sit inside that larger top-aligned window.
     private func calculateRequiredNotchSize() -> CGSize {
-        let base = minimalisticOpenNotchSize(isDynamicIslandMode: shouldUseDynamicIslandMode(for: vm.screen))
+        let base = minimalisticOpenNotchSize(isDynamicIslandMode: false)
         return base
     }
 
     private func adjustedSizeForScreen(_ size: CGSize, screen: NSScreen) -> CGSize {
         var adjusted = size
-        if shouldUseDynamicIslandMode(for: screen.localizedName) {
-            adjusted.height += dynamicIslandTopOffset
-        }
         return CGSize(
             width: min(adjusted.width, screen.frame.width),
             height: min(adjusted.height, screen.frame.height)
@@ -399,7 +390,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         previousScreens = NSScreen.screens
-        syncNotchSpaceMembership()
         debouncedUpdateWindowSize()
     }
 
@@ -417,7 +407,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             )
         }
         adjustWindowPosition(changeAlpha: true)
-        syncNotchSpaceMembership()
     }
 
     private func handleShowOnAllDisplaysChanged() {
@@ -435,7 +424,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window = nil
             adjustWindowPosition(changeAlpha: true)
         }
-        syncNotchSpaceMembership()
     }
 
     private func handlePreferredScreenChanged() {
@@ -449,7 +437,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let screen = resolvedTargetScreen()
         vm.setScreen(screen.localizedName)
         positionWindow(window, on: screen, changeAlpha: false)
-        syncNotchSpaceMembership()
         updateWindowSizeIfNeeded()
     }
 
@@ -490,7 +477,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             vm.setScreen(screen.localizedName)
             positionWindow(window, on: screen, changeAlpha: changeAlpha)
         }
-        syncNotchSpaceMembership()
         updateWindowSizeIfNeeded()
     }
 }

@@ -26,9 +26,7 @@ import AppKit
 struct MinimalisticMusicPlayerView: View {
     @EnvironmentObject var vm: DynamicIslandViewModel
     let albumArtNamespace: Namespace.ID
-    private let useMusicVisualizer = true
     private let skipMagnitude: CGFloat = 8
-    private let visualizerBarCount = 4
     @Default(.playerTint) private var playerTint
 
     var body: some View {
@@ -49,104 +47,32 @@ struct MinimalisticMusicPlayerView: View {
                 Spacer(minLength: 0)
 
             }
-            .padding(.horizontal, shouldUseDynamicIslandMode(for: vm.screen) ? -4 : 12)
-            .padding(.vertical, shouldUseDynamicIslandMode(for: vm.screen) ? 14 : 0)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 0)
             .frame(maxWidth: .infinity)
             .frame(height: calculateDynamicHeight())
-            .animation(.smooth(duration: 0.3), value: dynamicHeightSignature)
         } else {
             VStack(spacing: 0) {
-                if shouldUseDynamicIslandMode(for: vm.screen) {
-                    GeometryReader { headerGeo in
-                        let albumArtWidth: CGFloat = 50
-                        let spacing: CGFloat = 10
-                        // The right-side time label in the progress bar below is 42pt wide,
-                        // trailing-aligned, so its center sits 21pt from the right edge.
-                        // We use the same 42pt block for the visualizer so the candles
-                        // are perfectly centred above the "-00:00" text.
-                        let vizBlockWidth: CGFloat = useMusicVisualizer ? 42 : 0
-                        let visualizerBarWidth: CGFloat = useMusicVisualizer ? 24 : 0
-                        // Leave an extra 8pt gap between the title text and the visualizer.
-                        let textWidth = max(0, headerGeo.size.width - albumArtWidth - spacing - (useMusicVisualizer ? (vizBlockWidth + spacing) : 0))
-                        HStack(alignment: .center, spacing: spacing) {
-                            MinimalisticAlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace)
-                                .frame(width: albumArtWidth, height: albumArtWidth)
-
-                            VStack(alignment: .leading, spacing: 1) {
-                                if !musicManager.songTitle.isEmpty {
-                                    MusicTitleMarqueeView(
-                                        text: musicManager.songTitle,
-                                        isExplicit: musicManager.isCurrentTrackExplicit,
-                                        font: .system(size: 12, weight: .semibold),
-                                        nsFont: .subheadline,
-                                        textColor: playerTint.resolvedColor(albumArt: musicManager.avgColor),
-                                        frameWidth: textWidth,
-                                        badgeHeight: 13
-                                    )
-                                }
-
-                                Text(musicManager.artistName)
-                                    .font(.system(size: 10, weight: .regular))
-                                    .foregroundColor(artistNameColor)
-                                    .lineLimit(1)
-
-                            }
-                            .frame(width: textWidth, alignment: .leading)
-
-                            if useMusicVisualizer {
-                                // 48-pt block matches the trailing time-label width so the
-                                // candle centre lines up with the centre of "-00:00".
-                                ZStack {
-                                    visualizer
-                                        .frame(width: visualizerBarWidth)
-                                }
-                                .frame(width: vizBlockWidth)
-                            }
-                        }
-                    }
-                    .frame(height: 50)
-                } else {
-                    notchHuggingHeader
-                }
+                notchHuggingHeader
 
                 // Compact progress bar
                 progressBar
-                    .padding(.top, shouldUseDynamicIslandMode(for: vm.screen) ? 6 : 4)
+                    .padding(.top, 4)
                 
                 // Compact playback controls
                 playbackControls
                     .padding(.top, 4)
 
             }
-            .padding(.horizontal, shouldUseDynamicIslandMode(for: vm.screen) ? -4 : 12)
-            .padding(.top, shouldUseDynamicIslandMode(for: vm.screen) ? 14 : 10)
-            .padding(.bottom, shouldUseDynamicIslandMode(for: vm.screen) ? 14 : 10)
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 10)
             .frame(maxWidth: .infinity)
             .frame(height: calculateDynamicHeight(), alignment: .top)
-            .animation(.smooth(duration: 0.3), value: dynamicHeightSignature)
         }
-    }
-
-    private var brandAccentColor: Color {
-        musicManager.brandAccentColor
-    }
-
-    private var dynamicHeightSignature: Int {
-        shouldUseDynamicIslandMode(for: vm.screen) ? 1000 : 0
     }
 
     private func calculateDynamicHeight() -> CGFloat {
-        let isDynamicIsland = shouldUseDynamicIslandMode(for: vm.screen)
-
-        if isDynamicIsland {
-            var height: CGFloat = 50 // header
-            height += 6 + 4          // progress bar top padding + bar
-            height += 54 + 2         // controls + top padding
-            height += 14 // top padding
-            height += 14 // bottom padding
-            return height
-        }
-
         // Notch mode: tighter height for U-shaped layout.
         // The album art is pulled UP into the notch header area, so the
         // visible header in-flow is only the title + artist text (~26pt).
@@ -168,7 +94,7 @@ struct MinimalisticMusicPlayerView: View {
         GeometryReader { geo in
             let totalWidth = geo.size.width
             let albumArtSize: CGFloat = 50
-            let visualizerWidth: CGFloat = useMusicVisualizer ? 24 : 0
+            let visualizerWidth: CGFloat = 24
             // How far to pull the album art and waveform up alongside the notch.
             let notchHeight = vm.effectiveClosedNotchHeight
             let pullUp = max(notchHeight - 4, 20)
@@ -184,24 +110,22 @@ struct MinimalisticMusicPlayerView: View {
                 .frame(width: totalWidth)
 
                 // ── Right: Waveform ──
-                if useMusicVisualizer {
-                    HStack {
-                        Spacer()
-                        visualizer
-                            .frame(width: visualizerWidth)
-                        Spacer()
-                            .frame(width: 12)
-                    }
-                    .offset(y: -pullUp + (albumArtSize - 16) / 2)
-                    .frame(width: totalWidth)
+                HStack {
+                    Spacer()
+                    visualizer
+                        .frame(width: visualizerWidth)
+                    Spacer()
+                        .frame(width: 12)
                 }
+                .offset(y: -pullUp + (albumArtSize - 16) / 2)
+                .frame(width: totalWidth)
 
                 // ── Center: Title + Artist (below the notch) ──
                 VStack(alignment: .leading, spacing: 1) {
                     if !musicManager.songTitle.isEmpty {
                         // In the U-shaped layout the visualizer sits in a 48-pt wide zone
                         // (matching the time text) and has a 12-pt right spacer inside it.
-                        let textAreaWidth = max(0, totalWidth - albumArtSize - 10 - (useMusicVisualizer ? (visualizerWidth + 12 + 10) : 0))
+                        let textAreaWidth = max(0, totalWidth - albumArtSize - 10 - (visualizerWidth + 12 + 10))
                         MusicTitleMarqueeView(
                             text: musicManager.songTitle,
                             isExplicit: musicManager.isCurrentTrackExplicit,
@@ -235,7 +159,7 @@ struct MinimalisticMusicPlayerView: View {
     }
 
     private var visualizer: some View {
-        let width = CGFloat(visualizerBarCount) * 4
+        let width = CGFloat(Defaults[.visualizerBarCount]) * 4
         return Rectangle()
             .fill(playerTint.resolvedColor(albumArt: MusicManager.shared.avgColor))
             .mask {
@@ -337,7 +261,7 @@ struct MinimalisticMusicPlayerView: View {
         symbolEffect: MinimalisticSquircircleButton.SymbolEffectStyle = .none,
         action: @escaping () -> Void
     ) -> some View {
-        let resolvedActiveColor = activeColor ?? brandAccentColor
+        let resolvedActiveColor = activeColor ?? .white
         return MinimalisticSquircircleButton(
             icon: icon,
             fontSize: size,
@@ -410,6 +334,7 @@ struct MinimalisticAlbumArtView: View {
     @ObservedObject var vm: DynamicIslandViewModel
     @Default(.showAlbumArtBackgroundEffects) var showAlbumArtBackgroundEffects
     let albumArtNamespace: Namespace.ID
+    @State private var cachedArtBrightness: CGFloat = 0.5
 
     private var usesLiveCanvasArtwork: Bool {
         musicManager.videoArtworkURL != nil
@@ -425,6 +350,12 @@ struct MinimalisticAlbumArtView: View {
                 albumArtBackground
             }
             albumArtButton
+        }
+        .onAppear {
+            cachedArtBrightness = musicManager.albumArt.getBrightness()
+        }
+        .onChange(of: musicManager.albumArt) { _, newArt in
+            cachedArtBrightness = newArt.getBrightness()
         }
     }
     
@@ -445,7 +376,7 @@ struct MinimalisticAlbumArtView: View {
             .opacity(
                 usesLiveCanvasArtwork
                     ? (musicManager.isPlaying ? 0.35 : 0.12)
-                    : min(0.28, 1 - max(musicManager.albumArt.getBrightness(), 0.3))
+                    : min(0.28, 1 - max(cachedArtBrightness, 0.3))
             )
             .shadow(
                 color: Color(nsColor: musicManager.avgColor).opacity(usesLiveCanvasArtwork ? 0.14 : 0.08),

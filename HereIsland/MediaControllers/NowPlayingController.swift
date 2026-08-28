@@ -177,7 +177,9 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
                     .trimmingCharacters(in: .whitespacesAndNewlines),
                   !message.isEmpty
             else { return }
+            #if DEBUG
             print("NowPlayingController [stderr]: \(message)")
+            #endif
         }
         
         self.process = process
@@ -304,7 +306,9 @@ actor JSONLinesPipeHandler {
                 await onLine(decodedObject)
             }
         } catch {
+            #if DEBUG
             print("Error processing JSON stream: \(error)")
+            #endif
         }
     }
     
@@ -357,7 +361,9 @@ actor JSONLinesPipeHandler {
             try fileHandle.close()
             try pipe.fileHandleForWriting.close()
         } catch {
+            #if DEBUG
             print("Error closing pipe handler: \(error)")
+            #endif
         }
     }
 }

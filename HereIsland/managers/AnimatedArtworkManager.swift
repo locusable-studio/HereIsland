@@ -134,7 +134,9 @@ actor AnimatedArtworkManager {
             guard let song = match else { return nil }
             return song.id.rawValue
         } catch {
+            #if DEBUG
             print("[AnimatedArtworkManager] Search failed: \(error)")
+            #endif
             // Record a token failure if this is a developer token / auth error so
             // subsequent calls back off instead of immediately re-hitting the network.
             recordTokenFailureIfNeeded(for: error)
@@ -194,7 +196,9 @@ actor AnimatedArtworkManager {
 
             return nil
         } catch {
+            #if DEBUG
             print("[AnimatedArtworkManager] Editorial video fetch failed: \(error)")
+            #endif
             recordTokenFailureIfNeeded(for: error)
             return nil
         }
@@ -223,6 +227,8 @@ actor AnimatedArtworkManager {
         tokenFailureCount += 1
         tokenFailureLastAttempt = Date()
         let backoff = tokenBackoffInterval()
+        #if DEBUG
         print("[AnimatedArtworkManager] Token failure #\(tokenFailureCount); backing off for \(Int(backoff))s")
+        #endif
     }
 }

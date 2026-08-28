@@ -24,9 +24,6 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @ObservedObject var detector = FullscreenMediaDetector.shared
 
-    let animationLibrary: DynamicIslandAnimations = .init()
-    let animation: Animation?
-
     @Published private(set) var notchState: NotchState = .closed
     var cancellables: Set<AnyCancellable> = []
 
@@ -44,7 +41,6 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     }
 
     init(screen: String? = nil) {
-        animation = animationLibrary.animation
         self.screen = screen
         super.init()
         notchSize = getClosedNotchSize(screen: screen)
