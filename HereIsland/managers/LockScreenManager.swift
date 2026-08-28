@@ -65,6 +65,14 @@ final class LockScreenManager {
                 }
             }
             .store(in: &cancellables)
+
+        Defaults.publisher(.displayDestination)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, self.isLocked, Defaults[.enableLockScreenMediaPanel] else { return }
+                LockScreenPanelManager.shared.showPanel()
+            }
+            .store(in: &cancellables)
     }
 
     deinit {
@@ -76,8 +84,7 @@ final class LockScreenManager {
     @objc private func screenLocked() {
         guard !isLocked else { return }
         isLocked = true
-        LockScreenDisplayContextProvider.shared.refresh()
-        if Defaults[.enableLockScreenMediaPanel] {
+if Defaults[.enableLockScreenMediaPanel] {
             LockScreenPanelManager.shared.showPanel()
         }
         startLockStatePolling()
