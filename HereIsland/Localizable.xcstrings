@@ -1046,19 +1046,19 @@
         }
       }
     },
-    "Show lock screen media panel": {
+    "Lock screen widget": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Show lock screen media panel"
+            "value": "Lock screen widget"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "锁屏时显示媒体面板"
+            "value": "锁屏组件"
           }
         }
       }
