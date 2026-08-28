@@ -65,14 +65,6 @@ final class LockScreenManager {
                 }
             }
             .store(in: &cancellables)
-
-        Defaults.publisher(.displayDestination)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                guard let self, self.isLocked, Defaults[.enableLockScreenMediaPanel] else { return }
-                LockScreenPanelManager.shared.showPanel()
-            }
-            .store(in: &cancellables)
     }
 
     deinit {
