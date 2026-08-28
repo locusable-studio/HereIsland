@@ -96,6 +96,8 @@ extension Defaults.Keys {
 
     // MARK: Media Controller
     static let mediaController = Key<MediaControllerType>("mediaController", default: .nowPlaying)
+    /// Menu (Appearance, after Quick peek): lock-screen media panel. Default off — SkyLight is private.
+    static let enableLockScreenMediaPanel = Key<Bool>("enableLockScreenMediaPanel", default: false)
 
     // MARK: Appearance
     /// Keeps the legacy storage key so an existing progress-bar choice carries over.

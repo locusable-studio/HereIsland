@@ -34,6 +34,11 @@ struct AboutView: View {
             detail: String(localized: "Dynamic Island–style companion this project builds on"),
             url: URL(string: "https://github.com/Ebullioscopic/Atoll")!
         ),
+        AboutCredit(
+            name: "Alcove",
+            detail: String(localized: "Lock screen media panel inspiration"),
+            url: URL(string: "https://tryalcove.com")!
+        ),
     ]
 
     private static let dependencyCredits: [AboutCredit] = [

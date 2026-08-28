@@ -31,6 +31,7 @@ struct DynamicNotchApp: App {
     @Default(.showWindowShadow) var showWindowShadow
     @Default(.hideFromScreenCapture) var hideFromScreenCapture
     @Default(.hideWhenFullscreen) var hideWhenFullscreen
+    @Default(.enableLockScreenMediaPanel) var enableLockScreenMediaPanel
     @Default(.enableRealTimeWaveform) var enableRealTimeWaveform
     @Default(.showTitleOnTrackChange) var showTitleOnTrackChange
     @Default(.mediaController) var mediaController
@@ -73,6 +74,7 @@ struct DynamicNotchApp: App {
                 Toggle(String(localized: "Window shadow"), isOn: $showWindowShadow)
                 Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
                 Toggle(String(localized: "Quick peek"), isOn: $showTitleOnTrackChange)
+                Toggle(String(localized: "Lock screen widget"), isOn: $enableLockScreenMediaPanel)
                 Picker(String(localized: "Accent color"), selection: $playerTint) {
                     ForEach(PlayerTint.allCases) { option in
                         Text(option.localizedName).tag(option)
@@ -302,7 +304,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func adjustedSizeForScreen(_ size: CGSize, screen: NSScreen) -> CGSize {
-        var adjusted = size
+        let adjusted = size
         return CGSize(
             width: min(adjusted.width, screen.frame.width),
             height: min(adjusted.height, screen.frame.height)
@@ -433,6 +435,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.applyFullscreenWindowVisibility()
             }
             .store(in: &cancellables)
+        _ = LockScreenManager.shared
     }
 
     @objc func screenConfigurationDidChange() {
