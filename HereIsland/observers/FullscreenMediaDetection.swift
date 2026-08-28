@@ -61,14 +61,17 @@ class FullscreenMediaDetector: ObservableObject {
                 }
             }
         }
-        musicManager.$bundleIdentifier
-            .removeDuplicates()
-            .dropFirst()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                Task { await self?.handleChange() }
-            }
-            .store(in: &cancellables)
+        Publishers.CombineLatest(
+            musicManager.$bundleIdentifier,
+            musicManager.$isPlaying
+        )
+        .removeDuplicates { $0.0 == $1.0 && $0.1 == $1.1 }
+        .dropFirst()
+        .receive(on: RunLoop.main)
+        .sink { [weak self] _, _ in
+            Task { await self?.handleChange() }
+        }
+        .store(in: &cancellables)
     }
 
     private func handleChange() async {

@@ -50,10 +50,6 @@ struct ContentView: View {
     @State private var flashTask: Task<Void, Never>?
     @State private var debounceTask: Task<Void, Never>?
 
-    private var isIslandMode: Bool {
-        shouldUseDynamicIslandMode(for: vm.screen)
-    }
-
     private var cornerInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) {
         (opened: minimalisticCornerRadiusInsets.opened, closed: cornerRadiusInsets.closed)
     }
@@ -66,14 +62,10 @@ struct ContentView: View {
         return cornerInsets.closed.bottom
     }
 
-    private var pillTopOffset: CGFloat {
-        isIslandMode ? dynamicIslandTopOffset : 0
-    }
-
     /// Always the open notch size — matches original ContentView.dynamicNotchSize.
     /// Closed content is clipped inside this frame; window size stays the same.
     private var dynamicNotchSize: CGSize {
-        minimalisticOpenNotchSize(isDynamicIslandMode: isIslandMode)
+        minimalisticOpenNotchSize()
     }
 
     private var showsClosedMusicActivity: Bool {
@@ -81,13 +73,6 @@ struct ContentView: View {
             && !vm.hideOnClosed
             && coordinator.musicLiveActivityEnabled
             && (musicManager.isPlaying || (!musicManager.isPlayerIdle && musicManager.bundleIdentifier != nil))
-    }
-
-    private var pillCornerRadius: CGFloat {
-        if vm.notchState == .open {
-            return cornerInsets.opened.top
-        }
-        return max(vm.closedNotchSize.height / 2, dynamicIslandPillCornerRadiusInsets.closed.minimalistic)
     }
 
     private var notchTopRadius: CGFloat {
@@ -140,8 +125,7 @@ struct ContentView: View {
             maxWidth: (dynamicNotchSize.width
                 + (vm.notchState == .open ? 24 : 0)).rounded(),
             maxHeight: (dynamicNotchSize.height
-                + (vm.notchState == .open ? 12 : 0)
-                + (isIslandMode ? dynamicIslandTopOffset : 0)).rounded(),
+                + (vm.notchState == .open ? 12 : 0)).rounded(),
             alignment: .top
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -192,25 +176,15 @@ struct ContentView: View {
     }
 
     private var notchChrome: some View {
-        Group {
-            if isIslandMode {
-                chromeBase
-                    .clipShape(DynamicIslandPillShape(cornerRadius: pillCornerRadius))
-                    .compositingGroup()
-                    .padding(.top, pillTopOffset)
-                    .contentShape(DynamicIslandPillShape(cornerRadius: pillCornerRadius))
-            } else {
-                chromeBase
-                    .clipShape(NotchShape(topCornerRadius: notchTopRadius, bottomCornerRadius: notchBottomRadius))
-                    .compositingGroup()
-                    .contentShape(NotchShape(topCornerRadius: notchTopRadius, bottomCornerRadius: notchBottomRadius))
-            }
-        }
-        .onHover(perform: handleHover)
-        // Match original: animation driven by state value, not withAnimation(wrong spring).
-        .animation(.bouncy.speed(1.2), value: isHovering)
-        .animation(vm.notchState == .open ? openSpring : closeSpring, value: vm.notchState)
-        .animation(isFlashing ? flashSpring : closeSpring, value: isFlashing)
+        chromeBase
+            .clipShape(NotchShape(topCornerRadius: notchTopRadius, bottomCornerRadius: notchBottomRadius))
+            .compositingGroup()
+            .contentShape(NotchShape(topCornerRadius: notchTopRadius, bottomCornerRadius: notchBottomRadius))
+            .onHover(perform: handleHover)
+            // Match original: animation driven by state value, not withAnimation(wrong spring).
+            .animation(.bouncy.speed(1.2), value: isHovering)
+            .animation(vm.notchState == .open ? openSpring : closeSpring, value: vm.notchState)
+            .animation(isFlashing ? flashSpring : closeSpring, value: isFlashing)
     }
 
     private var chromeBase: some View {
@@ -256,7 +230,7 @@ struct ContentView: View {
                 .frame(height: max(vm.effectiveClosedNotchHeight + (isHovering ? 8 : 0), 0))
         } else {
             DynamicIslandHeader()
-                .frame(height: (isIslandMode ? nil : max(24, vm.effectiveClosedNotchHeight)))
+                .frame(height: max(24, vm.effectiveClosedNotchHeight))
         }
     }
 

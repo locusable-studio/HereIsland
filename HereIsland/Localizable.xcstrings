@@ -220,7 +220,6 @@
         }
       }
     },
-    "dynamic.island": {},
     "Follow system": {
       "localizations": {
         "en": {
@@ -305,7 +304,22 @@
         }
       }
     },
-    "Here Island": {},
+    "Here Island": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Here Island"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Here Island"
+          }
+        }
+      }
+    },
     "Here Island is derived from earlier open-source notch projects.": {
       "extractionState": "manual",
       "localizations": {

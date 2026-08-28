@@ -28,12 +28,10 @@ import SwiftUI
 private let minimalisticBaseOpenNotchSize: CGSize = .init(width: 420, height: 180)
 
 @MainActor
-func minimalisticOpenNotchSize(isDynamicIslandMode: Bool) -> CGSize {
-    var size = minimalisticBaseOpenNotchSize
-    if isDynamicIslandMode {
-        size.height = 144
-    }
-    return size
+func minimalisticOpenNotchSize(isDynamicIslandMode: Bool = false) -> CGSize {
+    // Island mode stays off; keep the notch open size only.
+    _ = isDynamicIslandMode
+    return minimalisticBaseOpenNotchSize
 }
 
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 24), closed: (top: 6, bottom: 14))
