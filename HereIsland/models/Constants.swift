@@ -88,6 +88,8 @@ extension Defaults.Keys {
     static let showWindowShadow = Key<Bool>("showWindowShadow", default: true)
     /// Menu (General, after Haptics): “Hide during screenshots and recordings”. Default off.
     static let hideFromScreenCapture = Key<Bool>("hideFromScreenCapture", default: false)
+    /// Menu (General): hide the notch window on a display that has a native-fullscreen app.
+    static let hideWhenFullscreen = Key<Bool>("hideWhenFullscreen", default: true)
 
     /// Menu (Updates): Channel — Stable (default) or Beta.
     static let updateChannel = Key<UpdateChannel>("updateChannel", default: .stable)
