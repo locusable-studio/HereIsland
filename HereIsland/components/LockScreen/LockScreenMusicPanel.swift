@@ -23,7 +23,8 @@ import Defaults
 import SwiftUI
 
 /// Fixed lock-screen media card. Reuses MusicManager + playerTint.
-/// Play / prev / next stay white. Artwork shadow uses raw `avgColor`.
+/// Glass card. Title / artist / progress follow playerTint (artist 0.85).
+/// Play / prev / next stay white. Artwork shadow is faint avgColor (0.08), same as the notch.
 struct LockScreenMusicPanel: View {
     @ObservedObject private var musicManager = MusicManager.shared
     @Default(.playerTint) private var playerTint
@@ -44,7 +45,7 @@ struct LockScreenMusicPanel: View {
                     .lineLimit(1)
                 Text(musicManager.artistName)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(tint.opacity(0.72))
+                    .foregroundStyle(tint.opacity(0.85))
                     .lineLimit(1)
                 controls
                 progress
@@ -56,10 +57,10 @@ struct LockScreenMusicPanel: View {
             width: LockScreenPanelManager.panelSize.width,
             height: LockScreenPanelManager.panelSize.height
         )
-        .background(
+        .background {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(.black.opacity(0.72))
-        )
+                .fill(.ultraThinMaterial)
+        }
     }
 
     private var artwork: some View {
@@ -68,7 +69,7 @@ struct LockScreenMusicPanel: View {
             .aspectRatio(contentMode: .fill)
             .frame(width: 88, height: 88)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: Color(nsColor: musicManager.avgColor).opacity(0.55), radius: 12, y: 4)
+            .shadow(color: Color(nsColor: musicManager.avgColor).opacity(0.08), radius: 4, y: 0)
     }
 
     private var controls: some View {
