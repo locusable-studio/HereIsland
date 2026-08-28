@@ -19,3 +19,9 @@ See the LICENSE file for the full GPL-3.0 text.
 
 Corresponding source for this modified version must be provided under GPL-3.0
 when the binary is distributed.
+
+4. SkyLightWindow (https://github.com/Lakr233/SkyLightWindow)
+   Copyright (c) 2025 Lakr Aream.
+   MIT License. Used for lock-screen window attachment
+   (`HereIsland/helpers/SkyLightOperator.swift`).
+

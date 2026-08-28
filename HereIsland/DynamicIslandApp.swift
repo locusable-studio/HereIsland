@@ -33,6 +33,7 @@ struct DynamicNotchApp: App {
     @Default(.enableRealTimeWaveform) var enableRealTimeWaveform
     @Default(.showTitleOnTrackChange) var showTitleOnTrackChange
     @Default(.mediaController) var mediaController
+    @Default(.enableLockScreenMediaPanel) var enableLockScreenMediaPanel
     @Default(.playerTint) var playerTint
     @Default(.updateChannel) var updateChannel
     @ObservedObject private var musicManager = MusicManager.shared
@@ -84,6 +85,7 @@ struct DynamicNotchApp: App {
                         Text(type.localizedName).tag(type)
                     }
                 }
+                Toggle(String(localized: "Show lock screen media panel"), isOn: $enableLockScreenMediaPanel)
             }
 
             Section(String(localized: "Updates")) {
@@ -390,6 +392,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         previousScreens = NSScreen.screens
         debouncedUpdateWindowSize()
+        _ = LockScreenManager.shared
     }
 
     @objc func screenConfigurationDidChange() {
