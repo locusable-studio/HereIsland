@@ -274,7 +274,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func adjustedSizeForScreen(_ size: CGSize, screen: NSScreen) -> CGSize {
-        var adjusted = size
+        let adjusted = size
         return CGSize(
             width: min(adjusted.width, screen.frame.width),
             height: min(adjusted.height, screen.frame.height)
