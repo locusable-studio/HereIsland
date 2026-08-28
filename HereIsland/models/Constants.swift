@@ -49,7 +49,7 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
 }
 
 /// Tint applied to the notch player's colored elements: song title, artist name,
-/// waveform, and the active shuffle/repeat glyphs. Progress still uses raw avgColor.
+/// waveform, progress, and the active shuffle/repeat glyphs.
 enum PlayerTint: String, CaseIterable, Identifiable, Defaults.Serializable {
     case white = "White"
     case albumArt = "Match album art"
