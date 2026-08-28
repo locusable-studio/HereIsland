@@ -43,8 +43,9 @@ jobs:
             CHANNEL="stable"
             PRERELEASE="false"
           fi
-          # Archive marketing version: strip -beta.M. 3-part or 4-part both OK.
-          MARKETING_VERSION="${VERSION%-beta.*}"
+          # Short version shown in About: full tag minus the leading v
+          # (keeps -beta.N and optional 4th hotfix segment).
+          MARKETING_VERSION="$VERSION"
 
           # sparkle:version is global across channels. Read already-published
           # values from latest origin/main — the tag tree can predate a feed
@@ -183,13 +184,6 @@ jobs:
             -project "$PROJECT" \
             -scheme "$SCHEME"
 
-      - name: Stamp version
-        run: |
-          VERSION="${{ steps.version.outputs.marketing_version }}"
-          BUILD="${{ steps.version.outputs.build_number }}"
-          xcrun agvtool new-marketing-version "$VERSION"
-          xcrun agvtool new-version -all "$BUILD"
-
       - name: Archive
         run: |
           sudo DevToolsSecurity -enable
@@ -203,7 +197,9 @@ jobs:
             DEVELOPMENT_TEAM="$TEAM_ID" \
             CODE_SIGN_STYLE=Manual \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            ASSETCATALOG_COMPILER_APPICON_NAME=AppIcon
+            ASSETCATALOG_COMPILER_APPICON_NAME=AppIcon \
+            MARKETING_VERSION="${{ steps.version.outputs.marketing_version }}" \
+            CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build_number }}"
 
       - name: Export archive
         run: |
