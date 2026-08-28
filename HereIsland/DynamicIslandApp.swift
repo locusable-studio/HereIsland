@@ -268,8 +268,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Window is always sized for the open notch (original behavior).
     /// Closed live activities sit inside that larger top-aligned window.
     private func calculateRequiredNotchSize() -> CGSize {
-        let base = minimalisticOpenNotchSize(isDynamicIslandMode: false)
-        return base
+        return minimalisticOpenNotchSize()
     }
 
     private func adjustedSizeForScreen(_ size: CGSize, screen: NSScreen) -> CGSize {

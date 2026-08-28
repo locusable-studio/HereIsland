@@ -108,7 +108,7 @@ class DynamicIslandViewModel: NSObject, ObservableObject {
     }
 
     private func calculateDynamicNotchSize() -> CGSize {
-        minimalisticOpenNotchSize(isDynamicIslandMode: shouldUseDynamicIslandMode(for: screen))
+        minimalisticOpenNotchSize()
     }
 
     func close() {
