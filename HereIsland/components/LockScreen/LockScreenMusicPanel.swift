@@ -51,7 +51,7 @@ struct LockScreenMusicPanel: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(16)
+        .padding(LockScreenPanelManager.contentPadding)
         .frame(
             width: LockScreenPanelManager.panelSize.width,
             height: LockScreenPanelManager.panelSize.height
