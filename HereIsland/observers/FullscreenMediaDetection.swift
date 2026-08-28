@@ -22,17 +22,14 @@
 
 import ApplicationServices
 import MacroVisionKit
-import Combine
 import SwiftUI
 
 @MainActor
 class FullscreenMediaDetector: ObservableObject {
     static let shared = FullscreenMediaDetector()
     private let detector: MacroVisionKit
-    private let musicManager = MusicManager.shared
     @Published private(set) var fullscreenStatus: [String: Bool] = [:]
     private var notificationTask: Task<Void, Never>?
-    private var cancellables = Set<AnyCancellable>()
 
     private init() {
         self.detector = MacroVisionKit.shared
@@ -62,17 +59,7 @@ class FullscreenMediaDetector: ObservableObject {
                 }
             }
         }
-        Publishers.CombineLatest(
-            musicManager.$bundleIdentifier,
-            musicManager.$isPlaying
-        )
-        .removeDuplicates { $0.0 == $1.0 && $0.1 == $1.1 }
-        .dropFirst()
-        .receive(on: RunLoop.main)
-        .sink { [weak self] _, _ in
-            Task { await self?.handleChange() }
-        }
-        .store(in: &cancellables)
+        // Screen / space only. Any-app native fullscreen does not depend on Now Playing.
     }
 
     private func handleChange() async {
@@ -90,9 +77,8 @@ class FullscreenMediaDetector: ObservableObject {
                 guard app.screen.localizedName == name,
                       app.bundleIdentifier != "com.apple.finder" else { return false }
 
-                // Hide only when the currently playing media app is in native fullscreen.
-                return app.bundleIdentifier == musicManager.bundleIdentifier
-                    && isInNativeFullscreen(app)
+                // Any app in genuine native fullscreen. Finder is excluded (same as Atoll).
+                return isInNativeFullscreen(app)
             }
         }
 
@@ -105,10 +91,10 @@ class FullscreenMediaDetector: ObservableObject {
     /// Confirms an app the detector flagged as screen-filling is in *genuine* native
     /// fullscreen, not merely maximized/zoomed. On a notched Mac a maximized window and a
     /// fullscreen window report nearly identical frames, so frame size alone can't tell them
-    /// apart — the Accessibility `AXFullScreen` attribute can. Falls back to the detector's
-    /// frame-based result when Accessibility isn't trusted (so behavior doesn't silently break).
+    /// apart — the Accessibility `AXFullScreen` attribute can. Without Accessibility
+    /// trust, frame-fill is treated as *not* native (maximized windows would otherwise hide).
     private func isInNativeFullscreen(_ app: MacroVisionKit.FullscreenWindowInfo) -> Bool {
-        guard AXIsProcessTrusted() else { return true }
+        guard AXIsProcessTrusted() else { return false }
 
         let appElement = AXUIElementCreateApplication(app.processId)
 
@@ -141,6 +127,5 @@ class FullscreenMediaDetector: ObservableObject {
 
     deinit {
         notificationTask?.cancel()
-        cancellables.removeAll()
     }
 }
