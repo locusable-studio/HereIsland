@@ -60,7 +60,9 @@ final class LockScreenManager {
                 guard let self else { return }
                 if change.newValue, self.isLocked {
                     LockScreenPanelManager.shared.showPanel()
+                    self.startLockStatePolling()
                 } else if !change.newValue {
+                    self.stopLockStatePolling()
                     LockScreenPanelManager.shared.hidePanel()
                 }
             }
@@ -76,10 +78,10 @@ final class LockScreenManager {
     @objc private func screenLocked() {
         guard !isLocked else { return }
         isLocked = true
-if Defaults[.enableLockScreenMediaPanel] {
+        if Defaults[.enableLockScreenMediaPanel] {
             LockScreenPanelManager.shared.showPanel()
+            startLockStatePolling()
         }
-        startLockStatePolling()
     }
 
     @objc private func screenUnlocked() {
