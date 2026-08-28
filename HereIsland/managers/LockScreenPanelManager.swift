@@ -27,16 +27,16 @@ import SwiftUI
 final class LockScreenPanelManager {
     static let shared = LockScreenPanelManager()
 
-    private var panelWindow: NSWindow?
-    private var hasDelegated = false
-    private var hideTask: Task<Void, Never>?
-    private var screenChangeObserver: NSObjectProtocol?
-
-    /// One fixed style: 390×180, centered on the lock display,
-    /// a little below the clock / vertical centre.
-    static let panelSize = CGSize(width: 390, height: 180)
+    /// Content hugs 88pt artwork with 16pt equal insets (390 × 120).
+    static let panelSize = CGSize(width: 390, height: 120)
+    static let contentPadding: CGFloat = 16
     private static let verticalLowering: CGFloat = 68
     private static let cornerRadius: CGFloat = 28
+
+    private var windows: [String: NSWindow] = [:]
+    private var delegatedIDs: Set<String> = []
+    private var hideTasks: [String: Task<Void, Never>] = [:]
+    private var screenChangeObserver: NSObjectProtocol?
 
     private init() {
         screenChangeObserver = NotificationCenter.default.addObserver(
@@ -45,9 +45,20 @@ final class LockScreenPanelManager {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.realignIfVisible()
+                guard let self, LockScreenManager.shared.isLocked else { return }
+                self.showPanel()
             }
         }
+    }
+
+    func targetScreens() -> [NSScreen] {
+        if DisplayDestination.showsOnAllDisplays {
+            return orderedScreens()
+        }
+        if let screen = resolveNotchHostScreen() {
+            return [screen]
+        }
+        return NSScreen.screens.first.map { [$0] } ?? []
     }
 
     func showPanel() {
@@ -55,14 +66,44 @@ final class LockScreenPanelManager {
             hidePanel()
             return
         }
-        guard let screen = LockScreenDisplayContextProvider.shared.currentScreen() else { return }
 
-        hideTask?.cancel()
-        hideTask = nil
+        let targets = targetScreens()
+        let keep = Set(targets.map(\.stableDisplayID))
+        for (id, window) in windows where !keep.contains(id) {
+            hideWindow(id, window)
+        }
+        for screen in targets {
+            present(on: screen)
+        }
+    }
+
+    func hidePanel() {
+        for (id, window) in windows {
+            hideWindow(id, window)
+        }
+    }
+
+    func ensurePresentedWhileLocked() {
+        guard Defaults[.enableLockScreenMediaPanel] else { return }
+        guard LockScreenManager.shared.isLocked else { return }
+        let targets = targetScreens()
+        let missing = targets.contains { screen in
+            let id = screen.stableDisplayID
+            let window = windows[id]
+            return window == nil || window?.isVisible != true || window?.contentView == nil
+        }
+        guard missing else { return }
+        showPanel()
+    }
+
+    private func present(on screen: NSScreen) {
+        let id = screen.stableDisplayID
+        hideTasks[id]?.cancel()
+        hideTasks[id] = nil
 
         let targetFrame = frame(on: screen)
         let window: NSWindow
-        if let existing = panelWindow {
+        if let existing = windows[id] {
             window = existing
         } else {
             let created = NSWindow(
@@ -79,9 +120,8 @@ final class LockScreenPanelManager {
             created.isMovable = false
             created.hasShadow = false
             ScreenCaptureVisibilityManager.shared.register(created)
-            panelWindow = created
+            windows[id] = created
             window = created
-            hasDelegated = false
         }
 
         window.setFrame(targetFrame, display: true)
@@ -96,44 +136,25 @@ final class LockScreenPanelManager {
             content.layer?.backgroundColor = NSColor.clear.cgColor
         }
 
-        if !hasDelegated {
+        if !delegatedIDs.contains(id) {
             SkyLightOperator.shared.delegateWindow(window)
-            hasDelegated = true
+            delegatedIDs.insert(id)
         }
 
-        // Keep the window alive; closing it after SkyLight attach can crash.
         window.orderFrontRegardless()
     }
 
-    func hidePanel() {
-        hideTask?.cancel()
-        guard let window = panelWindow else { return }
+    private func hideWindow(_ id: String, _ window: NSWindow) {
+        hideTasks[id]?.cancel()
         window.orderOut(nil)
-        hideTask = Task { [weak self, weak window] in
+        hideTasks[id] = Task { [weak self, weak window] in
             try? await Task.sleep(for: .milliseconds(360))
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 window?.contentView = nil
-                self?.hideTask = nil
+                self?.hideTasks[id] = nil
             }
         }
-    }
-
-    /// `hidePanel` clears `contentView`. If that happens mid-lock, put the panel back.
-    func ensurePresentedWhileLocked() {
-        guard Defaults[.enableLockScreenMediaPanel] else { return }
-        guard LockScreenManager.shared.isLocked else { return }
-        let isMissing = panelWindow == nil
-            || panelWindow?.isVisible != true
-            || panelWindow?.contentView == nil
-        guard isMissing else { return }
-        showPanel()
-    }
-
-    private func realignIfVisible() {
-        guard let window = panelWindow, window.isVisible, window.contentView != nil else { return }
-        guard let screen = LockScreenDisplayContextProvider.shared.refresh() else { return }
-        window.setFrame(frame(on: screen), display: true)
     }
 
     private func frame(on screen: NSScreen) -> NSRect {
