@@ -1046,6 +1046,23 @@
         }
       }
     },
+    "Hide when fullscreen": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide when fullscreen"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全屏时隐藏"
+          }
+        }
+      }
+    },
     "Hide during screenshots and recordings": {
       "extractionState": "manual",
       "localizations": {
