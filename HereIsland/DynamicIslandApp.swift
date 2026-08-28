@@ -30,6 +30,7 @@ struct DynamicNotchApp: App {
     @Default(.showAlbumArtBackgroundEffects) var showAlbumArtBackgroundEffects
     @Default(.showWindowShadow) var showWindowShadow
     @Default(.hideFromScreenCapture) var hideFromScreenCapture
+    @Default(.hideWhenFullscreen) var hideWhenFullscreen
     @Default(.enableRealTimeWaveform) var enableRealTimeWaveform
     @Default(.showTitleOnTrackChange) var showTitleOnTrackChange
     @Default(.mediaController) var mediaController
@@ -56,6 +57,7 @@ struct DynamicNotchApp: App {
                 }
                 Toggle(String(localized: "Haptics"), isOn: $enableHaptics)
                 Toggle(String(localized: "Hide during screenshots and recordings"), isOn: $hideFromScreenCapture)
+                Toggle(String(localized: "Hide when fullscreen"), isOn: $hideWhenFullscreen)
                 Picker(String(localized: "Display"), selection: $displayDestination) {
                     ForEach(orderedScreens(), id: \.stableDisplayID) { screen in
                         Text(screen.localizedName).tag(screen.stableDisplayID)
@@ -141,6 +143,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     private var cancellables = Set<AnyCancellable>()
     private var windowsHiddenForLock = false
+    private var screensHiddenForFullscreen: Set<String> = []
     private var windowSizeUpdateWorkItem: DispatchWorkItem?
     private var closeNotchWorkItem: DispatchWorkItem?
     private var audioTapStopWorkItem: DispatchWorkItem?
@@ -187,6 +190,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.restoreWindowsAfterLock()
             self?.adjustWindowPosition(changeAlpha: true)
+            self?.applyFullscreenWindowVisibility()
         }
     }
 
@@ -207,12 +211,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func restoreWindowsAfterLock() {
         guard windowsHiddenForLock else { return }
         windowsHiddenForLock = false
+    }
+
+    /// Order the notch window out on each display that has a native-fullscreen app.
+    /// Independent of the lock-screen 1s restore. No-op while locked.
+    private func applyFullscreenWindowVisibility() {
+        guard !windowsHiddenForLock else { return }
+        let enabled = Defaults[.hideWhenFullscreen]
+        let status = FullscreenMediaDetector.shared.fullscreenStatus
+
         if DisplayDestination.showsOnAllDisplays {
-            for window in windows.values {
-                window.orderFrontRegardless()
-                window.alphaValue = 1
+            for (screen, window) in windows {
+                applyFullscreenVisibility(to: window, screenName: screen.localizedName, enabled: enabled, status: status)
             }
         } else if let window {
+            let screen = resolvedTargetScreen()
+            applyFullscreenVisibility(to: window, screenName: screen.localizedName, enabled: enabled, status: status)
+        }
+    }
+
+    private func applyFullscreenVisibility(
+        to window: NSWindow,
+        screenName: String,
+        enabled: Bool,
+        status: [String: Bool]
+    ) {
+        let shouldHide = enabled && (status[screenName] ?? false)
+        if shouldHide {
+            window.alphaValue = 0
+            window.orderOut(nil)
+            screensHiddenForFullscreen.insert(screenName)
+        } else {
+            screensHiddenForFullscreen.remove(screenName)
             window.orderFrontRegardless()
             window.alphaValue = 1
         }
@@ -390,6 +420,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         previousScreens = NSScreen.screens
         debouncedUpdateWindowSize()
+
+        FullscreenMediaDetector.shared.$fullscreenStatus
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.applyFullscreenWindowVisibility()
+            }
+            .store(in: &cancellables)
+        Defaults.publisher(.hideWhenFullscreen)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.applyFullscreenWindowVisibility()
+            }
+            .store(in: &cancellables)
     }
 
     @objc func screenConfigurationDidChange() {
@@ -477,5 +520,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             positionWindow(window, on: screen, changeAlpha: changeAlpha)
         }
         updateWindowSizeIfNeeded()
+        applyFullscreenWindowVisibility()
     }
 }
