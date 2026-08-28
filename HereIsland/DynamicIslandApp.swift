@@ -57,8 +57,10 @@ struct DynamicNotchApp: App {
                     Text(String(localized: "Launch at login"))
                 }
                 Toggle(String(localized: "Haptics"), isOn: $enableHaptics)
-                Toggle(String(localized: "Hide during screenshots and recordings"), isOn: $hideFromScreenCapture)
-                Toggle(String(localized: "Hide when fullscreen"), isOn: $hideWhenFullscreen)
+                Menu(String(localized: "Hide")) {
+                    Toggle(String(localized: "During screenshots and recordings"), isOn: $hideFromScreenCapture)
+                    Toggle(String(localized: "When fullscreen"), isOn: $hideWhenFullscreen)
+                }
                 Picker(String(localized: "Display"), selection: $displayDestination) {
                     ForEach(orderedScreens(), id: \.stableDisplayID) { screen in
                         Text(screen.localizedName).tag(screen.stableDisplayID)
@@ -70,9 +72,11 @@ struct DynamicNotchApp: App {
             }
 
             Section(String(localized: "Appearance")) {
-                Toggle(String(localized: "Album art background"), isOn: $showAlbumArtBackgroundEffects)
-                Toggle(String(localized: "Window shadow"), isOn: $showWindowShadow)
-                Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
+                Menu(String(localized: "Effects")) {
+                    Toggle(String(localized: "Album art background"), isOn: $showAlbumArtBackgroundEffects)
+                    Toggle(String(localized: "Window shadow"), isOn: $showWindowShadow)
+                    Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
+                }
                 Toggle(String(localized: "Quick peek"), isOn: $showTitleOnTrackChange)
                 Toggle(String(localized: "Lock screen widget"), isOn: $enableLockScreenMediaPanel)
                 Picker(String(localized: "Accent color"), selection: $playerTint) {
