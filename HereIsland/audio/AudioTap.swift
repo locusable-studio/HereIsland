@@ -190,7 +190,7 @@ class AudioTap: NSObject, @unchecked Sendable {
             guard let self else { return }
             updateTimer?.invalidate()
             let timer = Timer(
-                timeInterval: 1.0 / 60.0,
+                timeInterval: 1.0 / 30.0,
                 target: self,
                 selector: #selector(updateSmoothedMagnitudes),
                 userInfo: nil,

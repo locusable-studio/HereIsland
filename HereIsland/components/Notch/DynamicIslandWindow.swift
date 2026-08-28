@@ -56,7 +56,7 @@ class DynamicIslandWindow: NSPanel {
         level = .mainMenu + 3
         hasShadow = Defaults[.showWindowShadow]
 
-        ScreenCaptureVisibilityManager.shared.register(self, scope: .entireInterface)
+        ScreenCaptureVisibilityManager.shared.register(self)
     }
     
     override var canBecomeKey: Bool {

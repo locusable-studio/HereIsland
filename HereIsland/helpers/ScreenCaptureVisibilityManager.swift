@@ -24,17 +24,12 @@ import AppKit
 import Combine
 import Defaults
 
-enum ScreenCaptureScope: Int {
-    case panelsOnly
-    case entireInterface
-}
-
 /// Menu toggle “Hide during screenshots and recordings”.
-/// Same as Atoll: only `NSWindow.sharingType`. Does not order the notch out.
+/// Only `NSWindow.sharingType`. Does not order the notch out.
 final class ScreenCaptureVisibilityManager {
     static let shared = ScreenCaptureVisibilityManager()
 
-    private let scopedWindows = NSMapTable<NSWindow, NSNumber>(keyOptions: .weakMemory, valueOptions: .strongMemory)
+    private let windows = NSHashTable<NSWindow>.weakObjects()
     private var cancellables = Set<AnyCancellable>()
 
     private init() {
@@ -46,25 +41,22 @@ final class ScreenCaptureVisibilityManager {
             .store(in: &cancellables)
     }
 
-    func register(_ window: NSWindow, scope: ScreenCaptureScope) {
-        scopedWindows.setObject(NSNumber(value: scope.rawValue), forKey: window)
-        applyVisibility(to: window, scope: scope)
+    func register(_ window: NSWindow) {
+        windows.add(window)
+        applyVisibility(to: window)
     }
 
     func unregister(_ window: NSWindow) {
-        scopedWindows.removeObject(forKey: window)
+        windows.remove(window)
     }
 
     private func updateAllWindows() {
-        guard let windows = scopedWindows.keyEnumerator().allObjects as? [NSWindow] else { return }
-        for window in windows {
-            guard let raw = scopedWindows.object(forKey: window)?.intValue,
-                  let scope = ScreenCaptureScope(rawValue: raw) else { continue }
-            applyVisibility(to: window, scope: scope)
+        for window in windows.allObjects {
+            applyVisibility(to: window)
         }
     }
 
-    private func applyVisibility(to window: NSWindow, scope _: ScreenCaptureScope) {
+    private func applyVisibility(to window: NSWindow) {
         let shouldHide = Defaults[.hideFromScreenCapture]
         window.sharingType = shouldHide ? .none : .readOnly
     }

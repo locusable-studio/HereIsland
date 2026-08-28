@@ -22,14 +22,16 @@
 
 import ApplicationServices
 import MacroVisionKit
+import Combine
 import SwiftUI
 
 class FullscreenMediaDetector: ObservableObject {
     static let shared = FullscreenMediaDetector()
     private let detector: MacroVisionKit
-    @ObservedObject private var musicManager = MusicManager.shared
+    private let musicManager = MusicManager.shared
     @MainActor @Published private(set) var fullscreenStatus: [String: Bool] = [:]
     private var notificationTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
 
     private init() {
         self.detector = MacroVisionKit.shared
@@ -45,23 +47,28 @@ class FullscreenMediaDetector: ObservableObject {
                     let activeSpaceNotifications = NSWorkspace.shared.notificationCenter.notifications(
                         named: NSWorkspace.activeSpaceDidChangeNotification
                     )
-                    
                     for await _ in activeSpaceNotifications {
                         await self?.handleChange()
                     }
                 }
-                
                 group.addTask {
-                    let screenParameterNotifications = NSWorkspace.shared.notificationCenter.notifications(
-                        named:  NSApplication.didChangeScreenParametersNotification
+                    let screenParameterNotifications = NotificationCenter.default.notifications(
+                        named: NSApplication.didChangeScreenParametersNotification
                     )
-                    
                     for await _ in screenParameterNotifications {
-                        await  self?.handleChange()
+                        await self?.handleChange()
                     }
                 }
             }
         }
+        musicManager.$bundleIdentifier
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                Task { await self?.handleChange() }
+            }
+            .store(in: &cancellables)
     }
 
     private func handleChange() async {
@@ -128,11 +135,8 @@ class FullscreenMediaDetector: ObservableObject {
         return typed
     }
 
-    private func cleanupNotificationObservers() {
-        NSWorkspace.shared.notificationCenter.removeObserver(self)
-    }
-
     deinit {
-        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        notificationTask?.cancel()
+        cancellables.removeAll()
     }
 }

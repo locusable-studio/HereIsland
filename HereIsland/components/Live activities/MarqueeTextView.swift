@@ -246,7 +246,7 @@ struct MusicTitleMarqueeView: View {
     }
 
     private var measurementFont: NSFont {
-        NSFont.preferredFont(forTextStyle: nsFont)
+        .systemFont(ofSize: 12, weight: .semibold)
     }
 
     private var measuredTextWidth: CGFloat {

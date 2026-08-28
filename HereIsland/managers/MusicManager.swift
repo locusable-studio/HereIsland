@@ -241,9 +241,7 @@ class MusicManager: ObservableObject {
         return hasRealTitle || hasRealArtist
     }
 
-    @Published var animations: DynamicIslandAnimations = .init()
     @Published var avgColor: NSColor = .white
-    @Published var secondaryColor: NSColor = .gray
     @Published var bundleIdentifier: String? = nil
     @Published var songDuration: TimeInterval = 0
     @Published var elapsedTime: TimeInterval = 0
@@ -296,9 +294,13 @@ class MusicManager: ObservableObject {
         Task { @MainActor in
             do {
                 self.isNowPlayingDeprecated = try await self.mediaChecker.checkDeprecationStatus()
+                #if DEBUG
                 print("Deprecation check completed: \(self.isNowPlayingDeprecated)")
+                #endif
             } catch {
+                #if DEBUG
                 print("Failed to check deprecation status: \(error). Defaulting to false.")
+                #endif
                 self.isNowPlayingDeprecated = false
             }
 
@@ -372,7 +374,9 @@ class MusicManager: ObservableObject {
 
     private func setActiveControllerBasedOnPreference() {
         let preferredType = Defaults[.mediaController]
+        #if DEBUG
         print("Preferred Media Controller: \(preferredType)")
+        #endif
 
         // If NowPlaying is deprecated but that's the preference, use Apple Music instead
         let controllerType = (self.isNowPlayingDeprecated && preferredType == .nowPlaying)
@@ -774,11 +778,10 @@ class MusicManager: ObservableObject {
     }
 
     func calculateAverageColor() {
-        albumArt.prominentOpposingColors { [weak self] primary, secondary in
+        albumArt.prominentOpposingColors { [weak self] primary, _ in
             DispatchQueue.main.async {
                 withAnimation(.smooth) {
                     self?.avgColor = primary
-                    self?.secondaryColor = secondary
                 }
             }
         }
@@ -853,7 +856,9 @@ class MusicManager: ObservableObject {
 
     func openMusicApp() {
         guard let bundleID = bundleIdentifier else {
+            #if DEBUG
             print("Error: appBundleIdentifier is nil")
+            #endif
             return
         }
 
@@ -862,13 +867,19 @@ class MusicManager: ObservableObject {
             let configuration = NSWorkspace.OpenConfiguration()
             workspace.openApplication(at: appURL, configuration: configuration) { (app, error) in
                 if let error = error {
+                    #if DEBUG
                     print("Failed to launch app with bundle ID: \(bundleID), error: \(error)")
+                    #endif
                 } else {
+                    #if DEBUG
                     print("Launched app with bundle ID: \(bundleID)")
+                    #endif
                 }
             }
         } else {
+            #if DEBUG
             print("Failed to find app with bundle ID: \(bundleID)")
+            #endif
         }
     }
 
@@ -900,28 +911,6 @@ class MusicManager: ObservableObject {
             }
         }
     }
-}
-
-// MARK: - Media Branding
-
-extension MusicManager {
-    var brandAccentColor: Color {
-        Self.brandAccentColor(for: Defaults[.mediaController], bundleIdentifier: bundleIdentifier)
-    }
-
-    private static func brandAccentColor(for controller: MediaControllerType, bundleIdentifier: String?) -> Color {
-        switch controller {
-        case .appleMusic:
-            return appleMusicPink
-        case .nowPlaying:
-            if bundleIdentifier == "com.apple.Music" {
-                return appleMusicPink
-            }
-            return .accentColor
-        }
-    }
-
-    private static let appleMusicPink = Color(red: 0.999, green: 0.171, blue: 0.331)
 }
 
 // MARK: - Album Art Flip Helper
