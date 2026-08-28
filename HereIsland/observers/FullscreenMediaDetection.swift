@@ -25,11 +25,12 @@ import MacroVisionKit
 import Combine
 import SwiftUI
 
+@MainActor
 class FullscreenMediaDetector: ObservableObject {
     static let shared = FullscreenMediaDetector()
     private let detector: MacroVisionKit
     private let musicManager = MusicManager.shared
-    @MainActor @Published private(set) var fullscreenStatus: [String: Bool] = [:]
+    @Published private(set) var fullscreenStatus: [String: Bool] = [:]
     private var notificationTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
 
@@ -76,7 +77,7 @@ class FullscreenMediaDetector: ObservableObject {
 
     private func handleChange() async {
         try? await Task.sleep(for: .milliseconds(500))
-        self.updateFullScreenStatus()
+        updateFullScreenStatus()
     }
 
     private func updateFullScreenStatus() {
