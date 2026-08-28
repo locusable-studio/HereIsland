@@ -50,7 +50,7 @@ final class AboutWindowController: NSWindowController {
         window.identifier = NSUserInterfaceItemIdentifier("HereIslandAboutWindow")
         window.delegate = self
         window.contentView = NSHostingView(rootView: AboutView())
-        ScreenCaptureVisibilityManager.shared.register(window, scope: .panelsOnly)
+        ScreenCaptureVisibilityManager.shared.register(window)
     }
 
     func openAbout() {
