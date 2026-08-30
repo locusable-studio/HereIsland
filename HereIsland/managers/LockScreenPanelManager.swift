@@ -28,8 +28,8 @@ import SwiftUI
 final class LockScreenPanelManager {
     static let shared = LockScreenPanelManager()
 
-    /// Content hugs 88pt artwork with 16pt equal insets (390 × 120).
-    static let panelSize = CGSize(width: 390, height: 120)
+    /// Content hugs 88pt artwork with 16pt equal insets (390 × 136) so times fit.
+    static let panelSize = CGSize(width: 390, height: 136)
     static let contentPadding: CGFloat = 16
     private static let verticalLowering: CGFloat = 68
     private static let cornerRadius: CGFloat = 28
