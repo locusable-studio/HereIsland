@@ -15,17 +15,45 @@ Website: [locusable.com/here-island](https://locusable.com/here-island/)
 
 ## What it does
 
-Here Island is a menu bar app that lives in the MacBook notch and shows a compact music player:
+Here Island is a menu bar app that lives in the MacBook notch and shows a compact music player.
 
-- Album art, title, and artist
-- Progress and playback controls: shuffle, previous, play/pause, next, repeat
-- Real-time waveform while playing
-- Media source: **Now Playing** (default, system-wide) or **Apple Music**
-- Optional hide during screenshots and recordings (menu bar → General, off by default)
+**In the notch**
 
-Settings live in the menu bar extra: display scope, haptics, launch at login, media source, and hide during screenshots and recordings.
+- Album art, title, and artist (title marquee when the name is long)
+- Progress with elapsed / remaining time
+- Hover to expand for playback: shuffle, previous, play/pause, next, repeat
+- Quick peek: title marquee on track change
+- Real-time waveform while playing (Appearance → Effects, off by default)
+- Album art background and window shadow (Appearance → Effects)
+- Accent color: White, Match album art (default), Follow system, or Apple Music
 
-No battery HUD, system OSD replacement, or configurable control layouts — just media in the notch.
+**Hide**
+
+- During screenshots and recordings (off by default)
+- When an app is in native fullscreen on that display (on by default). In-page video and zoomed windows do not hide it.
+
+**Lock screen**
+
+- Optional media card on the menu-bar display (Appearance → Lock screen widget, off by default)
+- Artwork, title, artist, shuffle / previous / play / next / repeat, progress with times
+- Same tint rules as the notch. No waveform on the lock card
+
+**Media and updates**
+
+- Source: **Now Playing** (default, system-wide) or **Apple Music**
+- Sparkle: Stable or Beta channel, check for updates
+- Launch at login, haptics, display (one screen or all)
+
+No battery HUD, system OSD replacement, or configurable control layouts — just media in the notch, plus an optional lock-screen card.
+
+## Menu
+
+Settings live in the menu bar extra:
+
+- **General:** Launch at login, Haptics, **Hide** (During screenshots and recordings / When fullscreen), Display
+- **Appearance:** **Effects** (album art background, window shadow, real-time waveform), Quick peek, Lock screen widget, Accent color
+- **Media:** Source
+- **Updates:** Check for updates, Channel, Update Settings
 
 ## Download
 
@@ -55,7 +83,8 @@ Provenance is recorded in [NOTICE](NOTICE).
 Here Island stands on the work of earlier open-source notch projects:
 
 - **[boring.notch](https://github.com/TheBoredTeam/boring.notch)** — the original Bored Team project that pioneered a rich, native notch experience on macOS. This lineage begins there.
-- **[Atoll](https://github.com/Ebullioscopic/Atoll)** — Ebullioscopic’s Dynamic Island–style companion for Mac. Here Island is a further modified, minimalistic work derived from Atoll (itself based on boring.notch). We are grateful to the Atoll maintainers and contributors for the foundation this project builds on.
+- **[Atoll](https://github.com/Ebullioscopic/Atoll)** — Ebullioscopic’s Dynamic Island–style companion for Mac. Here Island is a further modified, minimalistic work derived from Atoll (itself based on boring.notch).
+- **[Alcove](https://tryalcove.com)** — lock-screen media panel inspiration.
 
 Real-time waveform capture is adapted from **[rtaudio](https://github.com/ZephyrCodesStuff/rtaudio)** by ZephyrCodesStuff (integrated via Atoll under GPL-3.0 for this lineage).
 
