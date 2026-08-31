@@ -45,7 +45,6 @@ struct ContentView: View {
     @State private var peekTitle = ""
     @State private var peekTitleColor: Color = .white
     @State private var peekSlotWidth: CGFloat = 0
-    @State private var peekAlbumArt: NSImage = NSImage()
     @State private var lastFlashedTitle = ""
     @State private var flashTask: Task<Void, Never>?
     @State private var debounceTask: Task<Void, Never>?
@@ -169,10 +168,6 @@ struct ContentView: View {
             guard isFlashing else { return }
             peekTitleColor = playerTint.resolvedColor(albumArt: newColor)
         }
-        .onChange(of: musicManager.albumArt) { _, newArt in
-            guard isFlashing else { return }
-            peekAlbumArt = newArt
-        }
     }
 
     private var notchChrome: some View {
@@ -185,6 +180,8 @@ struct ContentView: View {
             .animation(.bouncy.speed(1.2), value: isHovering)
             .animation(vm.notchState == .open ? openSpring : closeSpring, value: vm.notchState)
             .animation(isFlashing ? flashSpring : closeSpring, value: isFlashing)
+            // Retarget while peek is open only changes width — keep the same spring.
+            .animation(flashSpring, value: peekSlotWidth)
     }
 
     private var chromeBase: some View {
@@ -253,7 +250,9 @@ struct ContentView: View {
         let sideGrow = isFlashing ? max(titleWidth - wing, 0) : 0
         let titleInner = max(titleWidth, 8)
         return HStack(spacing: 0) {
-            Image(nsImage: isFlashing ? peekAlbumArt : musicManager.albumArt)
+            // Always bind live art — a flash snapshot goes stale when the
+            // track changes again before peek retracts.
+            Image(nsImage: musicManager.albumArt)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
@@ -336,12 +335,10 @@ struct ContentView: View {
     }
 
     private func handleSongTitleChange(_ newTitle: String) {
-        // Drop any in-flight flash immediately — no queue. Title is ready: flash now.
+        // No queue: latest title wins. If a peek is already open, retarget it
+        // in place — tearing down and restarting leaves title/cover out of sync.
         debounceTask?.cancel()
         debounceTask = nil
-        if isFlashing {
-            retractFlash()
-        }
 
         let trimmed = normalizedTitle(newTitle)
         guard vm.notchState == .closed, !vm.hideOnClosed else {
@@ -366,7 +363,6 @@ struct ContentView: View {
         }
     }
 
-
     private func peekSlotWidth(for title: String) -> CGFloat {
         let height = max(0, vm.effectiveClosedNotchHeight - (isHovering ? 0 : 12))
         let wing = max(0, height)
@@ -385,7 +381,6 @@ struct ContentView: View {
         peekTitle = title
         peekTitleColor = playerTint.resolvedColor(albumArt: musicManager.avgColor)
         peekSlotWidth = peekSlotWidth(for: title)
-        peekAlbumArt = musicManager.albumArt
         isFlashing = true
         // Safety retract if the one-shot view never reports finished.
         flashTask = Task { @MainActor in
@@ -399,6 +394,7 @@ struct ContentView: View {
         flashTask?.cancel()
         flashTask = nil
         isFlashing = false
+        peekTitle = ""
     }
 
     private func cancelFlashForOpen() {
