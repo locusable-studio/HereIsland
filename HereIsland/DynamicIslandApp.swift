@@ -72,13 +72,13 @@ struct DynamicNotchApp: App {
             }
 
             Section(String(localized: "Appearance")) {
+                Toggle(String(localized: "Quick peek"), isOn: $showTitleOnTrackChange)
+                Toggle(String(localized: "Lock screen widget"), isOn: $enableLockScreenMediaPanel)
                 Menu(String(localized: "Effects")) {
                     Toggle(String(localized: "Album art background"), isOn: $showAlbumArtBackgroundEffects)
                     Toggle(String(localized: "Window shadow"), isOn: $showWindowShadow)
                     Toggle(String(localized: "Real-time waveform"), isOn: $enableRealTimeWaveform)
                 }
-                Toggle(String(localized: "Quick peek"), isOn: $showTitleOnTrackChange)
-                Toggle(String(localized: "Lock screen widget"), isOn: $enableLockScreenMediaPanel)
                 Picker(String(localized: "Accent color"), selection: $playerTint) {
                     ForEach(PlayerTint.allCases) { option in
                         Text(option.localizedName).tag(option)
