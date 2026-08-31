@@ -51,7 +51,7 @@ No battery HUD, system OSD replacement, or configurable control layouts — just
 Settings live in the menu bar extra:
 
 - **General:** Launch at login, Haptics, **Hide** (During screenshots and recordings / When fullscreen), Display
-- **Appearance:** **Effects** (album art background, window shadow, real-time waveform), Quick peek, Lock screen widget, Accent color
+- **Appearance:** Quick peek, Lock screen widget, **Effects** (album art background, window shadow, real-time waveform), Accent color
 - **Media:** Source
 - **Updates:** Check for updates, Channel, Update Settings
 
