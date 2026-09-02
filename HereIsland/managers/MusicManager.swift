@@ -215,6 +215,9 @@ class MusicManager: ObservableObject {
     @Published var songTitle: String = "I'm Handsome"
     @Published var artistName: String = "Me"
     @Published var albumArt: NSImage = defaultImage
+    /// Bumped whenever `albumArt` is replaced so SwiftUI `Image(nsImage:)` redraws.
+    @Published var artworkGeneration: UInt = 0
+    private var artworkApplyGeneration: UInt = 0
     @Published var isPlaying = false
     @Published var album: String = "Self Love"
     @Published var isPlayerIdle: Bool = true
@@ -519,16 +522,16 @@ class MusicManager: ObservableObject {
             self.videoArtworkURL = state.liveArtworkURL
         }
 
-        if state.title != self.songTitle {
-            self.songTitle = state.title
-        }
-
-        if state.artist != self.artistName {
-            self.artistName = state.artist
-        }
-
-        if state.album != self.album {
-            self.album = state.album
+        if !(artworkChanged && state.artwork != nil) {
+            if state.title != self.songTitle {
+                self.songTitle = state.title
+            }
+            if state.artist != self.artistName {
+                self.artistName = state.artist
+            }
+            if state.album != self.album {
+                self.album = state.album
+            }
         }
 
         // Handle artwork and visual transitions for changed content
@@ -536,15 +539,19 @@ class MusicManager: ObservableObject {
             self.triggerFlipAnimation()
 
             if artworkChanged, let artwork = state.artwork {
-                self.updateArtwork(artwork)
-            } else if state.artwork == nil {
-                // Try to use app icon if no artwork but track changed
+                self.updateArtwork(artwork, applying: state)
+                self.artworkData = artwork
+            } else if let artwork = state.artwork {
+                self.artworkData = artwork
+            } else if trackIdentityChanged, self.artworkData == nil {
+                // No prior art and this payload omitted bytes — app icon only then.
                 if let appIconImage = AppIconAsNSImage(for: state.bundleIdentifier) {
                     self.usingAppIconForArtwork = true
                     self.updateAlbumArt(newAlbumArt: appIconImage)
                 }
             }
-            self.artworkData = state.artwork
+            // Title-only updates omit artwork; keep last artworkData so a later
+            // cover payload still compares unequal and swaps albumArt + avgColor.
 
             // Update last artwork change values
             self.lastArtworkTitle = state.title
@@ -732,14 +739,34 @@ class MusicManager: ObservableObject {
         }
     }
 
-    private func updateArtwork(_ artworkData: Data) {
+    private func updateArtwork(_ artworkData: Data, applying state: PlaybackState? = nil) {
+        artworkApplyGeneration &+= 1
+        let generation = artworkApplyGeneration
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-
-            if let artworkImage = NSImage(data: artworkData) {
-                DispatchQueue.main.async { [weak self] in
-                    self?.usingAppIconForArtwork = false
-                    self?.updateAlbumArt(newAlbumArt: artworkImage)
+            guard let artworkImage = NSImage(data: artworkData) else {
+                DispatchQueue.main.async {
+                    guard let self, generation == self.artworkApplyGeneration, let state else { return }
+                    if state.title != self.songTitle { self.songTitle = state.title }
+                    if state.artist != self.artistName { self.artistName = state.artist }
+                    if state.album != self.album { self.album = state.album }
+                }
+                return
+            }
+            DispatchQueue.main.async {
+                guard let self, generation == self.artworkApplyGeneration else { return }
+                self.usingAppIconForArtwork = false
+                if let state {
+                    if state.title != self.songTitle { self.songTitle = state.title }
+                    if state.artist != self.artistName { self.artistName = state.artist }
+                    if state.album != self.album { self.album = state.album }
+                }
+                self.albumArt = artworkImage
+                self.artworkGeneration &+= 1
+            }
+            artworkImage.prominentOpposingColors { [weak self] primary, _ in
+                DispatchQueue.main.async {
+                    guard let self, generation == self.artworkApplyGeneration else { return }
+                    self.avgColor = primary
                 }
             }
         }
@@ -762,10 +789,9 @@ class MusicManager: ObservableObject {
     }
 
     func updateAlbumArt(newAlbumArt: NSImage) {
-        withAnimation(.smooth) {
-            albumArt = newAlbumArt
-            calculateAverageColor()
-        }
+        albumArt = newAlbumArt
+        artworkGeneration &+= 1
+        calculateAverageColor()
     }
 
     // MARK: - Playback Position Estimation
