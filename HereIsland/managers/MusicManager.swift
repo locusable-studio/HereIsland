@@ -572,6 +572,7 @@ class MusicManager: ObservableObject {
         if usingAppIconForArtwork, let artwork = state.artwork {
             artworkFallbackTask?.cancel()
             artworkFallbackGeneration &+= 1
+            usingAppIconForArtwork = false
             updateArtwork(artwork)
             artworkData = artwork
         }
