@@ -557,6 +557,23 @@
         }
       }
     },
+    "Not Playing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Playing"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未在播放"
+          }
+        }
+      }
+    },
     "Now Playing": {
       "extractionState": "manual",
       "localizations": {
