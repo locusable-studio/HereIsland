@@ -217,6 +217,7 @@ class MusicManager: ObservableObject {
     @Published var albumArt: NSImage = defaultImage
     /// Bumped whenever `albumArt` is replaced so SwiftUI `Image(nsImage:)` redraws.
     @Published var artworkGeneration: UInt = 0
+    private var artworkApplyGeneration: UInt = 0
     @Published var isPlaying = false
     @Published var album: String = "Self Love"
     @Published var isPlayerIdle: Bool = true
@@ -521,16 +522,16 @@ class MusicManager: ObservableObject {
             self.videoArtworkURL = state.liveArtworkURL
         }
 
-        if state.title != self.songTitle {
-            self.songTitle = state.title
-        }
-
-        if state.artist != self.artistName {
-            self.artistName = state.artist
-        }
-
-        if state.album != self.album {
-            self.album = state.album
+        if !(artworkChanged && state.artwork != nil) {
+            if state.title != self.songTitle {
+                self.songTitle = state.title
+            }
+            if state.artist != self.artistName {
+                self.artistName = state.artist
+            }
+            if state.album != self.album {
+                self.album = state.album
+            }
         }
 
         // Handle artwork and visual transitions for changed content
@@ -538,7 +539,7 @@ class MusicManager: ObservableObject {
             self.triggerFlipAnimation()
 
             if artworkChanged, let artwork = state.artwork {
-                self.updateArtwork(artwork)
+                self.updateArtwork(artwork, applying: state)
                 self.artworkData = artwork
             } else if let artwork = state.artwork {
                 self.artworkData = artwork
@@ -738,14 +739,28 @@ class MusicManager: ObservableObject {
         }
     }
 
-    private func updateArtwork(_ artworkData: Data) {
+    private func updateArtwork(_ artworkData: Data, applying state: PlaybackState? = nil) {
+        artworkApplyGeneration &+= 1
+        let generation = artworkApplyGeneration
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let artworkImage = NSImage(data: artworkData) else { return }
-            // Decode and tint on this queue so albumArt and avgColor land together.
+            guard let artworkImage = NSImage(data: artworkData) else {
+                DispatchQueue.main.async {
+                    guard let self, generation == self.artworkApplyGeneration, let state else { return }
+                    if state.title != self.songTitle { self.songTitle = state.title }
+                    if state.artist != self.artistName { self.artistName = state.artist }
+                    if state.album != self.album { self.album = state.album }
+                }
+                return
+            }
             artworkImage.prominentOpposingColors { [weak self] primary, _ in
                 DispatchQueue.main.async {
-                    guard let self else { return }
+                    guard let self, generation == self.artworkApplyGeneration else { return }
                     self.usingAppIconForArtwork = false
+                    if let state {
+                        if state.title != self.songTitle { self.songTitle = state.title }
+                        if state.artist != self.artistName { self.artistName = state.artist }
+                        if state.album != self.album { self.album = state.album }
+                    }
                     self.albumArt = artworkImage
                     self.artworkGeneration &+= 1
                     self.avgColor = primary
