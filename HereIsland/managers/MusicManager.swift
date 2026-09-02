@@ -752,17 +752,20 @@ class MusicManager: ObservableObject {
                 }
                 return
             }
+            DispatchQueue.main.async {
+                guard let self, generation == self.artworkApplyGeneration else { return }
+                self.usingAppIconForArtwork = false
+                if let state {
+                    if state.title != self.songTitle { self.songTitle = state.title }
+                    if state.artist != self.artistName { self.artistName = state.artist }
+                    if state.album != self.album { self.album = state.album }
+                }
+                self.albumArt = artworkImage
+                self.artworkGeneration &+= 1
+            }
             artworkImage.prominentOpposingColors { [weak self] primary, _ in
                 DispatchQueue.main.async {
                     guard let self, generation == self.artworkApplyGeneration else { return }
-                    self.usingAppIconForArtwork = false
-                    if let state {
-                        if state.title != self.songTitle { self.songTitle = state.title }
-                        if state.artist != self.artistName { self.artistName = state.artist }
-                        if state.album != self.album { self.album = state.album }
-                    }
-                    self.albumArt = artworkImage
-                    self.artworkGeneration &+= 1
                     self.avgColor = primary
                 }
             }
