@@ -540,7 +540,7 @@ class MusicManager: ObservableObject {
             if let artwork = state.artwork {
                 self.artworkFallbackTask?.cancel()
                 self.artworkFallbackGeneration &+= 1
-                if artworkChanged {
+                if artworkChanged || self.usingAppIconForArtwork {
                     self.updateArtwork(artwork)
                 }
                 self.artworkData = artwork
