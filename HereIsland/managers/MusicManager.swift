@@ -212,11 +212,11 @@ class MusicManager: ObservableObject {
     private var activeController: (any MediaControllerProtocol)?
 
     // Published properties for UI
-    @Published var songTitle: String = "I'm Handsome"
-    @Published var artistName: String = "Me"
+    @Published var songTitle: String = "Not Playing"
+    @Published var artistName: String = ""
     @Published var albumArt: NSImage = defaultImage
     @Published var isPlaying = false
-    @Published var album: String = "Self Love"
+    @Published var album: String = ""
     @Published var isPlayerIdle: Bool = true
     @Published var isCurrentTrackExplicit: Bool = false
 
@@ -226,7 +226,7 @@ class MusicManager: ObservableObject {
     /// unknown/not-playing placeholders). Paused music with real metadata is still
     /// considered an active session.
     private static let placeholderTitles: Set<String> = [
-        "i'm handsome", "unknown", "not playing"
+        "i'm handsome", "unknown", "not playing", "未在播放"
     ]
     private static let placeholderArtists: Set<String> = [
         "me", "unknown"
@@ -266,9 +266,9 @@ class MusicManager: ObservableObject {
     private var liveStreamCompletionReleaseCount: Int = 0
 
     // Store last values at the time artwork was changed
-    private var lastArtworkTitle: String = "I'm Handsome"
-    private var lastArtworkArtist: String = "Me"
-    private var lastArtworkAlbum: String = "Self Love"
+    private var lastArtworkTitle: String = "Not Playing"
+    private var lastArtworkArtist: String = ""
+    private var lastArtworkAlbum: String = ""
     private var lastArtworkBundleIdentifier: String? = nil
     private var lastArtworkContentIdentifier: String? = nil
     private var lastArtworkContentURL: String? = nil
