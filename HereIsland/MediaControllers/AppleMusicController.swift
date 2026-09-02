@@ -57,6 +57,11 @@ class AppleMusicController: MediaControllerProtocol {
     private var lastCatalogArtworkKey: String?
     private var cachedCatalogArtwork: Data?
     private var playbackInfoGeneration: UInt = 0
+    /// Title/artist whose cover we last accepted. Stale script bytes from an
+    /// earlier track must not be published as this track's `artwork`.
+    private var acceptedArtworkTitle: String?
+    private var acceptedArtworkArtist: String?
+    private var lastAcceptedArtwork: Data?
 
     // MARK: - Initialization
     init() {
@@ -157,26 +162,39 @@ class AppleMusicController: MediaControllerProtocol {
         // AppleScript returns artwork data for library tracks. For streamed
         // content not in the library it returns an empty descriptor, so we
         // fall back to the iTunes Search API to fetch artwork by metadata.
-        // Title/artist changed but script bytes still match last track: Music.app
-        // may still be serving the previous cover (empty album, singles). Fetch
-        // catalog; a miss keeps script so same-album shared covers stay.
-        let identityChanged =
-            updatedState.title != self.playbackState.title
-            || updatedState.artist != self.playbackState.artist
         let scriptArtwork: Data? = {
             guard let artworkData = descriptor.atIndex(9)?.data as Data?,
                   artworkData.count > Self.minimumArtworkSize else { return nil }
             return artworkData
         }()
-        let scriptLooksStale = identityChanged && scriptArtwork != nil && scriptArtwork == self.playbackState.artwork
-        if let scriptArtwork, !scriptLooksStale {
+        let artAlreadyForThisTrack =
+            acceptedArtworkTitle == updatedState.title
+            && acceptedArtworkArtist == updatedState.artist
+        let scriptIsStale =
+            scriptArtwork != nil
+            && scriptArtwork == lastAcceptedArtwork
+            && !artAlreadyForThisTrack
+
+        if let scriptArtwork, !scriptIsStale {
             updatedState.artwork = scriptArtwork
+            lastAcceptedArtwork = scriptArtwork
+            acceptedArtworkTitle = updatedState.title
+            acceptedArtworkArtist = updatedState.artist
         } else {
             let catalog = await fetchArtworkFromCatalog(
                 title: updatedState.title, artist: updatedState.artist, album: updatedState.album
             )
             guard generation == playbackInfoGeneration else { return }
-            updatedState.artwork = catalog ?? scriptArtwork
+            if let catalog, catalog != lastAcceptedArtwork {
+                updatedState.artwork = catalog
+                lastAcceptedArtwork = catalog
+                acceptedArtworkTitle = updatedState.title
+                acceptedArtworkArtist = updatedState.artist
+            } else {
+                // Stale script / catalog miss: do not republish the previous
+                // track's bytes. MusicManager leaves albumArt as-is until new bytes.
+                updatedState.artwork = nil
+            }
         }
 
         guard generation == playbackInfoGeneration else { return }
