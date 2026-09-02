@@ -3,6 +3,14 @@
     <channel>
         <title>Here Island Beta</title>
         <item>
+            <title>2026.9.2-beta.1</title>
+            <pubDate>Wed, 02 Sep 2026 03:52:19 +0000</pubDate>
+            <sparkle:version>1326</sparkle:version>
+            <sparkle:shortVersionString>2026.9.2-beta.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/locusable-studio/HereIsland/releases/download/v2026.9.2-beta.1/HereIsland-2026.9.2-beta.1.dmg" length="2409635" type="application/octet-stream" sparkle:edSignature="7yTT9kOE2xokLcTQaKV0L+QNM2bqUfyA7ODhAHdfpIQ+GF2ImXyPQu9BHFgfU8CbPf9osbHWVZ/vjlEiRdD3DQ=="/>
+        </item>
+        <item>
             <title>2026.9.1-beta.1</title>
             <pubDate>Tue, 01 Sep 2026 07:56:44 +0000</pubDate>
             <sparkle:version>1321</sparkle:version>
