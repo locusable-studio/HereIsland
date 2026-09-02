@@ -236,19 +236,12 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             newPlaybackState.repeatMode = self.playbackState.repeatMode
         }
 
-        let identityChanged =
-            newPlaybackState.title != self.playbackState.title
-            || newPlaybackState.artist != self.playbackState.artist
-            || newPlaybackState.album != self.playbackState.album
         if let artworkDataString = payload.artworkData {
             newPlaybackState.artwork = Data(
                 base64Encoded: artworkDataString.trimmingCharacters(in: .whitespacesAndNewlines)
             )
-        } else if identityChanged {
-            // Unknown cover for this track; MusicManager keeps the previous image for 400ms.
+        } else if !diff {
             newPlaybackState.artwork = nil
-        } else {
-            newPlaybackState.artwork = diff ? self.playbackState.artwork : nil
         }
 
         if let dateString = payload.timestamp,

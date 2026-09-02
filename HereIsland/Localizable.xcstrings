@@ -557,23 +557,6 @@
         }
       }
     },
-    "Not Playing": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not Playing"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未在播放"
-          }
-        }
-      }
-    },
     "Now Playing": {
       "extractionState": "manual",
       "localizations": {
@@ -927,19 +910,19 @@
         }
       }
     },
-    "Install and Relaunch": {
+    "Update Ready — Restart to Install": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Install and Relaunch"
+            "value": "Update Ready — Restart to Install"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "安装并重启应用"
+            "value": "更新已就绪，点击重启安装"
           }
         }
       }
