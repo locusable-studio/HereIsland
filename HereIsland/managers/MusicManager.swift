@@ -537,14 +537,10 @@ class MusicManager: ObservableObject {
 
             if artworkChanged, let artwork = state.artwork {
                 self.updateArtwork(artwork)
-            } else if state.artwork == nil {
-                // Try to use app icon if no artwork but track changed
-                if let appIconImage = AppIconAsNSImage(for: state.bundleIdentifier) {
-                    self.usingAppIconForArtwork = true
-                    self.updateAlbumArt(newAlbumArt: appIconImage)
-                }
             }
-            self.artworkData = state.artwork
+            if let artwork = state.artwork {
+                self.artworkData = artwork
+            }
 
             // Update last artwork change values
             self.lastArtworkTitle = state.title

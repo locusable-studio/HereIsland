@@ -240,8 +240,8 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             newPlaybackState.artwork = Data(
                 base64Encoded: artworkDataString.trimmingCharacters(in: .whitespacesAndNewlines)
             )
-        } else if !diff {
-            newPlaybackState.artwork = nil
+        } else {
+            newPlaybackState.artwork = diff ? self.playbackState.artwork : nil
         }
 
         if let dateString = payload.timestamp,
