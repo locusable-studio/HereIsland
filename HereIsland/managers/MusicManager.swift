@@ -543,15 +543,14 @@ class MusicManager: ObservableObject {
                 self.artworkData = artwork
             } else if let artwork = state.artwork {
                 self.artworkData = artwork
-            } else if trackIdentityChanged, self.artworkData == nil {
-                // No prior art and this payload omitted bytes — app icon only then.
-                if let appIconImage = AppIconAsNSImage(for: state.bundleIdentifier) {
-                    self.usingAppIconForArtwork = true
-                    self.updateAlbumArt(newAlbumArt: appIconImage)
-                }
+            } else if trackIdentityChanged {
+                // New track, no bytes for this title: do not keep showing the
+                // previous cover. Empty art, not idle placeholder copy.
+                self.artworkApplyGeneration &+= 1
+                self.artworkData = nil
+                self.albumArt = NSImage()
+                self.artworkGeneration &+= 1
             }
-            // Title-only updates omit artwork; keep last artworkData so a later
-            // cover payload still compares unequal and swaps albumArt + avgColor.
 
             // Update last artwork change values
             self.lastArtworkTitle = state.title
