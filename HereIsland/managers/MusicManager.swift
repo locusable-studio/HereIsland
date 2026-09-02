@@ -545,16 +545,7 @@ class MusicManager: ObservableObject {
                 }
                 self.artworkData = artwork
             } else if trackIdentityChanged {
-                let sameAlbumCover =
-                    !state.album.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    && state.album == self.lastArtworkAlbum
-                    && self.artworkData != nil
-                if sameAlbumCover {
-                    self.artworkFallbackTask?.cancel()
-                    self.artworkFallbackGeneration &+= 1
-                } else {
-                    self.scheduleSourceLogoFallback(for: state)
-                }
+                self.scheduleSourceLogoFallback(for: state)
             }
 
             // Update last artwork change values
