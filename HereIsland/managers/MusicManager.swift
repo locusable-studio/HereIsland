@@ -740,12 +740,15 @@ class MusicManager: ObservableObject {
 
     private func updateArtwork(_ artworkData: Data) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-
-            if let artworkImage = NSImage(data: artworkData) {
-                DispatchQueue.main.async { [weak self] in
-                    self?.usingAppIconForArtwork = false
-                    self?.updateAlbumArt(newAlbumArt: artworkImage)
+            guard let artworkImage = NSImage(data: artworkData) else { return }
+            // Decode and tint on this queue so albumArt and avgColor land together.
+            artworkImage.prominentOpposingColors { [weak self] primary, _ in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.usingAppIconForArtwork = false
+                    self.albumArt = artworkImage
+                    self.artworkGeneration &+= 1
+                    self.avgColor = primary
                 }
             }
         }

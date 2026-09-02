@@ -152,13 +152,24 @@ class AppleMusicController: MediaControllerProtocol {
         // AppleScript returns artwork data for library tracks. For streamed
         // content not in the library it returns an empty descriptor, so we
         // fall back to the iTunes Search API to fetch artwork by metadata.
-        if let artworkData = descriptor.atIndex(9)?.data as Data?,
-           artworkData.count > Self.minimumArtworkSize {
-            updatedState.artwork = artworkData
+        // Skip can also return the previous track's bytes with the new title;
+        // treat that as missing so we don't publish a stale cover.
+        let identityChanged =
+            updatedState.title != self.playbackState.title
+            || updatedState.artist != self.playbackState.artist
+            || updatedState.album != self.playbackState.album
+        let scriptArtwork: Data? = {
+            guard let artworkData = descriptor.atIndex(9)?.data as Data?,
+                  artworkData.count > Self.minimumArtworkSize else { return nil }
+            return artworkData
+        }()
+        let scriptLooksStale = identityChanged && scriptArtwork != nil && scriptArtwork == self.playbackState.artwork
+        if let scriptArtwork, !scriptLooksStale {
+            updatedState.artwork = scriptArtwork
         } else {
             updatedState.artwork = await fetchArtworkFromCatalog(
                 title: updatedState.title, artist: updatedState.artist, album: updatedState.album
-            )
+            ) ?? (scriptLooksStale ? nil : scriptArtwork)
         }
 
         updatedState.lastUpdated = Date()
