@@ -910,19 +910,19 @@
         }
       }
     },
-    "Update Ready — Restart to Install": {
+    "Install and Relaunch": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Update Ready — Restart to Install"
+            "value": "Install and Relaunch"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "更新已就绪，点击重启安装"
+            "value": "安装并重启应用"
           }
         }
       }
