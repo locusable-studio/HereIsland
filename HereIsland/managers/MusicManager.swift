@@ -254,6 +254,8 @@ class MusicManager: ObservableObject {
     @Published var usingAppIconForArtwork: Bool = false
 
     private var explicitLookupTask: Task<Void, Never>?
+    private var artworkFallbackTask: Task<Void, Never>?
+    private var artworkFallbackGeneration: UInt = 0
     private var explicitLookupKey: String?
 
     private(set) var artworkData: Data? = nil
@@ -535,11 +537,15 @@ class MusicManager: ObservableObject {
         if hasContentChange {
             self.triggerFlipAnimation()
 
-            if artworkChanged, let artwork = state.artwork {
-                self.updateArtwork(artwork)
-            }
             if let artwork = state.artwork {
+                self.artworkFallbackTask?.cancel()
+                self.artworkFallbackGeneration &+= 1
+                if artworkChanged {
+                    self.updateArtwork(artwork)
+                }
                 self.artworkData = artwork
+            } else if trackIdentityChanged {
+                self.scheduleSourceLogoFallback(for: state)
             }
 
             // Update last artwork change values
@@ -725,6 +731,25 @@ class MusicManager: ObservableObject {
             liveStreamEdgeObservationCount = 0
             liveStreamCompletionObservationCount = 0
             liveStreamCompletionReleaseCount = 0
+        }
+    }
+
+    private func scheduleSourceLogoFallback(for state: PlaybackState) {
+        artworkFallbackTask?.cancel()
+        artworkFallbackGeneration &+= 1
+        let generation = artworkFallbackGeneration
+        let title = state.title
+        let artist = state.artist
+        let album = state.album
+        let bundle = state.bundleIdentifier
+        artworkFallbackTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled, let self else { return }
+            guard generation == self.artworkFallbackGeneration else { return }
+            guard self.songTitle == title, self.artistName == artist, self.album == album else { return }
+            guard let bundle, let icon = AppIconAsNSImage(for: bundle) else { return }
+            self.usingAppIconForArtwork = true
+            self.updateAlbumArt(newAlbumArt: icon)
         }
     }
 
