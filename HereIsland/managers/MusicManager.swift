@@ -215,6 +215,8 @@ class MusicManager: ObservableObject {
     @Published var songTitle: String = "I'm Handsome"
     @Published var artistName: String = "Me"
     @Published var albumArt: NSImage = defaultImage
+    /// Bumped whenever `albumArt` is replaced so SwiftUI `Image(nsImage:)` redraws.
+    @Published var artworkGeneration: UInt = 0
     @Published var isPlaying = false
     @Published var album: String = "Self Love"
     @Published var isPlayerIdle: Bool = true
@@ -537,14 +539,18 @@ class MusicManager: ObservableObject {
 
             if artworkChanged, let artwork = state.artwork {
                 self.updateArtwork(artwork)
-            } else if state.artwork == nil {
-                // Try to use app icon if no artwork but track changed
+                self.artworkData = artwork
+            } else if let artwork = state.artwork {
+                self.artworkData = artwork
+            } else if trackIdentityChanged, self.artworkData == nil {
+                // No prior art and this payload omitted bytes — app icon only then.
                 if let appIconImage = AppIconAsNSImage(for: state.bundleIdentifier) {
                     self.usingAppIconForArtwork = true
                     self.updateAlbumArt(newAlbumArt: appIconImage)
                 }
             }
-            self.artworkData = state.artwork
+            // Title-only updates omit artwork; keep last artworkData so a later
+            // cover payload still compares unequal and swaps albumArt + avgColor.
 
             // Update last artwork change values
             self.lastArtworkTitle = state.title
@@ -762,10 +768,9 @@ class MusicManager: ObservableObject {
     }
 
     func updateAlbumArt(newAlbumArt: NSImage) {
-        withAnimation(.smooth) {
-            albumArt = newAlbumArt
-            calculateAverageColor()
-        }
+        albumArt = newAlbumArt
+        artworkGeneration &+= 1
+        calculateAverageColor()
     }
 
     // MARK: - Playback Position Estimation
