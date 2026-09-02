@@ -56,7 +56,6 @@ class AppleMusicController: MediaControllerProtocol {
     private var notificationTask: Task<Void, Never>?
     private var lastCatalogArtworkKey: String?
     private var cachedCatalogArtwork: Data?
-    private var playbackInfoGeneration: UInt = 0
 
     // MARK: - Initialization
     init() {
@@ -136,11 +135,7 @@ class AppleMusicController: MediaControllerProtocol {
     }
     
     func updatePlaybackInfo() async {
-        playbackInfoGeneration &+= 1
-        let generation = playbackInfoGeneration
-
         guard let descriptor = try? await fetchPlaybackInfoAsync() else { return }
-        guard generation == playbackInfoGeneration else { return }
         guard descriptor.numberOfItems >= 8 else { return }
         var updatedState = self.playbackState
 
@@ -157,29 +152,15 @@ class AppleMusicController: MediaControllerProtocol {
         // AppleScript returns artwork data for library tracks. For streamed
         // content not in the library it returns an empty descriptor, so we
         // fall back to the iTunes Search API to fetch artwork by metadata.
-        // Title/artist changed but script bytes still match last track: Music.app
-        // may still be serving the previous cover (empty album, singles). Fetch
-        // catalog; a miss keeps script so same-album shared covers stay.
-        let identityChanged =
-            updatedState.title != self.playbackState.title
-            || updatedState.artist != self.playbackState.artist
-        let scriptArtwork: Data? = {
-            guard let artworkData = descriptor.atIndex(9)?.data as Data?,
-                  artworkData.count > Self.minimumArtworkSize else { return nil }
-            return artworkData
-        }()
-        let scriptLooksStale = identityChanged && scriptArtwork != nil && scriptArtwork == self.playbackState.artwork
-        if let scriptArtwork, !scriptLooksStale {
-            updatedState.artwork = scriptArtwork
+        if let artworkData = descriptor.atIndex(9)?.data as Data?,
+           artworkData.count > Self.minimumArtworkSize {
+            updatedState.artwork = artworkData
         } else {
-            let catalog = await fetchArtworkFromCatalog(
+            updatedState.artwork = await fetchArtworkFromCatalog(
                 title: updatedState.title, artist: updatedState.artist, album: updatedState.album
             )
-            guard generation == playbackInfoGeneration else { return }
-            updatedState.artwork = catalog ?? scriptArtwork
         }
 
-        guard generation == playbackInfoGeneration else { return }
         updatedState.lastUpdated = Date()
         self.playbackState = updatedState
     }

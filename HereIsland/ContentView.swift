@@ -257,7 +257,6 @@ struct ContentView: View {
                 .aspectRatio(contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .frame(width: wing, height: height)
-                .id(musicManager.artworkGeneration)
                 .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
 
             if isFlashing {
