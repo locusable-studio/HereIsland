@@ -212,11 +212,11 @@ class MusicManager: ObservableObject {
     private var activeController: (any MediaControllerProtocol)?
 
     // Published properties for UI
-    @Published var songTitle: String = "Not Playing"
-    @Published var artistName: String = ""
+    @Published var songTitle: String = "I'm Handsome"
+    @Published var artistName: String = "Me"
     @Published var albumArt: NSImage = defaultImage
     @Published var isPlaying = false
-    @Published var album: String = ""
+    @Published var album: String = "Self Love"
     @Published var isPlayerIdle: Bool = true
     @Published var isCurrentTrackExplicit: Bool = false
 
@@ -226,7 +226,7 @@ class MusicManager: ObservableObject {
     /// unknown/not-playing placeholders). Paused music with real metadata is still
     /// considered an active session.
     private static let placeholderTitles: Set<String> = [
-        "i'm handsome", "unknown", "not playing", "未在播放"
+        "i'm handsome", "unknown", "not playing"
     ]
     private static let placeholderArtists: Set<String> = [
         "me", "unknown"
@@ -254,8 +254,6 @@ class MusicManager: ObservableObject {
     @Published var usingAppIconForArtwork: Bool = false
 
     private var explicitLookupTask: Task<Void, Never>?
-    private var artworkFallbackTask: Task<Void, Never>?
-    private var artworkFallbackGeneration: UInt = 0
     private var explicitLookupKey: String?
 
     private(set) var artworkData: Data? = nil
@@ -268,9 +266,9 @@ class MusicManager: ObservableObject {
     private var liveStreamCompletionReleaseCount: Int = 0
 
     // Store last values at the time artwork was changed
-    private var lastArtworkTitle: String = "Not Playing"
-    private var lastArtworkArtist: String = ""
-    private var lastArtworkAlbum: String = ""
+    private var lastArtworkTitle: String = "I'm Handsome"
+    private var lastArtworkArtist: String = "Me"
+    private var lastArtworkAlbum: String = "Self Love"
     private var lastArtworkBundleIdentifier: String? = nil
     private var lastArtworkContentIdentifier: String? = nil
     private var lastArtworkContentURL: String? = nil
@@ -537,16 +535,16 @@ class MusicManager: ObservableObject {
         if hasContentChange {
             self.triggerFlipAnimation()
 
-            if let artwork = state.artwork {
-                self.artworkFallbackTask?.cancel()
-                self.artworkFallbackGeneration &+= 1
-                if artworkChanged || self.usingAppIconForArtwork {
-                    self.updateArtwork(artwork)
+            if artworkChanged, let artwork = state.artwork {
+                self.updateArtwork(artwork)
+            } else if state.artwork == nil {
+                // Try to use app icon if no artwork but track changed
+                if let appIconImage = AppIconAsNSImage(for: state.bundleIdentifier) {
+                    self.usingAppIconForArtwork = true
+                    self.updateAlbumArt(newAlbumArt: appIconImage)
                 }
-                self.artworkData = artwork
-            } else if trackIdentityChanged {
-                self.scheduleSourceLogoFallback(for: state)
             }
+            self.artworkData = state.artwork
 
             // Update last artwork change values
             self.lastArtworkTitle = state.title
@@ -565,16 +563,6 @@ class MusicManager: ObservableObject {
             self.refreshExplicitFlag(for: state)
         } else if state.isExplicit != nil {
             self.refreshExplicitFlag(for: state)
-        }
-
-        // Late same-album bytes do not set artworkChanged, so the block above
-        // is skipped. Still replace the source-icon fallback.
-        if usingAppIconForArtwork, let artwork = state.artwork {
-            artworkFallbackTask?.cancel()
-            artworkFallbackGeneration &+= 1
-            usingAppIconForArtwork = false
-            updateArtwork(artwork)
-            artworkData = artwork
         }
 
         if shuffleChanged {
@@ -741,25 +729,6 @@ class MusicManager: ObservableObject {
             liveStreamEdgeObservationCount = 0
             liveStreamCompletionObservationCount = 0
             liveStreamCompletionReleaseCount = 0
-        }
-    }
-
-    private func scheduleSourceLogoFallback(for state: PlaybackState) {
-        artworkFallbackTask?.cancel()
-        artworkFallbackGeneration &+= 1
-        let generation = artworkFallbackGeneration
-        let title = state.title
-        let artist = state.artist
-        let album = state.album
-        let bundle = state.bundleIdentifier
-        artworkFallbackTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(400))
-            guard !Task.isCancelled, let self else { return }
-            guard generation == self.artworkFallbackGeneration else { return }
-            guard self.songTitle == title, self.artistName == artist, self.album == album else { return }
-            guard let bundle, let icon = AppIconAsNSImage(for: bundle) else { return }
-            self.usingAppIconForArtwork = true
-            self.updateAlbumArt(newAlbumArt: icon)
         }
     }
 

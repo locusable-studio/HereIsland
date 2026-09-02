@@ -49,7 +49,7 @@ struct CheckForUpdatesView: View {
     
     var body: some View {
         if readyState.isReady {
-            Button(String(localized: "Install and Relaunch")) {
+            Button(String(localized: "Update Ready — Restart to Install")) {
                 updaterDelegate.installDownloadedUpdate()
             }
         } else {

@@ -44,11 +44,11 @@ struct LockScreenMusicPanel: View {
         HStack(spacing: 16) {
             artwork
             VStack(alignment: .leading, spacing: 6) {
-                Text(musicManager.hasActiveSession ? musicManager.songTitle : String(localized: "Not Playing"))
+                Text(musicManager.songTitle)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(tint)
                     .lineLimit(1)
-                Text(musicManager.hasActiveSession ? musicManager.artistName : "")
+                Text(musicManager.artistName)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(tint.opacity(0.85))
                     .lineLimit(1)
