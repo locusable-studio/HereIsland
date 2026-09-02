@@ -567,6 +567,15 @@ class MusicManager: ObservableObject {
             self.refreshExplicitFlag(for: state)
         }
 
+        // Late same-album bytes do not set artworkChanged, so the block above
+        // is skipped. Still replace the source-icon fallback.
+        if usingAppIconForArtwork, let artwork = state.artwork {
+            artworkFallbackTask?.cancel()
+            artworkFallbackGeneration &+= 1
+            updateArtwork(artwork)
+            artworkData = artwork
+        }
+
         if shuffleChanged {
             self.isShuffled = state.isShuffled
         }
