@@ -262,6 +262,8 @@ class MusicManager: ObservableObject {
     private(set) var artworkData: Data? = nil
 
     @Published var videoArtworkURL: URL? = nil
+    private var videoArtworkTask: Task<Void, Never>?
+    private var videoArtworkKey: String?
 
     private var liveStreamUnknownDurationCount: Int = 0
     private var liveStreamEdgeObservationCount: Int = 0
@@ -562,6 +564,9 @@ class MusicManager: ObservableObject {
             self.lastArtworkContentURL = state.contentURL
 
             if let liveArtworkURL = state.liveArtworkURL {
+                self.videoArtworkTask?.cancel()
+                self.videoArtworkTask = nil
+                self.videoArtworkKey = nil
                 self.videoArtworkURL = liveArtworkURL
             } else {
                 self.fetchVideoArtwork()
@@ -922,18 +927,36 @@ class MusicManager: ObservableObject {
 
     func fetchVideoArtwork() {
         guard bundleIdentifier == "com.apple.Music" else {
+            videoArtworkTask?.cancel()
+            videoArtworkTask = nil
+            videoArtworkKey = nil
+            videoArtworkURL = nil
             return
         }
 
         let title = songTitle
         let artist = artistName
+        let key = "\(title)|\(artist)"
 
-        Task {
+        guard videoArtworkKey != key else { return }
+
+        videoArtworkTask?.cancel()
+        videoArtworkKey = key
+        videoArtworkURL = nil
+
+        videoArtworkTask = Task { [weak self] in
             let url = await AnimatedArtworkManager.shared.fetchAnimatedArtworkURL(
                 title: title, artist: artist
             )
+            guard !Task.isCancelled else { return }
             await MainActor.run {
+                guard let self,
+                      self.videoArtworkKey == key,
+                      self.songTitle == title,
+                      self.artistName == artist
+                else { return }
                 self.videoArtworkURL = url
+                self.videoArtworkTask = nil
             }
         }
     }
