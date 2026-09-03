@@ -54,6 +54,7 @@ class AppleMusicController: MediaControllerProtocol {
     private static let minimumArtworkSize = 16
 
     private var notificationTask: Task<Void, Never>?
+    private var playbackInfoRequestGeneration: UInt = 0
     private var artworkFetchTask: Task<Void, Never>?
     private var artworkRequestID: UUID?
     private var lastCatalogArtworkKey: String?
@@ -100,11 +101,11 @@ class AppleMusicController: MediaControllerProtocol {
     }
     
     func nextTrack() async {
-        await executeCommand("next track")
+        await executeAndRefresh("next track")
     }
     
     func previousTrack() async {
-        await executeCommand("previous track")
+        await executeAndRefresh("previous track")
     }
     
     func seek(to time: Double) async {
@@ -138,7 +139,26 @@ class AppleMusicController: MediaControllerProtocol {
     }
     
     func updatePlaybackInfo() async {
+        let generation = await MainActor.run { beginPlaybackInfoRequest() }
         guard let descriptor = try? await fetchPlaybackInfoAsync() else { return }
+        await MainActor.run { applyPlaybackInfo(descriptor, generation: generation) }
+    }
+
+    @MainActor
+    private func beginPlaybackInfoRequest() -> UInt {
+        playbackInfoRequestGeneration &+= 1
+        return playbackInfoRequestGeneration
+    }
+
+    private func executeAndRefresh(_ command: String) async {
+        await executeCommand(command)
+        try? await Task.sleep(for: .milliseconds(25))
+        await updatePlaybackInfo()
+    }
+
+    @MainActor
+    private func applyPlaybackInfo(_ descriptor: NSAppleEventDescriptor, generation: UInt) {
+        guard generation == playbackInfoRequestGeneration else { return }
         guard descriptor.numberOfItems >= 8 else { return }
         var updatedState = self.playbackState
 
