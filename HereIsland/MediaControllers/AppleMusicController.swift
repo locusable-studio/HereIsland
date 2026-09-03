@@ -54,6 +54,9 @@ class AppleMusicController: MediaControllerProtocol {
     private static let minimumArtworkSize = 16
 
     private var notificationTask: Task<Void, Never>?
+    private var playbackInfoRequestGeneration: UInt = 0
+    private var artworkFetchTask: Task<Void, Never>?
+    private var artworkRequestID: UUID?
     private var lastCatalogArtworkKey: String?
     private var cachedCatalogArtwork: Data?
 
@@ -81,6 +84,7 @@ class AppleMusicController: MediaControllerProtocol {
     
     deinit {
         notificationTask?.cancel()
+        artworkFetchTask?.cancel()
     }
     
     // MARK: - Protocol Implementation
@@ -97,11 +101,11 @@ class AppleMusicController: MediaControllerProtocol {
     }
     
     func nextTrack() async {
-        await executeCommand("next track")
+        await executeAndRefresh("next track")
     }
     
     func previousTrack() async {
-        await executeCommand("previous track")
+        await executeAndRefresh("previous track")
     }
     
     func seek(to time: Double) async {
@@ -135,7 +139,26 @@ class AppleMusicController: MediaControllerProtocol {
     }
     
     func updatePlaybackInfo() async {
+        let generation = await MainActor.run { beginPlaybackInfoRequest() }
         guard let descriptor = try? await fetchPlaybackInfoAsync() else { return }
+        await MainActor.run { applyPlaybackInfo(descriptor, generation: generation) }
+    }
+
+    @MainActor
+    private func beginPlaybackInfoRequest() -> UInt {
+        playbackInfoRequestGeneration &+= 1
+        return playbackInfoRequestGeneration
+    }
+
+    private func executeAndRefresh(_ command: String) async {
+        await executeCommand(command)
+        try? await Task.sleep(for: .milliseconds(25))
+        await updatePlaybackInfo()
+    }
+
+    @MainActor
+    private func applyPlaybackInfo(_ descriptor: NSAppleEventDescriptor, generation: UInt) {
+        guard generation == playbackInfoRequestGeneration else { return }
         guard descriptor.numberOfItems >= 8 else { return }
         var updatedState = self.playbackState
 
@@ -150,19 +173,51 @@ class AppleMusicController: MediaControllerProtocol {
         updatedState.repeatMode = RepeatMode(rawValue: Int(repeatModeValue)) ?? .off
 
         // AppleScript returns artwork data for library tracks. For streamed
-        // content not in the library it returns an empty descriptor, so we
-        // fall back to the iTunes Search API to fetch artwork by metadata.
+        // radio / catalog tracks it often returns an empty descriptor. Publish
+        // the new title immediately; waiting on iTunes Search left the previous
+        // cover on screen through skip-next. Match Atoll: cancel the last
+        // catalog fetch, then fill artwork in the background.
+        artworkFetchTask?.cancel()
+        artworkFetchTask = nil
+        artworkRequestID = nil
+
         if let artworkData = descriptor.atIndex(9)?.data as Data?,
            artworkData.count > Self.minimumArtworkSize {
             updatedState.artwork = artworkData
         } else {
-            updatedState.artwork = await fetchArtworkFromCatalog(
-                title: updatedState.title, artist: updatedState.artist, album: updatedState.album
-            )
+            updatedState.artwork = nil
         }
 
         updatedState.lastUpdated = Date()
         self.playbackState = updatedState
+
+        guard updatedState.artwork == nil else { return }
+
+        let requestID = UUID()
+        let title = updatedState.title
+        let artist = updatedState.artist
+        let album = updatedState.album
+        artworkRequestID = requestID
+        artworkFetchTask = Task { [weak self] in
+            let artwork = await self?.fetchArtworkFromCatalog(
+                title: title, artist: artist, album: album
+            )
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self?.completeArtworkRequest(artwork, requestID: requestID)
+            }
+        }
+    }
+
+    private func completeArtworkRequest(_ artwork: Data?, requestID: UUID) {
+        guard artworkRequestID == requestID else { return }
+        artworkRequestID = nil
+        artworkFetchTask = nil
+        guard let artwork else { return }
+
+        var artworkState = playbackState
+        artworkState.artwork = artwork
+        playbackState = artworkState
     }
 
     // MARK: - Private Methods
