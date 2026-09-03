@@ -249,6 +249,7 @@ class MusicManager: ObservableObject {
     @Published var playbackRate: Double = 1
     @Published var isShuffled: Bool = false
     @Published var repeatMode: RepeatMode = .off
+    @Published private(set) var supportsQueueModeControls: Bool = false
     @Published var isLiveStream: Bool = false
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @Published var usingAppIconForArtwork: Bool = false
@@ -257,6 +258,8 @@ class MusicManager: ObservableObject {
     private var explicitLookupKey: String?
 
     private(set) var artworkData: Data? = nil
+    private var artworkAvailability: ArtworkAvailability = .unknown
+    private var currentTrackIdentity: PlaybackTrackIdentity?
 
     @Published var videoArtworkURL: URL? = nil
 
@@ -394,6 +397,7 @@ class MusicManager: ObservableObject {
     private func setActiveController(_ controller: any MediaControllerProtocol) {
         // Set new active controller
         activeController = controller
+        supportsQueueModeControls = controller.supportsQueueModeControls
 
         // Get current state from active controller
         forceUpdate()
@@ -444,6 +448,7 @@ class MusicManager: ObservableObject {
         let contentIdentifierChanged = state.contentIdentifier != self.lastArtworkContentIdentifier
         let contentURLChanged = state.contentURL != self.lastArtworkContentURL
         let artworkChanged = state.artwork != nil && state.artwork != self.artworkData
+        let artworkAvailabilityChanged = state.artworkAvailability != self.artworkAvailability
         let hasContentChange =
             titleChanged
             || artistChanged
@@ -460,6 +465,8 @@ class MusicManager: ObservableObject {
             || bundleChanged
             || contentIdentifierChanged
             || contentURLChanged
+
+        currentTrackIdentity = state.trackIdentity
 
         // Apply timing fields before play-state transitions so freeze/re-anchor
         // operates on the latest media sample instead of being overwritten after.
@@ -532,19 +539,22 @@ class MusicManager: ObservableObject {
         }
 
         // Handle artwork and visual transitions for changed content
-        if hasContentChange {
-            self.triggerFlipAnimation()
+        if hasContentChange || artworkAvailabilityChanged {
+            if hasContentChange {
+                self.triggerFlipAnimation()
+            }
 
-            if artworkChanged, let artwork = state.artwork {
-                self.updateArtwork(artwork)
-            } else if state.artwork == nil {
-                // Try to use app icon if no artwork but track changed
+            if let artwork = state.artwork,
+               artworkChanged || usingAppIconForArtwork || trackIdentityChanged {
+                self.updateArtwork(artwork, for: state.trackIdentity)
+            } else if state.artworkAvailability == .unavailable {
                 if let appIconImage = AppIconAsNSImage(for: state.bundleIdentifier) {
                     self.usingAppIconForArtwork = true
                     self.updateAlbumArt(newAlbumArt: appIconImage)
                 }
             }
             self.artworkData = state.artwork
+            self.artworkAvailability = state.artworkAvailability
 
             // Update last artwork change values
             self.lastArtworkTitle = state.title
@@ -732,14 +742,15 @@ class MusicManager: ObservableObject {
         }
     }
 
-    private func updateArtwork(_ artworkData: Data) {
+    private func updateArtwork(_ artworkData: Data, for trackIdentity: PlaybackTrackIdentity) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
             if let artworkImage = NSImage(data: artworkData) {
                 DispatchQueue.main.async { [weak self] in
-                    self?.usingAppIconForArtwork = false
-                    self?.updateAlbumArt(newAlbumArt: artworkImage)
+                    guard let self, self.currentTrackIdentity == trackIdentity else { return }
+                    self.usingAppIconForArtwork = false
+                    self.updateAlbumArt(newAlbumArt: artworkImage)
                 }
             }
         }
@@ -807,12 +818,14 @@ class MusicManager: ObservableObject {
     }
 
     func toggleShuffle() {
+        guard supportsQueueModeControls else { return }
         Task {
             await activeController?.toggleShuffle()
         }
     }
 
     func toggleRepeat() {
+        guard supportsQueueModeControls else { return }
         Task {
             await activeController?.toggleRepeat()
         }

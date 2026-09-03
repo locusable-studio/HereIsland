@@ -257,6 +257,7 @@ struct MinimalisticMusicPlayerView: View {
         isActive: Bool = false,
         activeColor: Color? = nil,
         inactiveColor: Color = .white.opacity(0.85),
+        isEnabled: Bool = true,
         pressEffect: MinimalisticSquircircleButton.PressEffect = .none,
         symbolEffect: MinimalisticSquircircleButton.SymbolEffectStyle = .none,
         action: @escaping () -> Void
@@ -268,11 +269,14 @@ struct MinimalisticMusicPlayerView: View {
             fontWeight: .medium,
             frameSize: CGSize(width: 36, height: 36),
             cornerRadius: 14,
-            foregroundColor: isActive ? resolvedActiveColor : inactiveColor,
+            foregroundColor: isEnabled
+                ? (isActive ? resolvedActiveColor : inactiveColor)
+                : .white.opacity(0.3),
             pressEffect: pressEffect,
             symbolEffectStyle: symbolEffect,
             action: action
         )
+        .disabled(!isEnabled)
     }
 
     @ViewBuilder
@@ -301,7 +305,8 @@ struct MinimalisticMusicPlayerView: View {
                 icon: "shuffle",
                 isActive: musicManager.isShuffled,
                 activeColor: playerTint.resolvedColor(albumArt: musicManager.avgColor),
-                inactiveColor: .white.opacity(0.65)
+                inactiveColor: .white.opacity(0.65),
+                isEnabled: musicManager.supportsQueueModeControls
             ) {
                 musicManager.toggleShuffle()
             }
@@ -311,6 +316,7 @@ struct MinimalisticMusicPlayerView: View {
                 isActive: musicManager.repeatMode != .off,
                 activeColor: playerTint.resolvedColor(albumArt: musicManager.avgColor),
                 inactiveColor: .white.opacity(0.65),
+                isEnabled: musicManager.supportsQueueModeControls,
                 symbolEffect: .replace
             ) {
                 musicManager.toggleRepeat()
@@ -422,6 +428,8 @@ private struct MinimalisticSquircircleButton: View {
     let symbolEffectStyle: SymbolEffectStyle
     let action: () -> Void
 
+    @Environment(\.isEnabled) private var isEnabled
+
     @State private var isHovering = false
     @State private var pressOffset: CGFloat = 0
     @State private var rotationAngle: Double = 0
@@ -458,7 +466,7 @@ private struct MinimalisticSquircircleButton: View {
                 .frame(width: frameSize.width, height: frameSize.height)
                 .background(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(isHovering ? Color.white.opacity(0.18) : .clear)
+                        .fill(isEnabled && isHovering ? Color.white.opacity(0.18) : .clear)
                 )
                 .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
@@ -467,7 +475,7 @@ private struct MinimalisticSquircircleButton: View {
         .rotationEffect(.degrees(rotationAngle))
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.18)) {
-                isHovering = hovering
+                isHovering = isEnabled && hovering
             }
         }
     }

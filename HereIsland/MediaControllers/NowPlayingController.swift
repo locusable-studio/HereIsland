@@ -40,6 +40,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
     var isWorking: Bool {
         return process != nil && process?.isRunning == true
     }
+    var supportsQueueModeControls: Bool { false }
     private var lastMusicItem:
         (title: String, artist: String, album: String, duration: TimeInterval, artworkData: Data?)?
 
@@ -215,7 +216,7 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         newPlaybackState.artist = payload.artist ?? (diff ? self.playbackState.artist : "")
         newPlaybackState.album = payload.album ?? (diff ? self.playbackState.album : "")
         newPlaybackState.duration = payload.duration ?? (diff ? self.playbackState.duration : 0)
-        
+
         // Match boring.notch behavior: if elapsedTime is provided use it,
         // if this update is a diff keep the previous currentTime, otherwise default to 0.
         newPlaybackState.currentTime = payload.elapsedTime ?? (diff ? self.playbackState.currentTime : 0)
@@ -237,11 +238,17 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
         }
 
         if let artworkDataString = payload.artworkData {
-            newPlaybackState.artwork = Data(
+            let artwork = Data(
                 base64Encoded: artworkDataString.trimmingCharacters(in: .whitespacesAndNewlines)
             )
-        } else if !diff {
+            newPlaybackState.artwork = artwork
+            newPlaybackState.artworkAvailability = artwork == nil ? .unknown : .available
+        } else if diff {
+            newPlaybackState.artwork = self.playbackState.artwork
+            newPlaybackState.artworkAvailability = self.playbackState.artworkAvailability
+        } else {
             newPlaybackState.artwork = nil
+            newPlaybackState.artworkAvailability = payload.hasPlaybackMetadata ? .unknown : .unavailable
         }
 
         if let dateString = payload.timestamp,
@@ -284,6 +291,15 @@ struct NowPlayingPayload: Codable {
     let playing: Bool?
     let parentApplicationBundleIdentifier: String?
     let bundleIdentifier: String?
+
+    var hasPlaybackMetadata: Bool {
+        title != nil
+            || artist != nil
+            || album != nil
+            || duration != nil
+            || playing != nil
+    }
+
 }
 
 actor JSONLinesPipeHandler {

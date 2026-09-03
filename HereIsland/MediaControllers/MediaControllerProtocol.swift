@@ -27,6 +27,7 @@ import Combine
 protocol MediaControllerProtocol: ObservableObject {
     var playbackStatePublisher: AnyPublisher<PlaybackState, Never> { get }
     var isWorking: Bool { get }
+    var supportsQueueModeControls: Bool { get }
     func play() async
     func pause() async
     func seek(to time: Double) async

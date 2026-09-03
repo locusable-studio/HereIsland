@@ -28,6 +28,19 @@ enum RepeatMode: Int, Codable {
     case all = 3
 }
 
+enum ArtworkAvailability: Equatable {
+    case unknown
+    case available
+    case unavailable
+}
+
+struct PlaybackTrackIdentity: Hashable {
+    let bundleIdentifier: String
+    let contentIdentifier: String?
+    let title: String
+    let artist: String
+}
+
 struct PlaybackState {
     var bundleIdentifier: String
     var isPlaying: Bool = false
@@ -44,7 +57,17 @@ struct PlaybackState {
     var repeatMode: RepeatMode = .off
     var lastUpdated: Date = Date.distantPast
     var artwork: Data?
+    var artworkAvailability: ArtworkAvailability = .unknown
     var liveArtworkURL: URL?
+
+    var trackIdentity: PlaybackTrackIdentity {
+        PlaybackTrackIdentity(
+            bundleIdentifier: bundleIdentifier,
+            contentIdentifier: contentIdentifier,
+            title: title,
+            artist: artist
+        )
+    }
 }
 
 extension PlaybackState: Equatable {
@@ -62,6 +85,7 @@ extension PlaybackState: Equatable {
             && lhs.isShuffled == rhs.isShuffled
             && lhs.repeatMode == rhs.repeatMode
             && lhs.artwork == rhs.artwork
+            && lhs.artworkAvailability == rhs.artworkAvailability
             && lhs.liveArtworkURL == rhs.liveArtworkURL
     }
 }

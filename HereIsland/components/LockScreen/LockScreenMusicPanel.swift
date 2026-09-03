@@ -82,7 +82,10 @@ struct LockScreenMusicPanel: View {
             controlButton(
                 systemName: "shuffle",
                 pointSize: 13,
-                color: musicManager.isShuffled ? tint : .white.opacity(0.65)
+                color: musicManager.supportsQueueModeControls
+                    ? (musicManager.isShuffled ? tint : .white.opacity(0.65))
+                    : .white.opacity(0.3),
+                isEnabled: musicManager.supportsQueueModeControls
             ) {
                 musicManager.toggleShuffle()
             }
@@ -98,7 +101,10 @@ struct LockScreenMusicPanel: View {
             controlButton(
                 systemName: repeatIcon,
                 pointSize: 13,
-                color: musicManager.repeatMode != .off ? tint : .white.opacity(0.65)
+                color: musicManager.supportsQueueModeControls
+                    ? (musicManager.repeatMode != .off ? tint : .white.opacity(0.65))
+                    : .white.opacity(0.3),
+                isEnabled: musicManager.supportsQueueModeControls
             ) {
                 musicManager.toggleRepeat()
             }
@@ -123,6 +129,7 @@ struct LockScreenMusicPanel: View {
         systemName: String,
         pointSize: CGFloat = 14,
         color: Color = .white,
+        isEnabled: Bool = true,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -132,6 +139,7 @@ struct LockScreenMusicPanel: View {
                 .frame(width: 28, height: 28)
         }
         .buttonStyle(.plain)
+        .disabled(!isEnabled)
     }
 
     private var progress: some View {
