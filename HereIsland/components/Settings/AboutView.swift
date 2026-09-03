@@ -22,6 +22,15 @@ import SwiftUI
 
 struct AboutView: View {
     private static let repositoryURL = URL(string: "https://github.com/locusable-studio/HereIsland")!
+    private static let studioURL = URL(string: "https://locusable.com/")!
+
+    private var studioAttribution: AttributedString {
+        var text = AttributedString(String(localized: "Locusable Studio makes Here Island."))
+        if let range = text.range(of: "Locusable Studio") {
+            text[range].link = Self.studioURL
+        }
+        return text
+    }
 
     private static let lineageCredits: [AboutCredit] = [
         AboutCredit(
@@ -138,9 +147,17 @@ struct AboutView: View {
             } header: {
                 Text(String(localized: "Third-party dependencies"))
             }
+
+            Section {
+                Text(studioAttribution)
+            } header: {
+                Text(String(localized: "Team"))
+            } footer: {
+                Text(String(localized: "© 2026 Locusable Studio. All rights reserved."))
+            }
         }
         .formStyle(.grouped)
-        .frame(minWidth: 420, minHeight: 520)
+        .frame(minWidth: 420, minHeight: 560)
     }
 
     private var versionLabel: String {
