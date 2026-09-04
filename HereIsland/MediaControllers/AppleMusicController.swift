@@ -79,9 +79,6 @@ class AppleMusicController: MediaControllerProtocol {
 
     private var notificationTask: Task<Void, Never>?
     private var playbackInfoRequestGeneration: UInt = 0
-    private var artworkFetchTask: Task<Void, Never>?
-    private var artworkRequestID: UUID?
-    private var artworkRequestContentIdentifier: String?
 
     // MARK: - Initialization
     init() {
@@ -107,7 +104,6 @@ class AppleMusicController: MediaControllerProtocol {
     
     deinit {
         notificationTask?.cancel()
-        artworkFetchTask?.cancel()
     }
     
     // MARK: - Protocol Implementation
@@ -202,57 +198,21 @@ class AppleMusicController: MediaControllerProtocol {
 
         if let artworkData = snapshot.artwork,
            artworkData.count > Self.minimumArtworkSize {
-            artworkFetchTask?.cancel()
-            artworkFetchTask = nil
-            artworkRequestID = nil
-            artworkRequestContentIdentifier = nil
             updatedState.artwork = artworkData
             updatedState.artworkAvailability = .available
         } else if contentChanged {
-            artworkFetchTask?.cancel()
-            artworkFetchTask = nil
-            artworkRequestID = nil
-            artworkRequestContentIdentifier = nil
+            // Do not leave .unknown hanging on the previous track's cover.
+            // MusicManager only swaps to the Music app icon on .unavailable;
+            // a later script refresh with bytes still replaces the icon.
             updatedState.artwork = nil
-            updatedState.artworkAvailability = .unknown
+            updatedState.artworkAvailability = .unavailable
         }
 
         updatedState.lastUpdated = Date()
         self.playbackState = updatedState
-
-        guard updatedState.artwork == nil,
-              artworkRequestContentIdentifier != snapshot.contentIdentifier
-        else { return }
-
-        let requestID = UUID()
-        artworkRequestID = requestID
-        artworkRequestContentIdentifier = snapshot.contentIdentifier
-        // Wait briefly for AppleScript to deliver embedded art on a follow-up
-        // refresh. No remote artwork fallback — after the window, mark
-        // unavailable so MusicManager shows the Music app icon.
-        artworkFetchTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(600))
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                self?.completeArtworkUnavailable(requestID: requestID)
-            }
-        }
     }
 
     // MARK: - Private Methods
-
-    @MainActor
-    private func completeArtworkUnavailable(requestID: UUID) {
-        guard artworkRequestID == requestID else { return }
-        artworkRequestID = nil
-        artworkFetchTask = nil
-        artworkRequestContentIdentifier = nil
-
-        var artworkState = playbackState
-        artworkState.artwork = nil
-        artworkState.artworkAvailability = .unavailable
-        playbackState = artworkState
-    }
 
     private func executeCommand(_ command: String) async {
         let script = "tell application \"Music\" to \(command)"
