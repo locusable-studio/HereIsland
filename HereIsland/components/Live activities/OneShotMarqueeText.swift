@@ -104,10 +104,10 @@ struct OneShotMarqueeText: View {
         runTask = Task { @MainActor in
             if scrolling {
                 // Wait out the island spring (response ~0.36, no overshoot) before moving glyphs.
-                try? await Task.sleep(for: .milliseconds(420))
+                try? await Task.sleep(for: .seconds(holdDuration / 2))
                 guard !Task.isCancelled else { return }
                 scrollStart = Date()
-                try? await Task.sleep(for: .seconds(duration + 0.6))
+                try? await Task.sleep(for: .seconds(duration + holdDuration / 2))
             } else {
                 try? await Task.sleep(for: .seconds(holdDuration))
             }

@@ -276,7 +276,6 @@ struct ContentView: View {
                     measurementFont: flashTitleMeasurementFont,
                     textColor: peekTitleColor,
                     frameWidth: titleInner,
-                    holdDuration: 1.2,
                     onFinished: handleFlashFinished
                 )
                 .frame(width: titleWidth, height: height, alignment: .leading)
