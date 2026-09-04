@@ -24,22 +24,6 @@ import AppKit
 import Combine
 import Foundation
 
-private struct ITunesSearchResponse: Decodable {
-    let results: [ITunesTrack]
-}
-
-private struct ITunesTrack: Decodable {
-    let trackName: String?
-    let collectionName: String?
-    let artworkUrl100: String?
-}
-
-private enum CatalogArtworkResult {
-    case available(Data)
-    case unavailable
-    case transientFailure
-}
-
 private struct AppleMusicPlaybackSnapshot: Sendable {
     let isPlaying: Bool
     let title: String
@@ -68,13 +52,6 @@ private struct AppleMusicPlaybackSnapshot: Sendable {
             ? persistentID
             : "\(title)|\(artist)|\(album)|\(duration)"
     }
-}
-
-private struct MediaRemoteArtworkSnapshot: Decodable {
-    let artworkData: String?
-    let bundleIdentifier: String?
-    let duration: Double?
-    let playing: Bool?
 }
 
 class AppleMusicController: MediaControllerProtocol {
@@ -248,218 +225,33 @@ class AppleMusicController: MediaControllerProtocol {
         else { return }
 
         let requestID = UUID()
-        let title = updatedState.title
-        let artist = updatedState.artist
-        let album = updatedState.album
-        let duration = updatedState.duration
-        let isPlaying = updatedState.isPlaying
         artworkRequestID = requestID
         artworkRequestContentIdentifier = snapshot.contentIdentifier
+        // Wait briefly for AppleScript to deliver embedded art on a follow-up
+        // refresh. No remote artwork fallback — after the window, mark
+        // unavailable so MusicManager shows the Music app icon.
         artworkFetchTask = Task { [weak self] in
-            let result = await self?.fetchFallbackArtwork(
-                title: title,
-                artist: artist,
-                album: album,
-                duration: duration,
-                isPlaying: isPlaying
-            ) ?? .transientFailure
+            try? await Task.sleep(for: .milliseconds(600))
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                self?.completeArtworkRequest(result, requestID: requestID)
+                self?.completeArtworkUnavailable(requestID: requestID)
             }
         }
     }
 
     // MARK: - Private Methods
 
-    private func fetchFallbackArtwork(
-        title: String,
-        artist: String,
-        album: String,
-        duration: Double,
-        isPlaying: Bool
-    ) async -> CatalogArtworkResult {
-        if let artwork = await fetchArtworkFromAppleMusicMediaRemote(
-            duration: duration,
-            isPlaying: isPlaying
-        ) {
-            return .available(artwork)
-        }
-
-        return await fetchArtworkFromCatalog(title: title, artist: artist, album: album)
-    }
-
-    private func fetchArtworkFromAppleMusicMediaRemote(
-        duration: Double,
-        isPlaying: Bool
-    ) async -> Data? {
-        guard duration > 0 else { return nil }
-        try? await Task.sleep(for: .milliseconds(600))
-        guard !Task.isCancelled else { return nil }
-
-        return readArtworkFromAppleMusicMediaRemote(
-            duration: duration,
-            isPlaying: isPlaying
-        )
-    }
-
-    private func readArtworkFromAppleMusicMediaRemote(
-        duration: Double,
-        isPlaying: Bool
-    ) -> Data? {
-        guard
-            let scriptURL = Bundle.main.url(forResource: "mediaremote-adapter", withExtension: "pl"),
-            let frameworkPath = Bundle.main.resourceURL?
-                .appendingPathComponent("MediaRemoteAdapter.framework")
-                .path
-        else {
-            return nil
-        }
-
-        let process = Process()
-        let outputPipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
-        process.arguments = [scriptURL.path, frameworkPath, "get"]
-        process.standardOutput = outputPipe
-        process.standardError = FileHandle.nullDevice
-
-        do {
-            try process.run()
-            let timeout = DispatchWorkItem {
-                if process.isRunning {
-                    process.terminate()
-                }
-            }
-            DispatchQueue.global(qos: .utility).asyncAfter(
-                deadline: .now() + 5,
-                execute: timeout
-            )
-            defer { timeout.cancel() }
-
-            let output = try outputPipe.fileHandleForReading.readToEnd() ?? Data()
-            process.waitUntilExit()
-
-            guard process.terminationStatus == 0,
-                  let snapshot = try? JSONDecoder().decode(MediaRemoteArtworkSnapshot.self, from: output),
-                  snapshot.bundleIdentifier == Self.bundleIdentifier,
-                  snapshot.playing == isPlaying,
-                  let remoteDuration = snapshot.duration,
-                  abs(remoteDuration - duration) < 1,
-                  let artworkString = snapshot.artworkData,
-                  let artwork = Data(
-                    base64Encoded: artworkString.trimmingCharacters(in: .whitespacesAndNewlines)
-                  ),
-                  artwork.count > Self.minimumArtworkSize,
-                  NSImage(data: artwork) != nil
-            else {
-                return nil
-            }
-
-            return artwork
-        } catch {
-            if process.isRunning {
-                process.terminate()
-            }
-            return nil
-        }
-    }
-
-    private func canonicalMetadata(_ value: String?) -> String {
-        let simplified = value?
-            .applyingTransform(StringTransform("Traditional-Simplified"), reverse: false)
-            ?? value
-            ?? ""
-        let folded = simplified.folding(
-            options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
-            locale: .current
-        )
-        return String(
-            folded.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }
-        )
-    }
-
-    private func completeArtworkRequest(_ result: CatalogArtworkResult, requestID: UUID) {
+    @MainActor
+    private func completeArtworkUnavailable(requestID: UUID) {
         guard artworkRequestID == requestID else { return }
         artworkRequestID = nil
         artworkFetchTask = nil
         artworkRequestContentIdentifier = nil
 
         var artworkState = playbackState
-        switch result {
-        case .available(let artwork):
-            artworkState.artwork = artwork
-            artworkState.artworkAvailability = .available
-            playbackState = artworkState
-        case .unavailable:
-            artworkState.artwork = nil
-            artworkState.artworkAvailability = .unavailable
-            playbackState = artworkState
-        case .transientFailure:
-            break
-        }
-    }
-
-    private func fetchArtworkFromCatalog(
-        title: String,
-        artist: String,
-        album: String
-    ) async -> CatalogArtworkResult {
-        let query = "\(title) \(artist)"
-        guard !query.trimmingCharacters(in: .whitespaces).isEmpty,
-              let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://itunes.apple.com/search?term=\(encoded)&media=music&entity=song&limit=10")
-        else { return .unavailable }
-
-        do {
-            let (data, urlResponse) = try await URLSession.shared.data(from: url)
-            guard let httpResponse = urlResponse as? HTTPURLResponse,
-                  (200..<300).contains(httpResponse.statusCode)
-            else {
-                return .transientFailure
-            }
-
-            let searchResponse = try JSONDecoder().decode(ITunesSearchResponse.self, from: data)
-            guard !searchResponse.results.isEmpty else {
-                return .unavailable
-            }
-
-            let normalizedAlbum = canonicalMetadata(album)
-            let normalizedTitle = canonicalMetadata(title)
-            let match = searchResponse.results.first(where: {
-                !normalizedTitle.isEmpty
-                    && !normalizedAlbum.isEmpty
-                    && canonicalMetadata($0.trackName) == normalizedTitle
-                    && canonicalMetadata($0.collectionName) == normalizedAlbum
-            }) ?? searchResponse.results.first(where: {
-                !normalizedAlbum.isEmpty
-                    && canonicalMetadata($0.collectionName) == normalizedAlbum
-            }) ?? searchResponse.results.first(where: {
-                !normalizedTitle.isEmpty
-                    && canonicalMetadata($0.trackName) == normalizedTitle
-            })
-
-            guard let artworkURLString = match?.artworkUrl100 else {
-                return .unavailable
-            }
-
-            let highResURL = artworkURLString.replacingOccurrences(of: "100x100", with: "600x600")
-            guard let imageURL = URL(string: highResURL) else {
-                return .transientFailure
-            }
-
-            let (imageData, imageResponse) = try await URLSession.shared.data(from: imageURL)
-            guard let httpResponse = imageResponse as? HTTPURLResponse,
-                  (200..<300).contains(httpResponse.statusCode),
-                  imageData.count > Self.minimumArtworkSize,
-                  NSImage(data: imageData) != nil
-            else {
-                return .transientFailure
-            }
-
-            return .available(imageData)
-        } catch {
-            return .transientFailure
-        }
+        artworkState.artwork = nil
+        artworkState.artworkAvailability = .unavailable
+        playbackState = artworkState
     }
 
     private func executeCommand(_ command: String) async {
