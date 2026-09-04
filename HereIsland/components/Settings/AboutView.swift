@@ -29,6 +29,9 @@ struct AboutView: View {
         if let range = text.range(of: "Locusable Studio") {
             text[range].link = Self.studioURL
         }
+        if let range = text.range(of: "Here Island") {
+            text[range].link = Self.repositoryURL
+        }
         return text
     }
 
@@ -86,26 +89,6 @@ struct AboutView: View {
     var body: some View {
         Form {
             Section {
-                HStack(spacing: 14) {
-                    Image(nsImage: NSApp.applicationIconImage)
-                        .resizable()
-                        .frame(width: 64, height: 64)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Here Island")
-                            .font(.title2.weight(.semibold))
-                        Text(String(localized: "macOS notch media companion"))
-                            .foregroundStyle(.secondary)
-                            .font(.callout)
-                    }
-
-                    Spacer(minLength: 0)
-                }
-                .padding(.vertical, 4)
-            }
-
-            Section(String(localized: "Version info")) {
                 LabeledContent(String(localized: "Version")) {
                     Text(versionLabel)
                         .foregroundStyle(.secondary)
@@ -118,34 +101,24 @@ struct AboutView: View {
                 }
             }
 
-            Section(String(localized: "Links")) {
-                Button(String(localized: "GitHub Repository")) {
-                    NSWorkspace.shared.open(Self.repositoryURL)
-                }
-            }
-
             Section {
-                Text(String(localized: "Here Island is derived from earlier open-source notch projects."))
-                    .foregroundStyle(.secondary)
-                    .font(.callout)
-
                 ForEach(Self.lineageCredits) { credit in
                     AboutCreditRow(credit: credit)
                 }
             } header: {
                 Text(String(localized: "Acknowledgements"))
+            } footer: {
+                Text(String(localized: "Here Island is derived from earlier open-source notch projects."))
             }
 
             Section {
-                Text(String(localized: "Thanks to these open-source dependencies."))
-                    .foregroundStyle(.secondary)
-                    .font(.callout)
-
                 ForEach(Self.dependencyCredits) { credit in
                     AboutCreditRow(credit: credit)
                 }
             } header: {
                 Text(String(localized: "Third-party dependencies"))
+            } footer: {
+                Text(String(localized: "Thanks to these open-source dependencies."))
             }
 
             Section {
