@@ -21,8 +21,8 @@ import Defaults
 import SwiftUI
 
 struct AboutView: View {
-    private static let repositoryURL = URL(string: "https://github.com/locusable-studio/HereIsland")!
     private static let studioURL = URL(string: "https://locusable.com/")!
+    private static let productPageURL = URL(string: "https://locusable.com/here-island/")!
 
     private var studioAttribution: AttributedString {
         var text = AttributedString(String(localized: "Locusable Studio makes Here Island."))
@@ -30,7 +30,7 @@ struct AboutView: View {
             text[range].link = Self.studioURL
         }
         if let range = text.range(of: "Here Island") {
-            text[range].link = Self.repositoryURL
+            text[range].link = Self.productPageURL
         }
         return text
     }
