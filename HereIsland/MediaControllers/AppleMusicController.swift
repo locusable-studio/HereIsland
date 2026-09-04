@@ -99,15 +99,12 @@ class AppleMusicController: MediaControllerProtocol {
     /// Minimum byte count for artwork data to be considered valid. Anything
     /// smaller is likely an empty descriptor or error string, not image data.
     private static let minimumArtworkSize = 16
-    private static let catalogArtworkCacheLimit = 100
 
     private var notificationTask: Task<Void, Never>?
     private var playbackInfoRequestGeneration: UInt = 0
     private var artworkFetchTask: Task<Void, Never>?
     private var artworkRequestID: UUID?
     private var artworkRequestContentIdentifier: String?
-    private var catalogArtworkCache: [String: Data] = [:]
-    private var catalogArtworkCacheOrder: [String] = []
 
     // MARK: - Initialization
     init() {
@@ -209,7 +206,12 @@ class AppleMusicController: MediaControllerProtocol {
     private func applyPlaybackInfo(_ snapshot: AppleMusicPlaybackSnapshot, generation: UInt) {
         guard generation == playbackInfoRequestGeneration else { return }
         var updatedState = self.playbackState
-        let contentChanged = snapshot.contentIdentifier != playbackState.contentIdentifier
+        let contentChanged =
+            snapshot.contentIdentifier != playbackState.contentIdentifier
+            || snapshot.title != playbackState.title
+            || snapshot.artist != playbackState.artist
+            || snapshot.album != playbackState.album
+            || abs(snapshot.duration - playbackState.duration) >= 0.5
 
         updatedState.isPlaying = snapshot.isPlaying
         updatedState.title = snapshot.title
@@ -362,6 +364,20 @@ class AppleMusicController: MediaControllerProtocol {
         }
     }
 
+    private func canonicalMetadata(_ value: String?) -> String {
+        let simplified = value?
+            .applyingTransform(StringTransform("Traditional-Simplified"), reverse: false)
+            ?? value
+            ?? ""
+        let folded = simplified.folding(
+            options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+            locale: .current
+        )
+        return String(
+            folded.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }
+        )
+    }
+
     private func completeArtworkRequest(_ result: CatalogArtworkResult, requestID: UUID) {
         guard artworkRequestID == requestID else { return }
         artworkRequestID = nil
@@ -388,14 +404,6 @@ class AppleMusicController: MediaControllerProtocol {
         artist: String,
         album: String
     ) async -> CatalogArtworkResult {
-        let key = [title, artist, album]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-            .joined(separator: "|")
-
-        if let cached = catalogArtworkCache[key] {
-            return .available(cached)
-        }
-
         let query = "\(title) \(artist)"
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty,
               let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
@@ -415,15 +423,19 @@ class AppleMusicController: MediaControllerProtocol {
                 return .unavailable
             }
 
-            let normalizedAlbum = album.lowercased()
-            let normalizedTitle = title.lowercased()
+            let normalizedAlbum = canonicalMetadata(album)
+            let normalizedTitle = canonicalMetadata(title)
             let match = searchResponse.results.first(where: {
-                $0.trackName?.lowercased() == normalizedTitle
-                    && $0.collectionName?.lowercased() == normalizedAlbum
+                !normalizedTitle.isEmpty
+                    && !normalizedAlbum.isEmpty
+                    && canonicalMetadata($0.trackName) == normalizedTitle
+                    && canonicalMetadata($0.collectionName) == normalizedAlbum
             }) ?? searchResponse.results.first(where: {
-                $0.collectionName?.lowercased() == normalizedAlbum
+                !normalizedAlbum.isEmpty
+                    && canonicalMetadata($0.collectionName) == normalizedAlbum
             }) ?? searchResponse.results.first(where: {
-                $0.trackName?.lowercased() == normalizedTitle
+                !normalizedTitle.isEmpty
+                    && canonicalMetadata($0.trackName) == normalizedTitle
             })
 
             guard let artworkURLString = match?.artworkUrl100 else {
@@ -444,24 +456,12 @@ class AppleMusicController: MediaControllerProtocol {
                 return .transientFailure
             }
 
-            cacheCatalogArtwork(imageData, for: key)
             return .available(imageData)
         } catch {
             return .transientFailure
         }
     }
 
-    private func cacheCatalogArtwork(_ artwork: Data, for key: String) {
-        if catalogArtworkCache[key] == nil {
-            catalogArtworkCacheOrder.append(key)
-        }
-        catalogArtworkCache[key] = artwork
-
-        while catalogArtworkCacheOrder.count > Self.catalogArtworkCacheLimit {
-            let expiredKey = catalogArtworkCacheOrder.removeFirst()
-            catalogArtworkCache.removeValue(forKey: expiredKey)
-        }
-    }
     private func executeCommand(_ command: String) async {
         let script = "tell application \"Music\" to \(command)"
         try? await AppleScriptHelper.executeVoid(script)
