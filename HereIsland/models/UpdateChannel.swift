@@ -19,7 +19,7 @@
 import Defaults
 import Foundation
 
-/// Sparkle update feed. Stable never sees beta items; beta also receives graduating stables.
+/// Sparkle update feed. Stable never sees beta; beta follows beta only (stables are not written into the beta feed).
 enum UpdateChannel: String, CaseIterable, Identifiable, Codable, Defaults.Serializable {
     case stable
     case beta

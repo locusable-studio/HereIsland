@@ -36,9 +36,10 @@ Git tags are `vYYYY.M.D` or `vYYYY.M.D.N`. Beta tags append `-beta.M`.
 - Menu Extra → Updates → Channel: Stable (default) or Beta
 - Stable feed: `https://raw.githubusercontent.com/locusable-studio/HereIsland/main/Updates/appcast.xml`
 - Beta feed: `https://raw.githubusercontent.com/locusable-studio/HereIsland/main/Updates/appcast-beta.xml`
-- Stable Release CI writes both feeds (so Beta users can graduate). Beta CI writes only the beta feed
+- Stable Release CI writes only the stable feed. Beta CI writes only the beta feed
 - Stable `generate_appcast` previous DMGs skip drafts and GitHub prereleases
-- The beta feed has no Sparkle deltas, including stable items copied into it
+- The beta feed has no Sparkle deltas and retains only the latest beta item
+- After each beta release, CI deletes older `*-beta*` tags/releases (never date stables like `v2026.9.8`) and trims `appcast-beta.xml` to that latest beta only
 - Beta releases must not update `/releases/latest`, `HereIsland.dmg`, or the Homebrew tap
 - Switching Beta → Stable does not downgrade; wait for a higher `sparkle:version` on the stable feed
 - Build numbers are taken from the live `main` feeds so a stable tag and a same-day beta tag cannot reuse the same `sparkle:version`
