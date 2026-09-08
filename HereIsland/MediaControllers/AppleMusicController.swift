@@ -24,6 +24,22 @@ import AppKit
 import Combine
 import Foundation
 
+private struct ITunesSearchResponse: Decodable {
+    let results: [ITunesTrack]
+}
+
+private struct ITunesTrack: Decodable {
+    let trackName: String?
+    let collectionName: String?
+    let artworkUrl100: String?
+}
+
+private enum CatalogArtworkResult {
+    case available(Data)
+    case unavailable
+    case transientFailure
+}
+
 private struct AppleMusicPlaybackSnapshot: Sendable {
     let isPlaying: Bool
     let title: String
@@ -58,6 +74,14 @@ class AppleMusicController: MediaControllerProtocol {
     // MARK: - Properties
     private static let bundleIdentifier = "com.apple.Music"
 
+    /// Max time the previous track's cover may remain on screen after a skip
+    /// with no replacement art yet. After this, clear via `.unavailable`.
+    private static let previousCoverLinger: Duration = .milliseconds(100)
+
+    /// Catalog + script give-up deadline, counted from track change (not
+    /// linger + timeout). If still no art, Music logo sticks as fallback.
+    private static let artworkTimeoutFromTrackChange: Duration = .milliseconds(600)
+
     @Published private var playbackState: PlaybackState = PlaybackState(
         bundleIdentifier: AppleMusicController.bundleIdentifier,
         playbackRate: 1
@@ -79,6 +103,9 @@ class AppleMusicController: MediaControllerProtocol {
 
     private var notificationTask: Task<Void, Never>?
     private var playbackInfoRequestGeneration: UInt = 0
+    private var artworkFetchTask: Task<Void, Never>?
+    private var artworkRequestID: UUID?
+    private var artworkRequestContentIdentifier: String?
 
     // MARK: - Initialization
     init() {
@@ -104,6 +131,7 @@ class AppleMusicController: MediaControllerProtocol {
     
     deinit {
         notificationTask?.cancel()
+        artworkFetchTask?.cancel()
     }
     
     // MARK: - Protocol Implementation
@@ -198,21 +226,232 @@ class AppleMusicController: MediaControllerProtocol {
 
         if let artworkData = snapshot.artwork,
            artworkData.count > Self.minimumArtworkSize {
+            // Embedded script art wins immediately; cancel any in-flight catalog.
+            artworkFetchTask?.cancel()
+            artworkFetchTask = nil
+            artworkRequestID = nil
+            artworkRequestContentIdentifier = nil
             updatedState.artwork = artworkData
             updatedState.artworkAvailability = .available
         } else if contentChanged {
-            // Do not leave .unknown hanging on the previous track's cover.
-            // MusicManager only swaps to the Music app icon on .unavailable;
-            // a later script refresh with bytes still replaces the icon.
+            // New track, no art yet: cancel prior generation (incl. in-flight
+            // catalog). Publish .unknown so MusicManager may briefly keep the
+            // previous cover — never republish stale bytes, never immediate logo.
+            artworkFetchTask?.cancel()
+            artworkFetchTask = nil
+            artworkRequestID = nil
+            artworkRequestContentIdentifier = nil
             updatedState.artwork = nil
-            updatedState.artworkAvailability = .unavailable
+            updatedState.artworkAvailability = .unknown
         }
 
         updatedState.lastUpdated = Date()
         self.playbackState = updatedState
+
+        guard updatedState.artwork == nil,
+              artworkRequestContentIdentifier != snapshot.contentIdentifier
+        else { return }
+
+        let requestID = UUID()
+        let title = updatedState.title
+        let artist = updatedState.artist
+        let album = updatedState.album
+        artworkRequestID = requestID
+        artworkRequestContentIdentifier = snapshot.contentIdentifier
+        // Cover timing (Apple Music only):
+        // 1) Start catalog immediately with this generation.
+        // 2) At 100ms from skip: clear previous cover (.unavailable → logo).
+        // 3) At 600ms from skip: if still no art, logo sticks (not 100+600).
+        // Late catalog bytes for a cancelled requestID are dropped.
+        artworkFetchTask = Task { [weak self] in
+            let catalogTask = Task {
+                await self?.fetchArtworkFromCatalog(
+                    title: title,
+                    artist: artist,
+                    album: album
+                ) ?? .transientFailure
+            }
+
+            enum TimingEvent {
+                case clearOldCover
+                case artworkDeadline
+                case catalog(CatalogArtworkResult)
+            }
+
+            await withTaskGroup(of: TimingEvent.self) { group in
+                group.addTask {
+                    try? await Task.sleep(for: Self.previousCoverLinger)
+                    return .clearOldCover
+                }
+                group.addTask {
+                    try? await Task.sleep(for: Self.artworkTimeoutFromTrackChange)
+                    return .artworkDeadline
+                }
+                group.addTask {
+                    let result = await catalogTask.value
+                    return .catalog(result)
+                }
+
+                var appliedArt = false
+                for await event in group {
+                    guard !Task.isCancelled else {
+                        group.cancelAll()
+                        catalogTask.cancel()
+                        break
+                    }
+                    switch event {
+                    case .catalog(let result):
+                        if case .available = result {
+                            appliedArt = true
+                            await MainActor.run {
+                                self?.completeArtworkRequest(result, requestID: requestID)
+                            }
+                            group.cancelAll()
+                            catalogTask.cancel()
+                            break
+                        }
+                        // unavailable / transientFailure: keep waiting for
+                        // clear + deadline so we do not flash logo before 100ms.
+                    case .clearOldCover:
+                        guard !appliedArt else { continue }
+                        await MainActor.run {
+                            self?.clearPreviousCoverIfNeeded(requestID: requestID)
+                        }
+                    case .artworkDeadline:
+                        if !appliedArt {
+                            // Still no art after 600ms from track change → logo.
+                            await MainActor.run {
+                                self?.completeArtworkRequest(.unavailable, requestID: requestID)
+                            }
+                        }
+                        group.cancelAll()
+                        catalogTask.cancel()
+                        break
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Private Methods
+
+    /// Drop wrong-track art after the linger window. MusicManager only replaces
+    /// the on-screen cover when availability becomes `.unavailable` (Music logo)
+    /// until catalog/script upgrades to real art.
+    @MainActor
+    private func clearPreviousCoverIfNeeded(requestID: UUID) {
+        guard artworkRequestID == requestID else { return }
+        guard playbackState.artworkAvailability != .available else { return }
+        var artworkState = playbackState
+        artworkState.artwork = nil
+        artworkState.artworkAvailability = .unavailable
+        playbackState = artworkState
+    }
+
+    @MainActor
+    private func completeArtworkRequest(_ result: CatalogArtworkResult, requestID: UUID) {
+        guard artworkRequestID == requestID else { return }
+        artworkRequestID = nil
+        artworkFetchTask = nil
+        artworkRequestContentIdentifier = nil
+
+        var artworkState = playbackState
+        switch result {
+        case .available(let artwork):
+            artworkState.artwork = artwork
+            artworkState.artworkAvailability = .available
+            playbackState = artworkState
+        case .unavailable:
+            artworkState.artwork = nil
+            artworkState.artworkAvailability = .unavailable
+            playbackState = artworkState
+        case .transientFailure:
+            // Network blip: if we already cleared to logo, keep it; otherwise
+            // mark unavailable so we do not hang on .unknown forever.
+            if artworkState.artworkAvailability != .available {
+                artworkState.artwork = nil
+                artworkState.artworkAvailability = .unavailable
+                playbackState = artworkState
+            }
+        }
+    }
+
+    private func canonicalMetadata(_ value: String?) -> String {
+        let simplified = value?
+            .applyingTransform(StringTransform("Traditional-Simplified"), reverse: false)
+            ?? value
+            ?? ""
+        let folded = simplified.folding(
+            options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+            locale: .current
+        )
+        return String(
+            folded.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }
+        )
+    }
+
+    private func fetchArtworkFromCatalog(
+        title: String,
+        artist: String,
+        album: String
+    ) async -> CatalogArtworkResult {
+        let query = "\(title) \(artist)"
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty,
+              let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://itunes.apple.com/search?term=\(encoded)&media=music&entity=song&limit=10")
+        else { return .unavailable }
+
+        do {
+            let (data, urlResponse) = try await URLSession.shared.data(from: url)
+            guard let httpResponse = urlResponse as? HTTPURLResponse,
+                  (200..<300).contains(httpResponse.statusCode)
+            else {
+                return .transientFailure
+            }
+
+            let searchResponse = try JSONDecoder().decode(ITunesSearchResponse.self, from: data)
+            guard !searchResponse.results.isEmpty else {
+                return .unavailable
+            }
+
+            let normalizedAlbum = canonicalMetadata(album)
+            let normalizedTitle = canonicalMetadata(title)
+            let match = searchResponse.results.first(where: {
+                !normalizedTitle.isEmpty
+                    && !normalizedAlbum.isEmpty
+                    && canonicalMetadata($0.trackName) == normalizedTitle
+                    && canonicalMetadata($0.collectionName) == normalizedAlbum
+            }) ?? searchResponse.results.first(where: {
+                !normalizedAlbum.isEmpty
+                    && canonicalMetadata($0.collectionName) == normalizedAlbum
+            }) ?? searchResponse.results.first(where: {
+                !normalizedTitle.isEmpty
+                    && canonicalMetadata($0.trackName) == normalizedTitle
+            })
+
+            guard let artworkURLString = match?.artworkUrl100 else {
+                return .unavailable
+            }
+
+            let highResURL = artworkURLString.replacingOccurrences(of: "100x100", with: "600x600")
+            guard let imageURL = URL(string: highResURL) else {
+                return .transientFailure
+            }
+
+            let (imageData, imageResponse) = try await URLSession.shared.data(from: imageURL)
+            guard let httpResponse = imageResponse as? HTTPURLResponse,
+                  (200..<300).contains(httpResponse.statusCode),
+                  imageData.count > Self.minimumArtworkSize,
+                  NSImage(data: imageData) != nil
+            else {
+                return .transientFailure
+            }
+
+            return .available(imageData)
+        } catch {
+            return .transientFailure
+        }
+    }
 
     private func executeCommand(_ command: String) async {
         let script = "tell application \"Music\" to \(command)"
