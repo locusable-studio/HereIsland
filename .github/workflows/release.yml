@@ -284,7 +284,7 @@ jobs:
           rm -rf "$ARCHIVES_DIR"
           mkdir -p "$ARCHIVES_DIR"
           cp "build/${DMG_NAME}" "$ARCHIVES_DIR/"
-          # Only the stable feed is generate_appcast history. Beta is item-prepend, no deltas.
+          # Only the stable feed is generate_appcast history. Beta is latest-item-only, no deltas.
           if [ "${{ steps.version.outputs.channel }}" = "stable" ] && [ -f Updates/appcast.xml ]; then
             cp Updates/appcast.xml "$ARCHIVES_DIR/appcast.xml"
           fi
@@ -441,34 +441,22 @@ jobs:
           item = m.group(0)
           item_no_delta = re.sub(r"\n[ \t]*<sparkle:deltas>.*?</sparkle:deltas>", "", item, flags=re.S)
 
-          def prepend(path: pathlib.Path, item_xml: str, title: str):
-              if path.exists():
-                  body = path.read_text()
-              else:
-                  body = (
-                      '<?xml version="1.0" standalone="yes"?>\n'
-                      '<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">\n'
-                      "    <channel>\n"
-                      f"        <title>{title}</title>\n"
-                      "    </channel>\n"
-                      "</rss>\n"
-                  )
-              if "<title>" in body:
-                  body = re.sub(
-                      r"(<title>[^<]*</title>)",
-                      r"\1\n" + item_xml,
-                      body,
-                      count=1,
-                  )
-              else:
-                  body = body.replace("<channel>", "<channel>\n" + item_xml, 1)
-              path.write_text(body)
-
           if channel == "stable":
+              # Stable feed only — never write stables into appcast-beta.xml.
               pathlib.Path("Updates/appcast.xml").write_text(text)
-              prepend(pathlib.Path("Updates/appcast-beta.xml"), item_no_delta, "Here Island Beta")
           else:
-              prepend(pathlib.Path("Updates/appcast-beta.xml"), item_no_delta, "Here Island Beta")
+              # Beta follows beta only: replace feed with this single latest beta item.
+              beta_path = pathlib.Path("Updates/appcast-beta.xml")
+              beta_path.write_text(
+                  '<?xml version="1.0" standalone="yes"?>\n'
+                  '<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">\n'
+                  "    <channel>\n"
+                  "        <title>Here Island Beta</title>\n"
+                  + item_no_delta
+                  + "\n"
+                  "    </channel>\n"
+                  "</rss>\n"
+              )
           PY
 
             git add Updates/appcast.xml Updates/appcast-beta.xml
@@ -485,6 +473,26 @@ jobs:
               echo "::error::Failed to push appcast after 3 attempts. BUILD_NUMBER ${BUILD_NUMBER} was not published."
               exit 1
             fi
+          done
+
+
+      - name: Clean up older beta releases
+        if: ${{ steps.version.outputs.channel == 'beta' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          REPO="${{ github.repository }}"
+          # Only *-beta* tags — never date stables like v2026.9.8.
+          OLD_BETA_TAGS=$(gh release list --repo "$REPO" --limit 100 --json tagName,isPrerelease \
+            --jq '[.[] | select(.isPrerelease == true) | .tagName | select(contains("-beta."))] | .[]')
+          for old in $OLD_BETA_TAGS; do
+            if [ "$old" = "$TAG" ]; then
+              continue
+            fi
+            echo "Deleting older beta release/tag: $old"
+            gh release delete "$old" --repo "$REPO" --yes --cleanup-tag || true
           done
 
       - name: Update Homebrew tap
