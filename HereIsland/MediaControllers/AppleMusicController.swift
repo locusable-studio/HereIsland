@@ -224,9 +224,23 @@ class AppleMusicController: MediaControllerProtocol {
         updatedState.repeatMode = RepeatMode(rawValue: snapshot.repeatModeValue) ?? .off
         updatedState.contentIdentifier = snapshot.contentIdentifier
 
-        if let artworkData = snapshot.artwork,
-           artworkData.count > Self.minimumArtworkSize {
-            // Embedded script art wins immediately; cancel any in-flight catalog.
+        // Script art on a brand-new track can still be the *previous* track's
+        // bytes (Apple Music often lags). Identical bytes after contentChanged
+        // are treated as missing so the 100ms clear + 600ms logo path can run.
+        let scriptArt: Data? = {
+            guard let artworkData = snapshot.artwork,
+                  artworkData.count > Self.minimumArtworkSize
+            else { return nil }
+            if contentChanged,
+               let previous = playbackState.artwork,
+               previous == artworkData {
+                return nil
+            }
+            return artworkData
+        }()
+
+        if let artworkData = scriptArt {
+            // Trusted embedded script art (new bytes, or same-track refresh).
             artworkFetchTask?.cancel()
             artworkFetchTask = nil
             artworkRequestID = nil
@@ -234,9 +248,10 @@ class AppleMusicController: MediaControllerProtocol {
             updatedState.artwork = artworkData
             updatedState.artworkAvailability = .available
         } else if contentChanged {
-            // New track, no art yet: cancel prior generation (incl. in-flight
-            // catalog). Publish .unknown so MusicManager may briefly keep the
-            // previous cover — never republish stale bytes, never immediate logo.
+            // New track, no trustworthy art yet: cancel prior generation (incl.
+            // in-flight catalog). Publish .unknown so MusicManager may briefly
+            // keep the previous cover — never republish stale bytes, never
+            // immediate logo.
             artworkFetchTask?.cancel()
             artworkFetchTask = nil
             artworkRequestID = nil
