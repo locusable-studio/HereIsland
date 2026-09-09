@@ -240,13 +240,23 @@ class AppleMusicController: MediaControllerProtocol {
         }()
 
         if let artworkData = scriptArt {
-            // Trusted embedded script art (new bytes, or same-track refresh).
-            artworkFetchTask?.cancel()
-            artworkFetchTask = nil
-            artworkRequestID = nil
-            artworkRequestContentIdentifier = nil
-            updatedState.artwork = artworkData
-            updatedState.artworkAvailability = .available
+            // While a cover request is in flight for this track, ignore
+            // progress-only script refreshes. Apple Music often re-sends the
+            // previous cover bytes after contentChanged cleared them; treating
+            // those as .available cancelled the 100ms/600ms path and left the
+            // notch stuck on the old cover (rapid skips).
+            if artworkRequestID != nil && !contentChanged {
+                // Keep waiting for clear / catalog / deadline.
+            } else {
+                // Trusted embedded script art (new bytes on track change, or
+                // same-track refresh with no in-flight request).
+                artworkFetchTask?.cancel()
+                artworkFetchTask = nil
+                artworkRequestID = nil
+                artworkRequestContentIdentifier = nil
+                updatedState.artwork = artworkData
+                updatedState.artworkAvailability = .available
+            }
         } else if contentChanged {
             // New track, no trustworthy art yet: cancel prior generation (incl.
             // in-flight catalog). Publish .unknown so MusicManager may briefly
