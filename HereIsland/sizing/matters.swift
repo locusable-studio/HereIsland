@@ -75,9 +75,16 @@ extension NSScreen {
         return CFUUIDCreateString(nil, uuid) as String
     }
 
-    /// Menu tag / `displayDestination`: `CGDirectDisplayID` string.
+    /// Session list identity (`ForEach` id): `CGDirectDisplayID` string.
     var stableDisplayID: String {
         displayIdentifier ?? localizedName
+    }
+
+    /// Persisted `displayDestination` token: display UUID when CoreGraphics
+    /// provides one (survives unplug/replug). Falls back to CGDirectDisplayID,
+    /// then localized name.
+    var preferenceDisplayToken: String {
+        displayUUIDString ?? displayIdentifier ?? localizedName
     }
 
     func matchesDisplayToken(_ token: String) -> Bool {
