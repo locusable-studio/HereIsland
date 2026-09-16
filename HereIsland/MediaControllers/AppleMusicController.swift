@@ -106,6 +106,11 @@ class AppleMusicController: MediaControllerProtocol {
     private var artworkFetchTask: Task<Void, Never>?
     private var artworkRequestID: UUID?
     private var artworkRequestContentIdentifier: String?
+    /// Coalesce dense `playerInfo` notifications so we do not storm Music with
+    /// full AppleScript snapshots (especially artwork raw data).
+    private var playbackInfoCoalesceTask: Task<Void, Never>?
+    private var artworkFollowUpTask: Task<Void, Never>?
+    private static let playerInfoCoalesce: Duration = .milliseconds(200)
 
     // MARK: - Initialization
     init() {
@@ -122,15 +127,31 @@ class AppleMusicController: MediaControllerProtocol {
             let notifications = DistributedNotificationCenter.default().notifications(
                 named: NSNotification.Name("com.apple.Music.playerInfo")
             )
-            
+
             for await _ in notifications {
-                await self?.updatePlaybackInfo()
+                // Peak notifications: coalesce and skip artwork raw data by default.
+                await MainActor.run {
+                    self?.scheduleCoalescedPlaybackInfoRefresh(includeArtwork: false)
+                }
             }
         }
     }
-    
+
+    /// Trailing-edge coalesce for `playerInfo` floods after skips.
+    @MainActor
+    private func scheduleCoalescedPlaybackInfoRefresh(includeArtwork: Bool) {
+        playbackInfoCoalesceTask?.cancel()
+        playbackInfoCoalesceTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.playerInfoCoalesce)
+            guard !Task.isCancelled else { return }
+            await self?.updatePlaybackInfo(includeArtwork: includeArtwork)
+        }
+    }
+
     deinit {
         notificationTask?.cancel()
+        playbackInfoCoalesceTask?.cancel()
+        artworkFollowUpTask?.cancel()
         artworkFetchTask?.cancel()
     }
     
@@ -185,10 +206,25 @@ class AppleMusicController: MediaControllerProtocol {
         return runningApps.contains { $0.bundleIdentifier == Self.bundleIdentifier }
     }
     
-    func updatePlaybackInfo() async {
+    func updatePlaybackInfo(includeArtwork: Bool = true) async {
         let generation = await MainActor.run { beginPlaybackInfoRequest() }
-        guard let snapshot = try? await fetchPlaybackSnapshotAsync() else { return }
-        await MainActor.run { applyPlaybackInfo(snapshot, generation: generation) }
+        guard let snapshot = try? await fetchPlaybackSnapshotAsync(includeArtwork: includeArtwork)
+        else { return }
+        await MainActor.run {
+            let contentChanged = applyPlaybackInfo(
+                snapshot,
+                generation: generation,
+                fetchedArtwork: includeArtwork
+            )
+            // Metadata-only peak refresh still needs one artwork pass when the
+            // track identity changed, without re-entering the notification flood.
+            if contentChanged && !includeArtwork {
+                artworkFollowUpTask?.cancel()
+                artworkFollowUpTask = Task { [weak self] in
+                    await self?.updatePlaybackInfo(includeArtwork: true)
+                }
+            }
+        }
     }
 
     @MainActor
@@ -204,8 +240,13 @@ class AppleMusicController: MediaControllerProtocol {
     }
 
     @MainActor
-    private func applyPlaybackInfo(_ snapshot: AppleMusicPlaybackSnapshot, generation: UInt) {
-        guard generation == playbackInfoRequestGeneration else { return }
+    @discardableResult
+    private func applyPlaybackInfo(
+        _ snapshot: AppleMusicPlaybackSnapshot,
+        generation: UInt,
+        fetchedArtwork: Bool
+    ) -> Bool {
+        guard generation == playbackInfoRequestGeneration else { return false }
         var updatedState = self.playbackState
         let contentChanged =
             snapshot.contentIdentifier != playbackState.contentIdentifier
@@ -227,7 +268,10 @@ class AppleMusicController: MediaControllerProtocol {
         // Script art on a brand-new track can still be the *previous* track's
         // bytes (Apple Music often lags). Identical bytes after contentChanged
         // are treated as missing so the 100ms clear + 600ms logo path can run.
+        // Metadata-only refreshes omit artwork entirely — do not treat that as
+        // "missing art" / clear the cover until an artwork-inclusive fetch runs.
         let scriptArt: Data? = {
+            guard fetchedArtwork else { return nil }
             guard let artworkData = snapshot.artwork,
                   artworkData.count > Self.minimumArtworkSize
             else { return nil }
@@ -257,7 +301,7 @@ class AppleMusicController: MediaControllerProtocol {
                 updatedState.artwork = artworkData
                 updatedState.artworkAvailability = .available
             }
-        } else if contentChanged {
+        } else if contentChanged && fetchedArtwork {
             // New track, no trustworthy art yet: cancel prior generation (incl.
             // in-flight catalog). Publish .unknown so MusicManager may briefly
             // keep the previous cover — never republish stale bytes, never
@@ -273,9 +317,10 @@ class AppleMusicController: MediaControllerProtocol {
         updatedState.lastUpdated = Date()
         self.playbackState = updatedState
 
-        guard updatedState.artwork == nil,
+        guard fetchedArtwork,
+              updatedState.artwork == nil,
               artworkRequestContentIdentifier != snapshot.contentIdentifier
-        else { return }
+        else { return contentChanged }
 
         let requestID = UUID()
         let title = updatedState.title
@@ -356,6 +401,7 @@ class AppleMusicController: MediaControllerProtocol {
                 }
             }
         }
+        return contentChanged
     }
 
     // MARK: - Private Methods
@@ -483,7 +529,15 @@ class AppleMusicController: MediaControllerProtocol {
         try? await AppleScriptHelper.executeVoid(script)
     }
     
-    private func fetchPlaybackSnapshotAsync() async throws -> AppleMusicPlaybackSnapshot? {
+    private func fetchPlaybackSnapshotAsync(includeArtwork: Bool) async throws -> AppleMusicPlaybackSnapshot? {
+        let artworkClause = includeArtwork ? """
+                set artData to ""
+                try
+                    set artData to raw data of artwork 1 of current track
+                end try
+""" : """
+                set artData to ""
+"""
         let script = """
         tell application "Music"
             try
@@ -503,11 +557,7 @@ class AppleMusicController: MediaControllerProtocol {
                     set repeatValue to 3
                 end if
 
-                set artData to ""
-                try
-                    set artData to raw data of artwork 1 of current track
-                end try
-
+\(artworkClause)
                 set trackPersistentID to ""
                 try
                     set trackPersistentID to persistent ID of current track
