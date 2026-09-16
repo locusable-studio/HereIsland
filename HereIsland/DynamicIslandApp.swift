@@ -137,17 +137,28 @@ struct DynamicNotchApp: App {
     }
 
     private func isDisplayMenuChecked(_ screen: NSScreen) -> Bool {
-        guard displayDestination != DisplayDestination.allDisplays else { return false }
-        return screen.matchesDisplayToken(displayDestination)
+        displayMenuCheckedScreen()?.stableDisplayID == screen.stableDisplayID
     }
 
     /// Preferred screen if connected; otherwise the window's current screen, then `NSScreen.main`.
     private func displayMenuCheckedScreen() -> NSScreen? {
         if displayDestination == DisplayDestination.allDisplays { return nil }
+        if displayDestination.isEmpty {
+            seedEmptyDisplayDestinationIfNeeded()
+        }
         if let match = screenMatchingDisplayDestination(displayDestination) {
             return match
         }
         return AppDelegate.shared?.window?.screen ?? NSScreen.main
+    }
+
+    /// Fresh install / cleared key: persist current host screen UUID once so the menu has a real selection.
+    private func seedEmptyDisplayDestinationIfNeeded() {
+        guard displayDestination.isEmpty,
+              displayDestination != DisplayDestination.allDisplays,
+              let screen = AppDelegate.shared?.window?.screen ?? NSScreen.main
+        else { return }
+        displayDestination = screen.preferenceDisplayToken
     }
 
     private var availableMediaControllers: [MediaControllerType] {
