@@ -61,13 +61,28 @@ struct DynamicNotchApp: App {
                     Toggle(String(localized: "During screenshots and recordings"), isOn: $hideFromScreenCapture)
                     Toggle(String(localized: "When fullscreen"), isOn: $hideWhenFullscreen)
                 }
-                Picker(String(localized: "Display"), selection: $displayDestination) {
-                    ForEach(orderedScreens(), id: \.stableDisplayID) { screen in
-                        Text(screen.localizedName).tag(screen.stableDisplayID)
+                Menu(String(localized: "Display")) {
+                    ForEach(NSScreen.screens, id: \.stableDisplayID) { screen in
+                        Button {
+                            displayDestination = screen.stableDisplayID
+                        } label: {
+                            if isDisplayMenuChecked(screen) {
+                                Label(screen.localizedName, systemImage: "checkmark")
+                            } else {
+                                Text(screen.localizedName)
+                            }
+                        }
                     }
                     Divider()
-                    Text(String(localized: "Show on all displays"))
-                        .tag(DisplayDestination.allDisplays)
+                    Button {
+                        displayDestination = DisplayDestination.allDisplays
+                    } label: {
+                        if displayDestination == DisplayDestination.allDisplays {
+                            Label(String(localized: "Show on all displays"), systemImage: "checkmark")
+                        } else {
+                            Text(String(localized: "Show on all displays"))
+                        }
+                    }
                 }
             }
 
@@ -121,6 +136,19 @@ struct DynamicNotchApp: App {
         }
     }
 
+    private func isDisplayMenuChecked(_ screen: NSScreen) -> Bool {
+        displayMenuCheckedScreen()?.stableDisplayID == screen.stableDisplayID
+    }
+
+    /// Preferred screen if connected; otherwise the window's current screen, then `NSScreen.main`.
+    private func displayMenuCheckedScreen() -> NSScreen? {
+        if displayDestination == DisplayDestination.allDisplays { return nil }
+        if let match = screenMatchingDisplayDestination(displayDestination) {
+            return match
+        }
+        return AppDelegate.shared?.window?.screen ?? NSScreen.main
+    }
+
     private var availableMediaControllers: [MediaControllerType] {
         if musicManager.isNowPlayingDeprecated {
             return [.appleMusic]
@@ -154,6 +182,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var closeNotchWorkItem: DispatchWorkItem?
     private var audioTapStopWorkItem: DispatchWorkItem?
     private var previousScreens: [NSScreen]?
+    private let appLaunchTime = Date()
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
@@ -163,6 +192,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         windowSizeUpdateWorkItem?.cancel()
         audioTapStopWorkItem?.cancel()
         NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         AudioTap.shared.stopCapture()
     }
 
@@ -384,6 +414,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(receiveWakeNote),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(screensDidWake),
+            name: NSWorkspace.screensDidWakeNotification,
+            object: nil
+        )
         Defaults.publisher(.displayDestination, options: [])
             .receive(on: DispatchQueue.main)
             .sink { [weak self] change in
@@ -443,18 +485,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func screenConfigurationDidChange() {
-        let currentScreens = NSScreen.screens
-        defer { previousScreens = currentScreens }
-        reconcileDisplayDestination()
-        cleanupWindows()
-        if !DisplayDestination.showsOnAllDisplays {
-            let screen = resolvedTargetScreen()
-            vm.setScreen(screen.localizedName)
-            window = createDynamicIslandWindow(
-                for: screen,
-                with: vm
-            )
-        }
+        previousScreens = NSScreen.screens
+        adjustWindowPosition(changeAlpha: true)
+    }
+
+    @objc func receiveWakeNote(_ notification: Notification) {
+        if Date().timeIntervalSince(appLaunchTime) < 5 { return }
+        adjustWindowPosition(changeAlpha: true)
+    }
+
+    @objc func screensDidWake(_ notification: Notification) {
         adjustWindowPosition(changeAlpha: true)
     }
 
@@ -497,7 +537,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func resolvedTargetScreen() -> NSScreen {
-        resolveNotchHostScreen() ?? NSScreen.screens.first!
+        resolveNotchHostScreen(windowFallback: window?.screen) ?? NSScreen.screens.first!
     }
 
     @objc func adjustWindowPosition(changeAlpha: Bool = false) {

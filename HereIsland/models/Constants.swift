@@ -81,7 +81,7 @@ enum PlayerTint: String, CaseIterable, Identifiable, Defaults.Serializable {
 extension Defaults.Keys {
     // MARK: General (menu bar)
     /// Selected display destination for the notch window.
-    /// `"__all_displays__"` shows on every screen; otherwise a `NSScreen.stableDisplayID`.
+    /// `"__all_displays__"` shows on every screen; otherwise a `CGDirectDisplayID` string.
     static let displayDestination = Key<String>("displayDestination", default: "")
     static let enableHaptics = Key<Bool>("enableHaptics", default: true)
     static let showAlbumArtBackgroundEffects = Key<Bool>("showAlbumArtBackgroundEffects", default: true)

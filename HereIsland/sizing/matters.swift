@@ -21,6 +21,7 @@
  */
 
 import AppKit
+import CoreGraphics
 import Defaults
 import Foundation
 import SwiftUI
@@ -60,25 +61,35 @@ enum MusicPlayerImageSizes {
 }
 
 extension NSScreen {
-    /// Stable CoreGraphics display ID as a string, used for preference persistence.
-    var displayIDString: String? {
+    var displayIdentifier: String? {
+        (deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.stringValue
+    }
+
+    var displayUUIDString: String? {
         guard let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
             return nil
         }
-        return number.stringValue
-    }
-
-    /// Non-optional identity for SwiftUI lists; falls back to the localized name.
-    var stableDisplayID: String {
-        displayIDString ?? localizedName
-    }
-
-    /// Built-in panel (MacBook display), via CoreGraphics.
-    var isBuiltIn: Bool {
-        guard let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
-            return false
+        guard let uuid = CGDisplayCreateUUIDFromDisplayID(number.uint32Value)?.takeRetainedValue() else {
+            return nil
         }
-        return CGDisplayIsBuiltin(number.uint32Value) != 0
+        return CFUUIDCreateString(nil, uuid) as String
+    }
+
+    /// Menu tag / `displayDestination`: `CGDirectDisplayID` string.
+    var stableDisplayID: String {
+        displayIdentifier ?? localizedName
+    }
+
+    func matchesDisplayToken(_ token: String) -> Bool {
+        let needle = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return false }
+        if let displayUUIDString, displayUUIDString.caseInsensitiveCompare(needle) == .orderedSame {
+            return true
+        }
+        if let displayIdentifier, displayIdentifier.caseInsensitiveCompare(needle) == .orderedSame {
+            return true
+        }
+        return localizedName.caseInsensitiveCompare(needle) == .orderedSame
     }
 
     /// True when AppKit exposes notch/cutout geometry for this screen.
@@ -88,47 +99,27 @@ extension NSScreen {
     }
 }
 
-/// Connected screens with the built-in panel first when present.
-func orderedScreens() -> [NSScreen] {
-    let screens = NSScreen.screens
-    let builtIn = screens.filter(\.isBuiltIn)
-    let external = screens.filter { !$0.isBuiltIn }
-    return builtIn + external
+func screenMatchingDisplayDestination(
+    _ destination: String,
+    screens: [NSScreen] = NSScreen.screens
+) -> NSScreen? {
+    guard destination != DisplayDestination.allDisplays, !destination.isEmpty else { return nil }
+    return screens.first { $0.matchesDisplayToken(destination) }
 }
 
-/// Host display for the single-display notch window.
-func resolveNotchHostScreen() -> NSScreen? {
-    let screens = orderedScreens()
-    let destination = Defaults[.displayDestination]
-    if destination != DisplayDestination.allDisplays,
-       let match = screens.first(where: { $0.stableDisplayID == destination }) {
+/// Preferred screen if connected; otherwise the current window's screen, then `NSScreen.main`.
+func resolveNotchHostScreen(windowFallback: NSScreen? = nil) -> NSScreen? {
+    if let match = screenMatchingDisplayDestination(Defaults[.displayDestination]) {
         return match
     }
-    return screens.first
+    return windowFallback ?? NSScreen.main ?? NSScreen.screens.first
 }
 
-/// Keeps `displayDestination` valid after screen plug/unplug, and migrates legacy keys once.
+/// Migrates legacy keys. Does not rewrite the remembered destination when that screen is unplugged.
 @discardableResult
 func reconcileDisplayDestination() -> NSScreen? {
     migrateLegacyDisplayDefaultsIfNeeded()
-
-    let screens = orderedScreens()
-    guard let first = screens.first else {
-        Defaults[.displayDestination] = DisplayDestination.allDisplays
-        return nil
-    }
-
-    let destination = Defaults[.displayDestination]
-    if destination == DisplayDestination.allDisplays {
-        return first
-    }
-    if screens.contains(where: { $0.stableDisplayID == destination }) {
-        return screens.first(where: { $0.stableDisplayID == destination })
-    }
-
-    // Missing / stale selection → first ordered screen (built-in when present).
-    Defaults[.displayDestination] = first.stableDisplayID
-    return first
+    return resolveNotchHostScreen()
 }
 
 /// One-shot migration from the previous boolean + optional screen-id pair.
