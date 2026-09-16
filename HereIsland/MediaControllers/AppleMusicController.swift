@@ -206,7 +206,11 @@ class AppleMusicController: MediaControllerProtocol {
         return runningApps.contains { $0.bundleIdentifier == Self.bundleIdentifier }
     }
     
-    func updatePlaybackInfo(includeArtwork: Bool = true) async {
+    func updatePlaybackInfo() async {
+        await updatePlaybackInfo(includeArtwork: true)
+    }
+
+    private func updatePlaybackInfo(includeArtwork: Bool) async {
         let generation = await MainActor.run { beginPlaybackInfoRequest() }
         guard let snapshot = try? await fetchPlaybackSnapshotAsync(includeArtwork: includeArtwork)
         else { return }
