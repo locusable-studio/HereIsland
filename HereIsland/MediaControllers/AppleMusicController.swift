@@ -530,45 +530,56 @@ class AppleMusicController: MediaControllerProtocol {
     }
     
     private func fetchPlaybackSnapshotAsync(includeArtwork: Bool) async throws -> AppleMusicPlaybackSnapshot? {
-        let artworkClause = includeArtwork ? """
-                set artData to ""
-                try
-                    set artData to raw data of artwork 1 of current track
-                end try
-""" : """
-                set artData to ""
-"""
-        let script = """
-        tell application "Music"
-            try
-                set playerState to player state is playing
-                set currentTrackName to name of current track
-                set currentTrackArtist to artist of current track
-                set currentTrackAlbum to album of current track
-                set trackPosition to player position
-                set trackDuration to duration of current track
-                set shuffleState to shuffle enabled
-                set repeatState to song repeat
-                if repeatState is off then
-                    set repeatValue to 1
-                else if repeatState is one then
-                    set repeatValue to 2
-                else if repeatState is all then
-                    set repeatValue to 3
-                end if
+        // Build with concatenation so artwork lines are not interpolated inside a
+        // multi-line string literal (Archive failed on under-indented \(artworkClause)).
+        let artworkLines: String
+        if includeArtwork {
+            artworkLines = """
+                            set artData to ""
+                            try
+                                set artData to raw data of artwork 1 of current track
+                            end try
 
-\(artworkClause)
-                set trackPersistentID to ""
-                try
-                    set trackPersistentID to persistent ID of current track
-                end try
+                """
+        } else {
+            artworkLines = """
+                            set artData to ""
 
-                return {playerState, currentTrackName, currentTrackArtist, currentTrackAlbum, trackPosition, trackDuration, shuffleState, repeatValue, artData, trackPersistentID}
-            on error
-                return {false, "Not Playing", "Unknown", "Unknown", 0, 0, false, 0, "", ""}
-            end try
-        end tell
-        """
+                """
+        }
+        let scriptPrefix = """
+                tell application "Music"
+                    try
+                        set playerState to player state is playing
+                        set currentTrackName to name of current track
+                        set currentTrackArtist to artist of current track
+                        set currentTrackAlbum to album of current track
+                        set trackPosition to player position
+                        set trackDuration to duration of current track
+                        set shuffleState to shuffle enabled
+                        set repeatState to song repeat
+                        if repeatState is off then
+                            set repeatValue to 1
+                        else if repeatState is one then
+                            set repeatValue to 2
+                        else if repeatState is all then
+                            set repeatValue to 3
+                        end if
+
+                """
+        let scriptSuffix = """
+                        set trackPersistentID to ""
+                        try
+                            set trackPersistentID to persistent ID of current track
+                        end try
+
+                        return {playerState, currentTrackName, currentTrackArtist, currentTrackAlbum, trackPosition, trackDuration, shuffleState, repeatValue, artData, trackPersistentID}
+                    on error
+                        return {false, "Not Playing", "Unknown", "Unknown", 0, 0, false, 0, "", ""}
+                    end try
+                end tell
+                """
+        let script = scriptPrefix + artworkLines + scriptSuffix
         guard let descriptor = try await AppleScriptHelper.execute(script) else { return nil }
         return AppleMusicPlaybackSnapshot(descriptor)
     }
