@@ -64,7 +64,7 @@ struct DynamicNotchApp: App {
                 Menu(String(localized: "Display")) {
                     ForEach(NSScreen.screens, id: \.stableDisplayID) { screen in
                         Button {
-                            displayDestination = screen.stableDisplayID
+                            displayDestination = screen.preferenceDisplayToken
                         } label: {
                             if isDisplayMenuChecked(screen) {
                                 Label(screen.localizedName, systemImage: "checkmark")
@@ -137,7 +137,8 @@ struct DynamicNotchApp: App {
     }
 
     private func isDisplayMenuChecked(_ screen: NSScreen) -> Bool {
-        displayMenuCheckedScreen()?.stableDisplayID == screen.stableDisplayID
+        guard displayDestination != DisplayDestination.allDisplays else { return false }
+        return screen.matchesDisplayToken(displayDestination)
     }
 
     /// Preferred screen if connected; otherwise the window's current screen, then `NSScreen.main`.
