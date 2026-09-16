@@ -548,10 +548,12 @@ class MusicManager: ObservableObject {
                artworkChanged || usingAppIconForArtwork || trackIdentityChanged {
                 self.updateArtwork(artwork, for: state.trackIdentity)
             } else if state.artworkAvailability == .unavailable {
-                if let appIconImage = AppIconAsNSImage(for: state.bundleIdentifier) {
-                    self.usingAppIconForArtwork = true
-                    self.updateAlbumArt(newAlbumArt: appIconImage)
-                }
+                // Always replace the previous track's cover. Lingering on
+                // .unknown is intentional; once the controller says
+                // .unavailable, App Icon / defaultImage must take over even
+                // if AppIconAsNSImage fails (closed / Quick Peek otherwise
+                // stay on the old cover until expand fetches script art).
+                applyUnavailableArtwork(for: state.bundleIdentifier)
             }
             self.artworkData = state.artwork
             self.artworkAvailability = state.artworkAvailability
@@ -740,6 +742,12 @@ class MusicManager: ObservableObject {
             liveStreamCompletionObservationCount = 0
             liveStreamCompletionReleaseCount = 0
         }
+    }
+
+    private func applyUnavailableArtwork(for bundleIdentifier: String) {
+        let fallback = AppIconAsNSImage(for: bundleIdentifier) ?? defaultImage
+        usingAppIconForArtwork = true
+        updateAlbumArt(newAlbumArt: fallback)
     }
 
     private func updateArtwork(_ artworkData: Data, for trackIdentity: PlaybackTrackIdentity) {

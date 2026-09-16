@@ -110,6 +110,14 @@ class AppleMusicController: MediaControllerProtocol {
     /// full AppleScript snapshots (especially artwork raw data).
     private var playbackInfoCoalesceTask: Task<Void, Never>?
     private static let playerInfoCoalesce: Duration = .milliseconds(200)
+    /// One-shot script-art fetch after catalog miss / 600ms deadline.
+    /// Not the immediate playerInfo follow-up removed in #71.
+    private var delayedScriptArtworkTask: Task<Void, Never>?
+    private static let delayedScriptArtworkDelay: Duration = .milliseconds(300)
+    /// Artwork bytes of the track we just left. Used to reject a late script
+    /// snapshot that is still serving the previous cover.
+    private var skippedTrackArtwork: Data?
+    private var rejectArtworkMatchingSkippedTrack = false
 
     // MARK: - Initialization
     init() {
@@ -151,6 +159,7 @@ class AppleMusicController: MediaControllerProtocol {
     deinit {
         notificationTask?.cancel()
         playbackInfoCoalesceTask?.cancel()
+        delayedScriptArtworkTask?.cancel()
         artworkFetchTask?.cancel()
     }
     
@@ -240,7 +249,11 @@ class AppleMusicController: MediaControllerProtocol {
         generation: UInt,
         fetchedArtwork: Bool
     ) {
-        guard generation == playbackInfoRequestGeneration else { return }
+        guard shouldApplyPlaybackSnapshot(
+            snapshot,
+            generation: generation,
+            fetchedArtwork: fetchedArtwork
+        ) else { return }
         var updatedState = self.playbackState
         let contentChanged =
             snapshot.contentIdentifier != playbackState.contentIdentifier
@@ -274,6 +287,13 @@ class AppleMusicController: MediaControllerProtocol {
                previous == artworkData {
                 return nil
             }
+            // Delayed post-deadline fetch: Music may still return the skipped
+            // track's bytes. Keep the logo rather than resticking that cover.
+            if rejectArtworkMatchingSkippedTrack,
+               let skipped = skippedTrackArtwork,
+               skipped == artworkData {
+                return nil
+            }
             return artworkData
         }()
 
@@ -291,7 +311,10 @@ class AppleMusicController: MediaControllerProtocol {
                 artworkFetchTask?.cancel()
                 artworkFetchTask = nil
                 artworkRequestID = nil
-                artworkRequestContentIdentifier = nil
+                artworkRequestContentIdentifier = snapshot.contentIdentifier
+                rejectArtworkMatchingSkippedTrack = false
+                delayedScriptArtworkTask?.cancel()
+                delayedScriptArtworkTask = nil
                 updatedState.artwork = artworkData
                 updatedState.artworkAvailability = .available
             }
@@ -300,6 +323,10 @@ class AppleMusicController: MediaControllerProtocol {
             // that never asked Music for raw data). Cancel prior generation.
             // Publish .unknown so MusicManager may briefly keep the previous
             // cover — never republish stale bytes, never immediate logo.
+            skippedTrackArtwork = playbackState.artwork
+            rejectArtworkMatchingSkippedTrack = false
+            delayedScriptArtworkTask?.cancel()
+            delayedScriptArtworkTask = nil
             artworkFetchTask?.cancel()
             artworkFetchTask = nil
             artworkRequestID = nil
@@ -313,7 +340,9 @@ class AppleMusicController: MediaControllerProtocol {
 
         // Catalog + 100ms/600ms: artwork-inclusive fetches (skip/seek/play),
         // or metadata-only playerInfo when the track actually changed.
-        // Do not restart catalog on progress-only playerInfo after a miss.
+        // Keep artworkRequestContentIdentifier after a miss so a later
+        // artwork-inclusive snapshot (delayed script fetch / expand) does
+        // not restart this generation.
         guard updatedState.artwork == nil,
               artworkRequestContentIdentifier != snapshot.contentIdentifier,
               fetchedArtwork || contentChanged
@@ -402,6 +431,21 @@ class AppleMusicController: MediaControllerProtocol {
 
     // MARK: - Private Methods
 
+    @MainActor
+    private func shouldApplyPlaybackSnapshot(
+        _ snapshot: AppleMusicPlaybackSnapshot,
+        generation: UInt,
+        fetchedArtwork: Bool
+    ) -> Bool {
+        if generation == playbackInfoRequestGeneration { return true }
+        // A later metadata-only playerInfo can bump generation while a delayed
+        // script-art fetch is still in flight. Accept that late artwork when
+        // it is still for this track and we have no cover yet.
+        return fetchedArtwork
+            && snapshot.contentIdentifier == playbackState.contentIdentifier
+            && playbackState.artworkAvailability != .available
+    }
+
     /// Drop wrong-track art after the linger window. MusicManager only replaces
     /// the on-screen cover when availability becomes `.unavailable` (Music logo)
     /// until catalog/script upgrades to real art.
@@ -420,11 +464,15 @@ class AppleMusicController: MediaControllerProtocol {
         guard artworkRequestID == requestID else { return }
         artworkRequestID = nil
         artworkFetchTask = nil
-        artworkRequestContentIdentifier = nil
+        // Keep artworkRequestContentIdentifier so the next includeArtwork
+        // snapshot does not restart catalog + 100ms/600ms for this track.
 
         var artworkState = playbackState
         switch result {
         case .available(let artwork):
+            rejectArtworkMatchingSkippedTrack = false
+            delayedScriptArtworkTask?.cancel()
+            delayedScriptArtworkTask = nil
             artworkState.artwork = artwork
             artworkState.artworkAvailability = .available
             playbackState = artworkState
@@ -432,6 +480,7 @@ class AppleMusicController: MediaControllerProtocol {
             artworkState.artwork = nil
             artworkState.artworkAvailability = .unavailable
             playbackState = artworkState
+            scheduleDelayedScriptArtworkFetch()
         case .transientFailure:
             // Network blip: if we already cleared to logo, keep it; otherwise
             // mark unavailable so we do not hang on .unknown forever.
@@ -439,7 +488,29 @@ class AppleMusicController: MediaControllerProtocol {
                 artworkState.artwork = nil
                 artworkState.artworkAvailability = .unavailable
                 playbackState = artworkState
+                scheduleDelayedScriptArtworkFetch()
             }
+        }
+    }
+
+    /// After catalog miss / 600ms deadline, try one throttled raw-data fetch.
+    /// playerInfo itself stays metadata-only — this is not the #71 follow-up.
+    @MainActor
+    private func scheduleDelayedScriptArtworkFetch() {
+        guard playbackState.artworkAvailability != .available else { return }
+        let contentID = playbackState.contentIdentifier
+        rejectArtworkMatchingSkippedTrack = true
+        delayedScriptArtworkTask?.cancel()
+        delayedScriptArtworkTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.delayedScriptArtworkDelay)
+            guard !Task.isCancelled else { return }
+            guard let self else { return }
+            let shouldFetch = await MainActor.run {
+                self.playbackState.contentIdentifier == contentID
+                    && self.playbackState.artworkAvailability != .available
+            }
+            guard shouldFetch else { return }
+            await self.updatePlaybackInfo(includeArtwork: true)
         }
     }
 
