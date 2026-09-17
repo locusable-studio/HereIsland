@@ -61,28 +61,13 @@ struct DynamicNotchApp: App {
                     Toggle(String(localized: "During screenshots and recordings"), isOn: $hideFromScreenCapture)
                     Toggle(String(localized: "When fullscreen"), isOn: $hideWhenFullscreen)
                 }
-                Menu(String(localized: "Display")) {
+                Picker(String(localized: "Display"), selection: displayMenuSelection) {
                     ForEach(NSScreen.screens, id: \.stableDisplayID) { screen in
-                        Button {
-                            displayDestination = screen.preferenceDisplayToken
-                        } label: {
-                            if isDisplayMenuChecked(screen) {
-                                Label(screen.localizedName, systemImage: "checkmark")
-                            } else {
-                                Text(screen.localizedName)
-                            }
-                        }
+                        Text(screen.localizedName).tag(screen.preferenceDisplayToken)
                     }
                     Divider()
-                    Button {
-                        displayDestination = DisplayDestination.allDisplays
-                    } label: {
-                        if displayDestination == DisplayDestination.allDisplays {
-                            Label(String(localized: "Show on all displays"), systemImage: "checkmark")
-                        } else {
-                            Text(String(localized: "Show on all displays"))
-                        }
-                    }
+                    Text(String(localized: "Show on all displays"))
+                        .tag(DisplayDestination.allDisplays)
                 }
             }
 
@@ -136,29 +121,18 @@ struct DynamicNotchApp: App {
         }
     }
 
-    private func isDisplayMenuChecked(_ screen: NSScreen) -> Bool {
-        displayMenuCheckedScreen()?.stableDisplayID == screen.stableDisplayID
-    }
-
-    /// Preferred screen if connected; otherwise the window's current screen, then `NSScreen.main`.
-    private func displayMenuCheckedScreen() -> NSScreen? {
-        if displayDestination == DisplayDestination.allDisplays { return nil }
-        if displayDestination.isEmpty {
-            seedEmptyDisplayDestinationIfNeeded()
-        }
-        if let match = screenMatchingDisplayDestination(displayDestination) {
-            return match
-        }
-        return AppDelegate.shared?.window?.screen ?? NSScreen.main
-    }
-
-    /// Fresh install / cleared key: persist current host screen UUID once so the menu has a real selection.
-    private func seedEmptyDisplayDestinationIfNeeded() {
-        guard displayDestination.isEmpty,
-              displayDestination != DisplayDestination.allDisplays,
-              let screen = AppDelegate.shared?.window?.screen ?? NSScreen.main
-        else { return }
-        displayDestination = screen.preferenceDisplayToken
+    /// Sidefy: `state` follows `resolveTargetScreen`; click writes the preference.
+    private var displayMenuSelection: Binding<String> {
+        Binding(
+            get: {
+                if displayDestination == DisplayDestination.allDisplays {
+                    return DisplayDestination.allDisplays
+                }
+                let screen = resolveNotchHostScreen(windowFallback: AppDelegate.shared?.window?.screen)
+                return screen?.preferenceDisplayToken ?? displayDestination
+            },
+            set: { displayDestination = $0 }
+        )
     }
 
     private var availableMediaControllers: [MediaControllerType] {
