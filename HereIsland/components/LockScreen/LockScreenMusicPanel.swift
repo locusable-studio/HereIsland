@@ -143,54 +143,110 @@ struct LockScreenMusicPanel: View {
     }
 
     private var progress: some View {
-        TimelineView(.animation(paused: isProgressTimelinePaused)) { _ in
-            progressBody
+        TimelineView(.animation(paused: isProgressTimelinePaused)) { timeline in
+            progressBody(at: timeline.date)
         }
         .frame(height: 12)
+        .onChange(of: musicManager.songDuration) { _, _ in
+            if !musicManager.hasUsableDuration {
+                dragging = false
+            }
+        }
     }
 
     @ViewBuilder
-    private var progressBody: some View {
+    private func progressBody(at date: Date) -> some View {
         if musicManager.isLiveStream {
             LiveStreamProgressIndicator(tint: tint)
                 .frame(height: 10)
+        } else if musicManager.hasUsableDuration {
+            seekableProgress
         } else {
-            let duration = max(musicManager.songDuration, 0.001)
-            let position = dragging ? sliderValue : musicManager.estimatedPlaybackPosition()
-            HStack(spacing: 6) {
-                Text(timeString(from: position))
-                    .frame(width: 36, alignment: .leading)
-                GeometryReader { geo in
-                    let fraction = min(max(position / duration, 0), 1)
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.18))
-                        Capsule()
-                            .fill(tint)
-                            .frame(width: geo.size.width * fraction)
-                    }
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                dragging = true
-                                sliderValue = min(max(value.location.x / geo.size.width, 0), 1) * duration
-                            }
-                            .onEnded { _ in
-                                musicManager.seek(to: sliderValue)
-                                dragging = false
-                            }
-                    )
-                }
-                .frame(height: 4)
-                Text("-" + timeString(from: max(duration - position, 0)))
-                    .frame(width: 42, alignment: .trailing)
-            }
-            .font(.system(size: 11, weight: .medium).monospacedDigit())
-            .foregroundStyle(tint)
+            estimatedProgress(at: date)
         }
     }
 
+    private var seekableProgress: some View {
+        let duration = musicManager.songDuration
+        let position = dragging ? sliderValue : musicManager.estimatedPlaybackPosition()
+        return progressRow(
+            leading: timeString(from: position),
+            trailing: "-" + timeString(from: max(duration - position, 0)),
+            fraction: min(max(position / duration, 0), 1),
+            onScrub: { fraction in
+                dragging = true
+                sliderValue = min(max(fraction, 0), 1) * duration
+            },
+            onScrubEnded: {
+                musicManager.seek(to: sliderValue)
+                dragging = false
+            }
+        )
+    }
+
+    private func estimatedProgress(at date: Date) -> some View {
+        let estimatedPosition = musicManager.estimatedPlaybackPositionUnclamped(at: date)
+        let fraction = MusicManager.estimatedFallbackProgress(
+            estimatedPosition: estimatedPosition,
+            elapsedTime: musicManager.elapsedTime
+        )
+        return progressRow(
+            leading: Self.unknownTime,
+            trailing: Self.unknownTime,
+            fraction: fraction,
+            onScrub: nil,
+            onScrubEnded: nil
+        )
+    }
+
+    private func progressRow(
+        leading: String,
+        trailing: String,
+        fraction: Double,
+        onScrub: ((Double) -> Void)?,
+        onScrubEnded: (() -> Void)?
+    ) -> some View {
+        HStack(spacing: 6) {
+            Text(leading)
+                .frame(width: 36, alignment: .leading)
+            GeometryReader { geo in
+                let clamped = min(max(fraction, 0), 1)
+                let bar = ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.18))
+                    Capsule()
+                        .fill(tint)
+                        .frame(width: geo.size.width * clamped)
+                }
+                if let onScrub, let onScrubEnded {
+                    bar
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    onScrub(value.location.x / geo.size.width)
+                                }
+                                .onEnded { _ in
+                                    onScrubEnded()
+                                }
+                        )
+                } else {
+                    bar
+                }
+            }
+            .frame(height: 4)
+            Text(trailing)
+                .frame(width: 42, alignment: .trailing)
+        }
+        .font(.system(size: 11, weight: .medium).monospacedDigit())
+        .foregroundStyle(tint)
+    }
+
+    private static let unknownTime = "--:--"
+
     private func timeString(from seconds: Double) -> String {
+        guard seconds.isFinite, seconds >= 0, seconds < Double(Int.max) else {
+            return Self.unknownTime
+        }
         let clamped = max(seconds, 0)
         let totalMinutes = Int(clamped) / 60
         let remainingSeconds = Int(clamped) % 60

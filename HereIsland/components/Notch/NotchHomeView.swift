@@ -222,7 +222,10 @@ struct MusicSliderView: View {
             guard !isLiveStream, !dragging, !isPlaying else { return }
             setSliderValueWithoutAnimation(MusicManager.shared.estimatedPlaybackPosition())
         }
-        .onChange(of: duration) { _, _ in
+        .onChange(of: duration) { _, newDuration in
+            if !MusicManager.isUsableTrackDuration(newDuration) {
+                dragging = false
+            }
             guard !isLiveStream, !dragging, !isPlaying else { return }
             setSliderValueWithoutAnimation(MusicManager.shared.estimatedPlaybackPosition())
         }
@@ -247,7 +250,7 @@ struct MusicSliderView: View {
                 .frame(height: sliderFrameHeight)
 
             HStack {
-                Text(timeString(from: sliderValue))
+                Text(leadingTimeText)
                 Spacer()
                 Text(trailingTimeText)
             }
@@ -259,7 +262,7 @@ struct MusicSliderView: View {
 
     private var inlineContent: some View {
         HStack(spacing: 6) {
-            Text(timeString(from: sliderValue))
+            Text(leadingTimeText)
                 .font(inlineLabelFont)
                 .foregroundColor(timeLabelColor)
                 .frame(width: 36, alignment: .leading)
@@ -297,17 +300,71 @@ struct MusicSliderView: View {
         }
     }
 
+    @ViewBuilder
     private var sliderCore: some View {
-        CustomSlider(
-            value: $sliderValue,
-            range: 0 ... duration,
-            color: sliderTint,
-            dragging: $dragging,
-            lastDragged: $lastDragged,
-            onValueChange: onValueChange,
-            restingTrackHeight: restingTrackHeight,
-            draggingTrackHeight: draggingTrackHeight
+        if hasUsableDuration {
+            CustomSlider(
+                value: $sliderValue,
+                range: 0 ... duration,
+                color: sliderTint,
+                dragging: $dragging,
+                lastDragged: $lastDragged,
+                onValueChange: onValueChange,
+                restingTrackHeight: restingTrackHeight,
+                draggingTrackHeight: draggingTrackHeight
+            )
+        } else {
+            // Same idle track as CustomSlider, without a drag gesture.
+            // Fill uses the estimated position and a surrogate duration so it
+            // still draws while the real length is missing (Atoll 96e053b).
+            estimatedFillTrack
+        }
+    }
+
+    private var estimatedFillTrack: some View {
+        let estimatedPosition = MusicManager.unclampedEstimatedPosition(
+            isPlaying: isPlaying,
+            elapsedTime: elapsedTime,
+            playbackRate: playbackRate,
+            timestamp: timestampDate,
+            at: currentDate
         )
+        let progress = MusicManager.estimatedFallbackProgress(
+            estimatedPosition: estimatedPosition,
+            elapsedTime: elapsedTime
+        )
+
+        return GeometryReader { geometry in
+            let width = geometry.size.width
+            let trackHeight = restingTrackHeight
+            let filledTrackWidth = min(max(progress, 0), 1) * width
+
+            ZStack(alignment: .bottomLeading) {
+                Rectangle()
+                    .fill(.gray.opacity(0.3))
+                    .frame(height: trackHeight)
+                    .cornerRadius(trackHeight / 2)
+                    .transaction { $0.disablesAnimations = true }
+
+                Rectangle()
+                    .fill(sliderTint)
+                    .frame(width: filledTrackWidth, height: trackHeight)
+                    .cornerRadius(trackHeight / 2)
+                    .transaction { $0.disablesAnimations = true }
+            }
+            .frame(height: max(restingTrackHeight, draggingTrackHeight), alignment: .bottom)
+        }
+    }
+
+    private var hasUsableDuration: Bool {
+        MusicManager.isUsableTrackDuration(duration)
+    }
+
+    private static let unknownTime = "--:--"
+
+    private var leadingTimeText: String {
+        guard hasUsableDuration else { return Self.unknownTime }
+        return timeString(from: sliderValue)
     }
 
     private var sliderTint: Color {
@@ -319,6 +376,8 @@ struct MusicSliderView: View {
     }
 
     private var trailingTimeText: String {
+        guard hasUsableDuration else { return Self.unknownTime }
+
         switch trailingLabel {
         case .duration:
             return timeString(from: duration)
@@ -337,6 +396,10 @@ struct MusicSliderView: View {
     }
 
     func timeString(from seconds: Double) -> String {
+        guard seconds.isFinite, seconds >= 0, seconds < Double(Int.max) else {
+            return Self.unknownTime
+        }
+
         let totalMinutes = Int(seconds) / 60
         let remainingSeconds = Int(seconds) % 60
         let hours = totalMinutes / 60

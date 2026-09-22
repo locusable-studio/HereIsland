@@ -810,12 +810,69 @@ class MusicManager: ObservableObject {
     }
 
     // MARK: - Playback Position Estimation
+
+    /// A duration that can be a seek range.
+    ///
+    /// Zero, non-finite, and values past a day (epoch sentinels some senders
+    /// report instead of a length) are not usable. Matches Atoll 96e053b.
+    static func isUsableTrackDuration(_ duration: TimeInterval) -> Bool {
+        duration.isFinite && duration > 0 && duration <= 24 * 60 * 60.0
+    }
+
+    var hasUsableDuration: Bool {
+        Self.isUsableTrackDuration(songDuration)
+    }
+
     public func estimatedPlaybackPosition(at date: Date = Date()) -> TimeInterval {
         guard isPlaying else { return min(max(0, elapsedTime), songDuration) }
 
         let timeDifference = max(0, date.timeIntervalSince(timestampDate))
         let estimated = elapsedTime + (timeDifference * playbackRate)
         return min(max(0, estimated), songDuration)
+    }
+
+    /// Playback position for the non-seekable fallback fill.
+    ///
+    /// `estimatedPlaybackPosition` clamps to `songDuration`, which is 0 while
+    /// the length is still missing, so that clamp cannot drive the fill.
+    public func estimatedPlaybackPositionUnclamped(at date: Date = Date()) -> TimeInterval {
+        Self.unclampedEstimatedPosition(
+            isPlaying: isPlaying,
+            elapsedTime: elapsedTime,
+            playbackRate: playbackRate,
+            timestamp: timestampDate,
+            at: date
+        )
+    }
+
+    static func unclampedEstimatedPosition(
+        isPlaying: Bool,
+        elapsedTime: TimeInterval,
+        playbackRate: Double,
+        timestamp: Date,
+        at date: Date
+    ) -> TimeInterval {
+        let anchored: TimeInterval
+        if isPlaying {
+            let timeDifference = max(0, date.timeIntervalSince(timestamp))
+            anchored = elapsedTime + (timeDifference * playbackRate)
+        } else {
+            anchored = elapsedTime
+        }
+        guard anchored.isFinite else { return 0 }
+        return max(0, anchored)
+    }
+
+    /// 0...1 fill when duration is not usable.
+    /// Surrogate length is `max(1, estimated * 2, elapsed * 2)` (Atoll 96e053b).
+    static func estimatedFallbackProgress(
+        estimatedPosition: TimeInterval,
+        elapsedTime: TimeInterval
+    ) -> Double {
+        guard estimatedPosition.isFinite else { return 0 }
+        let elapsedComponent = elapsedTime.isFinite ? max(0, elapsedTime) : 0
+        let surrogateDuration = max(1, estimatedPosition * 2, elapsedComponent * 2)
+        return min(max(estimatedPosition / surrogateDuration, 0), 1)
     }
 
     func calculateAverageColor() {
@@ -903,6 +960,7 @@ class MusicManager: ObservableObject {
     }
 
     func seek(to position: TimeInterval) {
+        guard hasUsableDuration, position.isFinite else { return }
         Task {
             await activeController?.seek(to: position)
         }
