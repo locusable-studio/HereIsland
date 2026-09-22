@@ -810,12 +810,88 @@ class MusicManager: ObservableObject {
     }
 
     // MARK: - Playback Position Estimation
+
+    /// A duration a track can actually have.
+    ///
+    /// Players sometimes report none (`0`), a non-finite value, or an epoch
+    /// timestamp. A day is past any track and short of those sentinels, so
+    /// those lengths are not seekable.
+    static func hasUsableDuration(_ duration: TimeInterval) -> Bool {
+        duration.isFinite && duration > 0 && duration <= 24 * 60 * 60
+    }
+
+    var hasUsableDuration: Bool {
+        Self.hasUsableDuration(songDuration)
+    }
+
     public func estimatedPlaybackPosition(at date: Date = Date()) -> TimeInterval {
         guard isPlaying else { return min(max(0, elapsedTime), songDuration) }
 
         let timeDifference = max(0, date.timeIntervalSince(timestampDate))
         let estimated = elapsedTime + (timeDifference * playbackRate)
         return min(max(0, estimated), songDuration)
+    }
+
+    /// Elapsed estimate that is not clamped to `songDuration`.
+    /// Clamping to a missing duration would force the progress fill to empty.
+    static func estimatedPositionForUnknownDuration(
+        isPlaying: Bool,
+        elapsedTime: TimeInterval,
+        timestampDate: Date,
+        playbackRate: Double,
+        at date: Date
+    ) -> TimeInterval {
+        let raw: TimeInterval
+        if isPlaying, playbackRate.isFinite {
+            let timeDifference = max(0, date.timeIntervalSince(timestampDate))
+            raw = elapsedTime + (timeDifference * playbackRate)
+        } else {
+            raw = elapsedTime
+        }
+        guard raw.isFinite else { return 0 }
+        return max(0, raw)
+    }
+
+    func estimatedPositionForUnknownDuration(at date: Date = Date()) -> TimeInterval {
+        Self.estimatedPositionForUnknownDuration(
+            isPlaying: isPlaying,
+            elapsedTime: elapsedTime,
+            timestampDate: timestampDate,
+            playbackRate: playbackRate,
+            at: date
+        )
+    }
+
+    /// Fill fraction while duration is missing or not a real track length.
+    /// Surrogate length is `max(1, estimatedPosition * 2, elapsedTime * 2)`
+    /// so the bar sits mid-track instead of staying empty (Atoll 96e053b).
+    static func unknownDurationProgressFraction(
+        isPlaying: Bool,
+        elapsedTime: TimeInterval,
+        timestampDate: Date,
+        playbackRate: Double,
+        at date: Date
+    ) -> Double {
+        let estimatedPosition = estimatedPositionForUnknownDuration(
+            isPlaying: isPlaying,
+            elapsedTime: elapsedTime,
+            timestampDate: timestampDate,
+            playbackRate: playbackRate,
+            at: date
+        )
+        let elapsed = elapsedTime.isFinite ? max(0, elapsedTime) : 0
+        let surrogateDuration = max(1, estimatedPosition * 2, elapsed * 2)
+        return min(max(estimatedPosition / surrogateDuration, 0), 1)
+    }
+
+    func unknownDurationProgressFraction(at date: Date = Date()) -> Double {
+        Self.unknownDurationProgressFraction(
+            isPlaying: isPlaying,
+            elapsedTime: elapsedTime,
+            timestampDate: timestampDate,
+            playbackRate: playbackRate,
+            at: date
+        )
     }
 
     func calculateAverageColor() {
@@ -903,6 +979,7 @@ class MusicManager: ObservableObject {
     }
 
     func seek(to position: TimeInterval) {
+        guard hasUsableDuration, position.isFinite else { return }
         Task {
             await activeController?.seek(to: position)
         }
