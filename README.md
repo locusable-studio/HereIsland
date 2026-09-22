@@ -78,6 +78,16 @@ GNU General Public License v3.0 — see [LICENSE](LICENSE).
 
 Provenance is recorded in [NOTICE](NOTICE).
 
+## Which notch app?
+
+Pick the one that fits how you use the notch:
+
+- Want a polished, stable experience with strong visual design → **[Alcove](https://tryalcove.com)**
+- Want the fullest feature set and a rich Dynamic Island–style companion → **[Atoll](https://github.com/Ebullioscopic/Atoll)**
+- Want media only — no extras → **Here Island** (this project)
+
+Here Island stays deliberately small: what’s playing in the notch (plus an optional lock-screen card), not a full system overlay suite.
+
 ## Acknowledgements
 
 Here Island stands on the work of earlier open-source notch projects:
