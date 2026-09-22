@@ -143,25 +143,36 @@ struct LockScreenMusicPanel: View {
     }
 
     private var progress: some View {
-        TimelineView(.animation(paused: isProgressTimelinePaused)) { _ in
-            progressBody
+        TimelineView(.animation(paused: isProgressTimelinePaused)) { timeline in
+            progressBody(at: timeline.date)
         }
         .frame(height: 12)
+        .onChange(of: musicManager.hasUsableDuration) { _, usable in
+            if !usable {
+                dragging = false
+            }
+        }
     }
 
     @ViewBuilder
-    private var progressBody: some View {
+    private func progressBody(at date: Date) -> some View {
         if musicManager.isLiveStream {
             LiveStreamProgressIndicator(tint: tint)
                 .frame(height: 10)
         } else {
+            let seekable = musicManager.hasUsableDuration
             let duration = max(musicManager.songDuration, 0.001)
-            let position = dragging ? sliderValue : musicManager.estimatedPlaybackPosition()
+            let position = dragging ? sliderValue : musicManager.estimatedPlaybackPosition(at: date)
+            let fraction = seekable
+                ? min(max(position / duration, 0), 1)
+                : musicManager.unknownDurationProgressFraction(at: date)
+            let shownPosition = seekable
+                ? position
+                : musicManager.estimatedPositionForUnknownDuration(at: date)
             HStack(spacing: 6) {
-                Text(timeString(from: position))
+                Text(timeString(from: shownPosition))
                     .frame(width: 36, alignment: .leading)
                 GeometryReader { geo in
-                    let fraction = min(max(position / duration, 0), 1)
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.white.opacity(0.18))
                         Capsule()
@@ -172,17 +183,24 @@ struct LockScreenMusicPanel: View {
                     .gesture(
                         DragGesture(minimumDistance: 0)
                             .onChanged { value in
+                                guard musicManager.hasUsableDuration else { return }
                                 dragging = true
-                                sliderValue = min(max(value.location.x / geo.size.width, 0), 1) * duration
+                                let span = max(musicManager.songDuration, 0.001)
+                                sliderValue = min(max(value.location.x / geo.size.width, 0), 1) * span
                             }
                             .onEnded { _ in
+                                guard musicManager.hasUsableDuration else {
+                                    dragging = false
+                                    return
+                                }
                                 musicManager.seek(to: sliderValue)
                                 dragging = false
                             }
                     )
+                    .allowsHitTesting(seekable)
                 }
                 .frame(height: 4)
-                Text("-" + timeString(from: max(duration - position, 0)))
+                Text(seekable ? "-" + timeString(from: max(duration - position, 0)) : "--:--")
                     .frame(width: 42, alignment: .trailing)
             }
             .font(.system(size: 11, weight: .medium).monospacedDigit())
