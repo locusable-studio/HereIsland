@@ -196,6 +196,22 @@ private actor MusicExplicitnessResolver {
     }
 }
 
+/// Drops a late accent-color sample unless the request that started it is still current.
+///
+/// `prominentOpposingColors` finishes asynchronously. A sample captured for track A
+/// must not write `avgColor` after the player has moved to track B, or after a newer
+/// color request has started for the same track.
+enum AccentColorApplyGate {
+    static func shouldApply(
+        generation: UInt,
+        trackIdentity: PlaybackTrackIdentity?,
+        currentGeneration: UInt,
+        currentTrackIdentity: PlaybackTrackIdentity?
+    ) -> Bool {
+        generation == currentGeneration && trackIdentity == currentTrackIdentity
+    }
+}
+
 class MusicManager: ObservableObject {
     // MARK: - Properties
     static let shared = MusicManager()
@@ -260,6 +276,9 @@ class MusicManager: ObservableObject {
     private(set) var artworkData: Data? = nil
     private var artworkAvailability: ArtworkAvailability = .unknown
     private var currentTrackIdentity: PlaybackTrackIdentity?
+    /// Invalidates in-flight accent-color work. Bumped when the track identity
+    /// changes and again when `calculateAverageColor` starts a new sample.
+    private var colorGeneration: UInt = 0
 
     @Published var videoArtworkURL: URL? = nil
 
@@ -466,6 +485,9 @@ class MusicManager: ObservableObject {
             || contentIdentifierChanged
             || contentURLChanged
 
+        if currentTrackIdentity != state.trackIdentity {
+            colorGeneration &+= 1
+        }
         currentTrackIdentity = state.trackIdentity
 
         // Apply timing fields before play-state transitions so freeze/re-anchor
@@ -797,10 +819,21 @@ class MusicManager: ObservableObject {
     }
 
     func calculateAverageColor() {
+        colorGeneration &+= 1
+        let generation = colorGeneration
+        let trackIdentity = currentTrackIdentity
         albumArt.prominentOpposingColors { [weak self] primary, _ in
             DispatchQueue.main.async {
+                guard let self,
+                      AccentColorApplyGate.shouldApply(
+                        generation: generation,
+                        trackIdentity: trackIdentity,
+                        currentGeneration: self.colorGeneration,
+                        currentTrackIdentity: self.currentTrackIdentity
+                      )
+                else { return }
                 withAnimation(.smooth) {
-                    self?.avgColor = primary
+                    self.avgColor = primary
                 }
             }
         }
