@@ -778,7 +778,13 @@ class MusicManager: ObservableObject {
 
             if let artworkImage = NSImage(data: artworkData) {
                 DispatchQueue.main.async { [weak self] in
-                    guard let self, self.currentTrackIdentity == trackIdentity else { return }
+                    // Track identity is not enough. Two decodes for the same track
+                    // can finish out of order, and the older image must not replace
+                    // a newer cover. `artworkData` is stored before this callback runs.
+                    guard let self,
+                          self.currentTrackIdentity == trackIdentity,
+                          self.artworkData == artworkData
+                    else { return }
                     self.usingAppIconForArtwork = false
                     self.updateAlbumArt(newAlbumArt: artworkImage)
                 }
