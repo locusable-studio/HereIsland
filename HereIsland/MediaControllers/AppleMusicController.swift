@@ -118,6 +118,20 @@ class AppleMusicController: MediaControllerProtocol {
     /// snapshot that is still serving the previous cover.
     private var skippedTrackArtwork: Data?
     private var rejectArtworkMatchingSkippedTrack = false
+    /// Between-tracks AppleScript error (`Not Playing` / empty). Must not
+    /// start `previousCoverLinger` or publish `.unavailable`. A real next
+    /// track still applies immediately. This wait only accepts a genuine
+    /// empty player; it is not the cover linger.
+    private var notPlayingSentinelEpoch: UInt = 0
+    private var notPlayingSentinelConfirmTask: Task<Void, Never>?
+    /// True only while an empty between-tracks snapshot is being ignored.
+    /// Not tied to the task object: a finished task must not keep blocking
+    /// `.unavailable` or a later skip.
+    private var awaitingTrackAfterNotPlayingSentinel = false
+    /// In-flight `updatePlaybackInfo` calls. The confirm fetch waits for
+    /// these so it does not bump the generation out from under a real track.
+    private var playbackInfoFetchesInFlight: Int = 0
+    private static let notPlayingSentinelConfirmDelay: Duration = .milliseconds(700)
 
     // MARK: - Initialization
     init() {
@@ -161,6 +175,7 @@ class AppleMusicController: MediaControllerProtocol {
         playbackInfoCoalesceTask?.cancel()
         delayedScriptArtworkTask?.cancel()
         artworkFetchTask?.cancel()
+        notPlayingSentinelConfirmTask?.cancel()
     }
     
     // MARK: - Protocol Implementation
@@ -218,15 +233,30 @@ class AppleMusicController: MediaControllerProtocol {
         await updatePlaybackInfo(includeArtwork: true)
     }
 
-    private func updatePlaybackInfo(includeArtwork: Bool) async {
-        let generation = await MainActor.run { beginPlaybackInfoRequest() }
-        guard let snapshot = try? await fetchPlaybackSnapshotAsync(includeArtwork: includeArtwork)
-        else { return }
+    private func updatePlaybackInfo(
+        includeArtwork: Bool,
+        notPlayingSentinelEpoch confirmEpoch: UInt? = nil
+    ) async {
+        let generation = await MainActor.run { () -> UInt? in
+            if let confirmEpoch, confirmEpoch != self.notPlayingSentinelEpoch {
+                return nil
+            }
+            self.playbackInfoFetchesInFlight += 1
+            return self.beginPlaybackInfoRequest()
+        }
+        guard let generation else { return }
+        let snapshot = try? await fetchPlaybackSnapshotAsync(includeArtwork: includeArtwork)
         await MainActor.run {
-            applyPlaybackInfo(
+            self.playbackInfoFetchesInFlight = max(0, self.playbackInfoFetchesInFlight - 1)
+            if let confirmEpoch, confirmEpoch != self.notPlayingSentinelEpoch {
+                return
+            }
+            guard let snapshot else { return }
+            self.applyPlaybackInfo(
                 snapshot,
                 generation: generation,
-                fetchedArtwork: includeArtwork
+                fetchedArtwork: includeArtwork,
+                acceptNotPlayingSentinel: confirmEpoch != nil
             )
         }
     }
@@ -247,13 +277,30 @@ class AppleMusicController: MediaControllerProtocol {
     private func applyPlaybackInfo(
         _ snapshot: AppleMusicPlaybackSnapshot,
         generation: UInt,
-        fetchedArtwork: Bool
+        fetchedArtwork: Bool,
+        acceptNotPlayingSentinel: Bool = false
     ) {
         guard shouldApplyPlaybackSnapshot(
             snapshot,
             generation: generation,
             fetchedArtwork: fetchedArtwork
         ) else { return }
+        // ~25ms after skip, and the coalesced playerInfo behind it, AppleScript
+        // `on error` often returns Not Playing before the next track exists.
+        // Treating that as a content change starts `previousCoverLinger` from
+        // the sentinel, so the 100ms logo clock expires before the real title.
+        if Self.isNotPlayingSentinel(snapshot),
+           hasConfirmedTrackIdentity,
+           !acceptNotPlayingSentinel {
+            noteSwallowedNotPlayingSentinel()
+            return
+        }
+        // A same-track refresh must not end the wait: Music often still
+        // reports the track we are leaving. Only a real next identity, or
+        // this wait's own confirming fetch, may anchor the 100ms clock.
+        if acceptNotPlayingSentinel || confirmsNextTrackIdentity(snapshot) {
+            cancelNotPlayingSentinelConfirm()
+        }
         var updatedState = self.playbackState
         let contentChanged =
             snapshot.contentIdentifier != playbackState.contentIdentifier
@@ -446,6 +493,145 @@ class AppleMusicController: MediaControllerProtocol {
             && playbackState.artworkAvailability != .available
     }
 
+    /// AppleScript `on error` payload: no track, no art, not playing.
+    private static func isNotPlayingSentinel(_ snapshot: AppleMusicPlaybackSnapshot) -> Bool {
+        let title = snapshot.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let artist = snapshot.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let album = snapshot.album.trimmingCharacters(in: .whitespacesAndNewlines)
+        let artworkCount = snapshot.artwork?.count ?? 0
+        let titleIsSentinel = title.isEmpty
+            || title.compare("Not Playing", options: .caseInsensitive) == .orderedSame
+        let artistIsSentinel = artist.isEmpty
+            || artist.compare("Unknown", options: .caseInsensitive) == .orderedSame
+        let albumIsSentinel = album.isEmpty
+            || album.compare("Unknown", options: .caseInsensitive) == .orderedSame
+        return !snapshot.isPlaying
+            && snapshot.duration == 0
+            && artworkCount <= minimumArtworkSize
+            && titleIsSentinel
+            && artistIsSentinel
+            && albumIsSentinel
+    }
+
+    /// A track the user is actually on. The default placeholder and an
+    /// already-applied empty player are not confirmed, so a first empty
+    /// snapshot still publishes immediately.
+    private var hasConfirmedTrackIdentity: Bool {
+        let title = playbackState.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let artist = playbackState.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let titleIsPlaceholder = title.isEmpty
+            || title.compare("Not Playing", options: .caseInsensitive) == .orderedSame
+            || title.compare("I'm Handsome", options: .caseInsensitive) == .orderedSame
+            || title.compare("Unknown", options: .caseInsensitive) == .orderedSame
+        let artistIsPlaceholder = artist.isEmpty
+            || artist.compare("Unknown", options: .caseInsensitive) == .orderedSame
+            || artist.compare("Me", options: .caseInsensitive) == .orderedSame
+        if playbackState.duration > 0.5 { return true }
+        return !titleIsPlaceholder || !artistIsPlaceholder
+    }
+
+    /// True when `snapshot` is a different real track than the one on screen.
+    /// Same-track progress is not a next-track identity.
+    private func confirmsNextTrackIdentity(_ snapshot: AppleMusicPlaybackSnapshot) -> Bool {
+        guard awaitingTrackAfterNotPlayingSentinel else { return false }
+        guard !Self.isNotPlayingSentinel(snapshot) else { return false }
+        return snapshot.contentIdentifier != playbackState.contentIdentifier
+            || snapshot.title != playbackState.title
+            || snapshot.artist != playbackState.artist
+    }
+
+    /// Ignore further empty snapshots until the deadline. A real next track
+    /// cancels this; the deadline's own fetch may publish a genuine stop.
+    private func noteSwallowedNotPlayingSentinel() {
+        guard !awaitingTrackAfterNotPlayingSentinel else { return }
+        awaitingTrackAfterNotPlayingSentinel = true
+        notPlayingSentinelEpoch &+= 1
+        let epoch = notPlayingSentinelEpoch
+        notPlayingSentinelConfirmTask?.cancel()
+        notPlayingSentinelConfirmTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.notPlayingSentinelConfirmDelay)
+            guard !Task.isCancelled else { return }
+            await self?.confirmSwallowedNotPlayingSentinel(epoch: epoch, attempt: 0)
+        }
+    }
+
+    private func cancelNotPlayingSentinelConfirm() {
+        notPlayingSentinelEpoch &+= 1
+        awaitingTrackAfterNotPlayingSentinel = false
+        notPlayingSentinelConfirmTask?.cancel()
+        notPlayingSentinelConfirmTask = nil
+    }
+
+    /// If no real track arrived, publish the empty player. A missed fetch must
+    /// not leave the previous cover up; one short retry, then the logo.
+    private func confirmSwallowedNotPlayingSentinel(epoch: UInt, attempt: Int) async {
+        for _ in 0..<10 {
+            let ready = await MainActor.run { () -> Bool? in
+                guard self.notPlayingSentinelEpoch == epoch else { return nil }
+                return self.playbackInfoFetchesInFlight == 0
+            }
+            guard let ready else { return }
+            if ready { break }
+            try? await Task.sleep(for: .milliseconds(50))
+            guard !Task.isCancelled else { return }
+        }
+        let generation = await MainActor.run { () -> UInt? in
+            guard self.notPlayingSentinelEpoch == epoch else { return nil }
+            self.playbackInfoFetchesInFlight += 1
+            return self.beginPlaybackInfoRequest()
+        }
+        guard let generation else { return }
+        let snapshot = try? await fetchPlaybackSnapshotAsync(includeArtwork: false)
+        await MainActor.run {
+            self.playbackInfoFetchesInFlight = max(0, self.playbackInfoFetchesInFlight - 1)
+            guard self.notPlayingSentinelEpoch == epoch else { return }
+            if let snapshot, !Self.isNotPlayingSentinel(snapshot) {
+                self.applyPlaybackInfo(
+                    snapshot,
+                    generation: generation,
+                    fetchedArtwork: false,
+                    acceptNotPlayingSentinel: true
+                )
+                return
+            }
+            let anotherFetchInFlight = self.playbackInfoFetchesInFlight > 0
+            if attempt == 0, snapshot == nil || anotherFetchInFlight {
+                self.notPlayingSentinelConfirmTask = Task { [weak self] in
+                    try? await Task.sleep(for: .milliseconds(200))
+                    guard !Task.isCancelled else { return }
+                    await self?.confirmSwallowedNotPlayingSentinel(epoch: epoch, attempt: 1)
+                }
+                return
+            }
+            self.applyConfirmedEmptyPlayer()
+        }
+    }
+
+    /// Confirmed empty player. Logo now — do not start another linger, and do
+    /// not keep the previous cover if this fetch never returned.
+    @MainActor
+    private func applyConfirmedEmptyPlayer() {
+        cancelNotPlayingSentinelConfirm()
+        artworkFetchTask?.cancel()
+        artworkFetchTask = nil
+        artworkRequestID = nil
+        delayedScriptArtworkTask?.cancel()
+        delayedScriptArtworkTask = nil
+        var empty = playbackState
+        empty.isPlaying = false
+        empty.title = "Not Playing"
+        empty.artist = "Unknown"
+        empty.album = "Unknown"
+        empty.currentTime = 0
+        empty.duration = 0
+        empty.artwork = nil
+        empty.artworkAvailability = .unavailable
+        empty.contentIdentifier = "Not Playing|Unknown|Unknown|0"
+        empty.liveArtworkURL = nil
+        empty.lastUpdated = Date()
+        playbackState = empty
+    }
+
     /// Drop wrong-track art after the linger window. MusicManager only replaces
     /// the on-screen cover when availability becomes `.unavailable` (Music logo)
     /// until catalog/script upgrades to real art.
@@ -453,6 +639,10 @@ class AppleMusicController: MediaControllerProtocol {
     private func clearPreviousCoverIfNeeded(requestID: UUID) {
         guard artworkRequestID == requestID else { return }
         guard playbackState.artworkAvailability != .available else { return }
+        // Still waiting for a real track after a swallowed between-tracks
+        // snapshot. Painting the logo now sticks it under the upcoming title.
+        // That track starts its own 100ms linger.
+        if awaitingTrackAfterNotPlayingSentinel { return }
         var artworkState = playbackState
         artworkState.artwork = nil
         artworkState.artworkAvailability = .unavailable
@@ -462,6 +652,16 @@ class AppleMusicController: MediaControllerProtocol {
     @MainActor
     private func completeArtworkRequest(_ result: CatalogArtworkResult, requestID: UUID) {
         guard artworkRequestID == requestID else { return }
+        if awaitingTrackAfterNotPlayingSentinel {
+            if case .available = result {
+                // Real bytes still apply below.
+            } else {
+                // Unavailable waits until the next confirmed track.
+                artworkRequestID = nil
+                artworkFetchTask = nil
+                return
+            }
+        }
         artworkRequestID = nil
         artworkFetchTask = nil
         // Keep artworkRequestContentIdentifier so the next includeArtwork
