@@ -276,6 +276,10 @@ class MusicManager: ObservableObject {
     private var realCoverHoldActive = false
     private var realCoverHoldGeneration: UInt = 0
     private var realCoverHoldTask: Task<Void, Never>?
+    /// Track on screen when the hold started. A late decode of that same
+    /// cover must not end a hold that is waiting for the next track.
+    private var realCoverHoldIdentity: PlaybackTrackIdentity?
+    private var realCoverHoldWaitsForNextIdentity = false
     private static let skipRealCoverHold: Duration = .milliseconds(100)
 
     private var explicitLookupTask: Task<Void, Never>?
@@ -560,7 +564,15 @@ class MusicManager: ObservableObject {
 
             if let artwork = state.artwork,
                artworkChanged || usingAppIconForArtwork || trackIdentityChanged {
-                cancelRealCoverSkipHold()
+                // `artwork` is still encoded bytes. Decode happens off the main
+                // actor and only then writes `albumArt`. Cancelling the hold
+                // here opens a gap where `.unavailable` paints the Music icon
+                // under the new title. If that icon is already up for this new
+                // track, put the last real cover back until the decode lands
+                // or the hold times out.
+                if trackIdentityChanged, usingAppIconForArtwork {
+                    beginRealCoverSkipHold()
+                }
                 self.updateArtwork(artwork, for: state.trackIdentity)
             } else if state.artworkAvailability == .unavailable {
                 // After the hold, the logo is required. During the hold, a
@@ -590,7 +602,23 @@ class MusicManager: ObservableObject {
         let liveArtworkChanged = state.liveArtworkURL != self.videoArtworkURL
 
         if liveArtworkChanged {
-            self.videoArtworkURL = state.liveArtworkURL
+            // Expanded player draws `videoArtworkURL` above `albumArt`. Apple
+            // Music snapshots leave `liveArtworkURL` nil, so this assignment
+            // clears the canvas. During `.unknown` or the skip hold that
+            // uncovers `albumArt` before the new cover is in — the Music icon,
+            // if a prior miss left it there. A real URL or `.available` still
+            // replaces it. The hold's logo path clears the canvas itself.
+            let waitingForAppleMusicCover =
+                state.artworkAvailability == .unknown
+                || (realCoverHoldActive && state.artworkAvailability != .available)
+            let keepCanvasDuringAppleMusicLinger =
+                state.liveArtworkURL == nil
+                && self.videoArtworkURL != nil
+                && waitingForAppleMusicCover
+                && activeController is AppleMusicController
+            if !keepCanvasDuringAppleMusicLinger {
+                self.videoArtworkURL = state.liveArtworkURL
+            }
         }
 
         if state.title != self.songTitle {
@@ -796,7 +824,9 @@ class MusicManager: ObservableObject {
 
     /// Apple Music only. Now Playing has no 100ms clear, so holding a restored
     /// cover there would leave it up. Snaps — `.smooth` is longer than the hold.
-    private func beginRealCoverSkipHold() {
+    /// `waitingForNextIdentity` is the next/previous press, before the next
+    /// track exists. A later `.unknown` re-anchors the same ~100ms on that track.
+    private func beginRealCoverSkipHold(waitingForNextIdentity: Bool = false) {
         guard activeController is AppleMusicController else { return }
         if usingAppIconForArtwork, let lastRealAlbumArt {
             usingAppIconForArtwork = false
@@ -805,6 +835,8 @@ class MusicManager: ObservableObject {
         }
         guard lastRealAlbumArt != nil, !usingAppIconForArtwork else { return }
         realCoverHoldActive = true
+        realCoverHoldWaitsForNextIdentity = waitingForNextIdentity
+        realCoverHoldIdentity = currentTrackIdentity
         realCoverHoldGeneration &+= 1
         let generation = realCoverHoldGeneration
         realCoverHoldTask?.cancel()
@@ -820,6 +852,8 @@ class MusicManager: ObservableObject {
     private func cancelRealCoverSkipHold() {
         realCoverHoldGeneration &+= 1
         realCoverHoldActive = false
+        realCoverHoldWaitsForNextIdentity = false
+        realCoverHoldIdentity = nil
         realCoverHoldTask?.cancel()
         realCoverHoldTask = nil
     }
@@ -827,6 +861,8 @@ class MusicManager: ObservableObject {
     private func endRealCoverSkipHold(generation: UInt) {
         guard realCoverHoldGeneration == generation else { return }
         realCoverHoldActive = false
+        realCoverHoldWaitsForNextIdentity = false
+        realCoverHoldIdentity = nil
         realCoverHoldTask = nil
         guard artworkAvailability == .unavailable,
               activeController is AppleMusicController,
@@ -856,9 +892,26 @@ class MusicManager: ObservableObject {
                     self.lastRealAlbumArt = artworkImage
                     self.usingAppIconForArtwork = false
                     self.updateAlbumArt(newAlbumArt: artworkImage)
+                    self.endRealCoverSkipHoldIfImageLanded(for: trackIdentity)
                 }
             }
         }
+    }
+
+    /// Bytes are not a cover. The hold ends when this track's decoded image
+    /// is in `albumArt`, or on timeout. A decode of the track we are leaving
+    /// must not end a hold that is still waiting for the next one.
+    private func endRealCoverSkipHoldIfImageLanded(for trackIdentity: PlaybackTrackIdentity) {
+        guard realCoverHoldActive else { return }
+        guard let holdIdentity = realCoverHoldIdentity else {
+            cancelRealCoverSkipHold()
+            return
+        }
+        let landed = realCoverHoldWaitsForNextIdentity
+            ? trackIdentity != holdIdentity
+            : trackIdentity == holdIdentity
+        guard landed else { return }
+        cancelRealCoverSkipHold()
     }
 
     private func updateIdleState(state: Bool) {
@@ -1042,14 +1095,14 @@ class MusicManager: ObservableObject {
     }
 
     func nextTrack() {
-        beginRealCoverSkipHold()
+        beginRealCoverSkipHold(waitingForNextIdentity: true)
         Task {
             await activeController?.nextTrack()
         }
     }
 
     func previousTrack() {
-        beginRealCoverSkipHold()
+        beginRealCoverSkipHold(waitingForNextIdentity: true)
         Task {
             await activeController?.previousTrack()
         }
@@ -1115,6 +1168,16 @@ class MusicManager: ObservableObject {
                 title: title, artist: artist
             )
             await MainActor.run {
+                // A nil canvas during Apple Music's `.unknown` / skip-hold
+                // window would uncover `albumArt` before the new cover is in.
+                let waitingForAppleMusicCover =
+                    self.artworkAvailability == .unknown
+                    || (self.realCoverHoldActive && self.artworkAvailability != .available)
+                if url == nil,
+                   waitingForAppleMusicCover,
+                   self.activeController is AppleMusicController {
+                    return
+                }
                 self.videoArtworkURL = url
             }
         }
