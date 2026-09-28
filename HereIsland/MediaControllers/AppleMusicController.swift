@@ -118,21 +118,6 @@ class AppleMusicController: MediaControllerProtocol {
     /// snapshot that is still serving the previous cover.
     private var skippedTrackArtwork: Data?
     private var rejectArtworkMatchingSkippedTrack = false
-    /// After next/previous, AppleScript often errors with "Not Playing" before
-    /// the next track exists. That sentinel must not start `previousCoverLinger`.
-    /// Real metadata still applies immediately; a recheck at the end accepts a
-    /// genuine stop. Not the 100ms cover linger.
-    private var suppressNotPlayingSentinelUntil: Date?
-    private var skipNotPlayingRecheckTask: Task<Void, Never>?
-    /// Bumped when a real post-skip track arrives so a late grace recheck
-    /// cannot overwrite it with Not Playing.
-    private var skipGraceEpoch: UInt = 0
-    /// In-flight `updatePlaybackInfo` calls. The grace recheck waits for these
-    /// so it does not bump the generation out from under a real track snapshot.
-    private var playbackInfoFetchesInFlight: Int = 0
-    /// Covers the 25ms skip refresh and the 200ms playerInfo coalesce behind it,
-    /// plus one late notification. Real track metadata ends the window early.
-    private static let skipNotPlayingGraceMs = 700
 
     // MARK: - Initialization
     init() {
@@ -176,7 +161,6 @@ class AppleMusicController: MediaControllerProtocol {
         playbackInfoCoalesceTask?.cancel()
         delayedScriptArtworkTask?.cancel()
         artworkFetchTask?.cancel()
-        skipNotPlayingRecheckTask?.cancel()
     }
     
     // MARK: - Protocol Implementation
@@ -234,23 +218,12 @@ class AppleMusicController: MediaControllerProtocol {
         await updatePlaybackInfo(includeArtwork: true)
     }
 
-    private func updatePlaybackInfo(includeArtwork: Bool, skipGraceEpoch graceEpoch: UInt? = nil) async {
-        let generation = await MainActor.run { () -> UInt? in
-            if let graceEpoch, graceEpoch != self.skipGraceEpoch {
-                return nil
-            }
-            self.playbackInfoFetchesInFlight += 1
-            return self.beginPlaybackInfoRequest()
-        }
-        guard let generation else { return }
-        let snapshot = try? await fetchPlaybackSnapshotAsync(includeArtwork: includeArtwork)
+    private func updatePlaybackInfo(includeArtwork: Bool) async {
+        let generation = await MainActor.run { beginPlaybackInfoRequest() }
+        guard let snapshot = try? await fetchPlaybackSnapshotAsync(includeArtwork: includeArtwork)
+        else { return }
         await MainActor.run {
-            self.playbackInfoFetchesInFlight = max(0, self.playbackInfoFetchesInFlight - 1)
-            if let graceEpoch, graceEpoch != self.skipGraceEpoch {
-                return
-            }
-            guard let snapshot else { return }
-            self.applyPlaybackInfo(
+            applyPlaybackInfo(
                 snapshot,
                 generation: generation,
                 fetchedArtwork: includeArtwork
@@ -265,7 +238,6 @@ class AppleMusicController: MediaControllerProtocol {
     }
 
     private func executeAndRefresh(_ command: String) async {
-        await MainActor.run { self.armSkipNotPlayingGrace() }
         await executeCommand(command)
         try? await Task.sleep(for: .milliseconds(25))
         await updatePlaybackInfo()
@@ -282,17 +254,6 @@ class AppleMusicController: MediaControllerProtocol {
             generation: generation,
             fetchedArtwork: fetchedArtwork
         ) else { return }
-        // The ~25ms post-skip script, and the coalesced playerInfo behind it,
-        // can still be the `on error` sentinel. Applying it starts the 100ms
-        // logo clock before the next track exists.
-        if shouldIgnoreNotPlayingSentinel(snapshot) {
-            return
-        }
-        if suppressNotPlayingSentinelUntil != nil,
-           snapshotChangesTrack(snapshot),
-           !Self.isNotPlayingSentinel(snapshot) {
-            cancelSkipNotPlayingGrace()
-        }
         var updatedState = self.playbackState
         let contentChanged =
             snapshot.contentIdentifier != playbackState.contentIdentifier
@@ -492,98 +453,10 @@ class AppleMusicController: MediaControllerProtocol {
     private func clearPreviousCoverIfNeeded(requestID: UUID) {
         guard artworkRequestID == requestID else { return }
         guard playbackState.artworkAvailability != .available else { return }
-        // A skip is in flight and the next track has not been published yet.
-        // Painting the logo now would stick it under the upcoming title.
-        // The new track starts its own 100ms linger; the 600ms deadline of
-        // this request is unchanged.
-        if isSkipNotPlayingGraceActive { return }
         var artworkState = playbackState
         artworkState.artwork = nil
         artworkState.artworkAvailability = .unavailable
         playbackState = artworkState
-    }
-
-    /// AppleScript `on error` payload, or an empty between-tracks snapshot.
-    private static func isNotPlayingSentinel(_ snapshot: AppleMusicPlaybackSnapshot) -> Bool {
-        let title = snapshot.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let artist = snapshot.artist.trimmingCharacters(in: .whitespacesAndNewlines)
-        let album = snapshot.album.trimmingCharacters(in: .whitespacesAndNewlines)
-        let artworkCount = snapshot.artwork?.count ?? 0
-        let titleIsSentinel = title.isEmpty
-            || title.compare("Not Playing", options: .caseInsensitive) == .orderedSame
-        let artistIsSentinel = artist.isEmpty
-            || artist.compare("Unknown", options: .caseInsensitive) == .orderedSame
-        let albumIsSentinel = album.isEmpty
-            || album.compare("Unknown", options: .caseInsensitive) == .orderedSame
-        return !snapshot.isPlaying
-            && snapshot.duration == 0
-            && artworkCount <= minimumArtworkSize
-            && titleIsSentinel
-            && artistIsSentinel
-            && albumIsSentinel
-    }
-
-    private var isSkipNotPlayingGraceActive: Bool {
-        guard let until = suppressNotPlayingSentinelUntil else { return false }
-        return Date() < until
-    }
-
-    private func shouldIgnoreNotPlayingSentinel(_ snapshot: AppleMusicPlaybackSnapshot) -> Bool {
-        isSkipNotPlayingGraceActive && Self.isNotPlayingSentinel(snapshot)
-    }
-
-    private func snapshotChangesTrack(_ snapshot: AppleMusicPlaybackSnapshot) -> Bool {
-        snapshot.contentIdentifier != playbackState.contentIdentifier
-            || snapshot.title != playbackState.title
-    }
-
-    private func armSkipNotPlayingGrace() {
-        skipGraceEpoch &+= 1
-        let epoch = skipGraceEpoch
-        suppressNotPlayingSentinelUntil = Date().addingTimeInterval(
-            Double(Self.skipNotPlayingGraceMs) / 1000
-        )
-        skipNotPlayingRecheckTask?.cancel()
-        skipNotPlayingRecheckTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(Self.skipNotPlayingGraceMs))
-            guard !Task.isCancelled else { return }
-            await self?.recheckAfterSkipNotPlayingGrace(epoch: epoch)
-        }
-    }
-
-    private func cancelSkipNotPlayingGrace() {
-        skipGraceEpoch &+= 1
-        suppressNotPlayingSentinelUntil = nil
-        skipNotPlayingRecheckTask?.cancel()
-        skipNotPlayingRecheckTask = nil
-    }
-
-    /// If the skip never produced a track, accept Not Playing (or whatever
-    /// Music reports now) instead of leaving the previous snapshot up.
-    private func recheckAfterSkipNotPlayingGrace(epoch: UInt) async {
-        // An in-flight playerInfo may already be the real track. Wait for it
-        // instead of starting a newer script that would drop that result.
-        for _ in 0..<10 {
-            let ready = await MainActor.run { () -> Bool? in
-                guard self.skipGraceEpoch == epoch,
-                      self.suppressNotPlayingSentinelUntil != nil
-                else { return nil }
-                return self.playbackInfoFetchesInFlight == 0
-            }
-            guard let ready else { return }
-            if ready { break }
-            try? await Task.sleep(for: .milliseconds(50))
-            guard !Task.isCancelled else { return }
-        }
-        let shouldFetch = await MainActor.run { () -> Bool in
-            guard self.skipGraceEpoch == epoch,
-                  self.suppressNotPlayingSentinelUntil != nil
-            else { return false }
-            self.suppressNotPlayingSentinelUntil = nil
-            return self.playbackInfoFetchesInFlight == 0
-        }
-        guard shouldFetch else { return }
-        await updatePlaybackInfo(includeArtwork: false, skipGraceEpoch: epoch)
     }
 
     @MainActor
