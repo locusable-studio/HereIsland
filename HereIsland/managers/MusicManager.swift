@@ -577,7 +577,12 @@ class MusicManager: ObservableObject {
             } else if state.artworkAvailability == .unavailable {
                 // After the hold, the logo is required. During the hold, a
                 // sticky icon (or a late `.unavailable`) must not fill the window.
-                if !deferAppIconForRealCoverHold {
+                // A real new title must not share a frame with that icon.
+                let realTitleArriving = trackIdentityChanged
+                    && !Self.isPlaceholderTrackTitle(state.title)
+                if realTitleArriving {
+                    beginRealCoverSkipHold()
+                } else if !deferAppIconForRealCoverHold {
                     applyUnavailableArtwork(for: state.bundleIdentifier)
                 }
             } else if state.artworkAvailability == .unknown, state.artwork == nil {
@@ -621,7 +626,11 @@ class MusicManager: ObservableObject {
             }
         }
 
+        // Same turn as the title. Peek and expanded read `albumArt` when
+        // `songTitle` changes; a later decode must not be what first removes
+        // the Music icon.
         if state.title != self.songTitle {
+            showLastRealCoverBeforeRealTitle(state.title)
             self.songTitle = state.title
         }
 
@@ -828,11 +837,7 @@ class MusicManager: ObservableObject {
     /// track exists. A later `.unknown` re-anchors the same ~100ms on that track.
     private func beginRealCoverSkipHold(waitingForNextIdentity: Bool = false) {
         guard activeController is AppleMusicController else { return }
-        if usingAppIconForArtwork, let lastRealAlbumArt {
-            usingAppIconForArtwork = false
-            albumArt = lastRealAlbumArt
-            calculateAverageColor()
-        }
+        snapLastRealCoverIfIcon()
         guard lastRealAlbumArt != nil, !usingAppIconForArtwork else { return }
         realCoverHoldActive = true
         realCoverHoldWaitsForNextIdentity = waitingForNextIdentity
@@ -847,6 +852,34 @@ class MusicManager: ObservableObject {
                 self?.endRealCoverSkipHold(generation: generation)
             }
         }
+    }
+
+    /// Snap, no `.smooth`. The icon has to be gone before the new title publishes.
+    private func snapLastRealCoverIfIcon() {
+        guard usingAppIconForArtwork, let lastRealAlbumArt else { return }
+        usingAppIconForArtwork = false
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            albumArt = lastRealAlbumArt
+        }
+        calculateAverageColor()
+    }
+
+    /// Called only when `songTitle` is about to change to a real track.
+    private func showLastRealCoverBeforeRealTitle(_ title: String) {
+        guard activeController is AppleMusicController else { return }
+        guard !Self.isPlaceholderTrackTitle(title) else { return }
+        snapLastRealCoverIfIcon()
+    }
+
+    private static func isPlaceholderTrackTitle(_ title: String) -> Bool {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return trimmed.isEmpty
+            || trimmed == "not playing"
+            || trimmed == "i'm handsome"
+            || trimmed == "unknown"
+            || trimmed == "未在播放"
     }
 
     private func cancelRealCoverSkipHold() {

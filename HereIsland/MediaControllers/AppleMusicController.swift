@@ -551,12 +551,7 @@ class AppleMusicController: MediaControllerProtocol {
         notPlayingSentinelConfirmTask = Task { [weak self] in
             try? await Task.sleep(for: Self.notPlayingSentinelConfirmDelay)
             guard !Task.isCancelled else { return }
-            await self?.confirmSwallowedNotPlayingSentinel(epoch: epoch)
-            await MainActor.run {
-                guard let self, self.notPlayingSentinelEpoch == epoch else { return }
-                self.awaitingTrackAfterNotPlayingSentinel = false
-                self.notPlayingSentinelConfirmTask = nil
-            }
+            await self?.confirmSwallowedNotPlayingSentinel(epoch: epoch, attempt: 0)
         }
     }
 
@@ -567,9 +562,9 @@ class AppleMusicController: MediaControllerProtocol {
         notPlayingSentinelConfirmTask = nil
     }
 
-    /// If no real track arrived, accept whatever Music reports now — including
-    /// an empty player — instead of leaving the previous snapshot up.
-    private func confirmSwallowedNotPlayingSentinel(epoch: UInt) async {
+    /// If no real track arrived, publish the empty player. A missed fetch must
+    /// not leave the previous cover up; one short retry, then the logo.
+    private func confirmSwallowedNotPlayingSentinel(epoch: UInt, attempt: Int) async {
         for _ in 0..<10 {
             let ready = await MainActor.run { () -> Bool? in
                 guard self.notPlayingSentinelEpoch == epoch else { return nil }
@@ -580,7 +575,61 @@ class AppleMusicController: MediaControllerProtocol {
             try? await Task.sleep(for: .milliseconds(50))
             guard !Task.isCancelled else { return }
         }
-        await updatePlaybackInfo(includeArtwork: false, notPlayingSentinelEpoch: epoch)
+        let generation = await MainActor.run { () -> UInt? in
+            guard self.notPlayingSentinelEpoch == epoch else { return nil }
+            self.playbackInfoFetchesInFlight += 1
+            return self.beginPlaybackInfoRequest()
+        }
+        guard let generation else { return }
+        let snapshot = try? await fetchPlaybackSnapshotAsync(includeArtwork: false)
+        await MainActor.run {
+            self.playbackInfoFetchesInFlight = max(0, self.playbackInfoFetchesInFlight - 1)
+            guard self.notPlayingSentinelEpoch == epoch else { return }
+            if let snapshot, !Self.isNotPlayingSentinel(snapshot) {
+                self.applyPlaybackInfo(
+                    snapshot,
+                    generation: generation,
+                    fetchedArtwork: false,
+                    acceptNotPlayingSentinel: true
+                )
+                return
+            }
+            let anotherFetchInFlight = self.playbackInfoFetchesInFlight > 0
+            if attempt == 0, snapshot == nil || anotherFetchInFlight {
+                self.notPlayingSentinelConfirmTask = Task { [weak self] in
+                    try? await Task.sleep(for: .milliseconds(200))
+                    guard !Task.isCancelled else { return }
+                    await self?.confirmSwallowedNotPlayingSentinel(epoch: epoch, attempt: 1)
+                }
+                return
+            }
+            self.applyConfirmedEmptyPlayer()
+        }
+    }
+
+    /// Confirmed empty player. Logo now — do not start another linger, and do
+    /// not keep the previous cover if this fetch never returned.
+    @MainActor
+    private func applyConfirmedEmptyPlayer() {
+        cancelNotPlayingSentinelConfirm()
+        artworkFetchTask?.cancel()
+        artworkFetchTask = nil
+        artworkRequestID = nil
+        delayedScriptArtworkTask?.cancel()
+        delayedScriptArtworkTask = nil
+        var empty = playbackState
+        empty.isPlaying = false
+        empty.title = "Not Playing"
+        empty.artist = "Unknown"
+        empty.album = "Unknown"
+        empty.currentTime = 0
+        empty.duration = 0
+        empty.artwork = nil
+        empty.artworkAvailability = .unavailable
+        empty.contentIdentifier = "Not Playing|Unknown|Unknown|0"
+        empty.liveArtworkURL = nil
+        empty.lastUpdated = Date()
+        playbackState = empty
     }
 
     /// Drop wrong-track art after the linger window. MusicManager only replaces
