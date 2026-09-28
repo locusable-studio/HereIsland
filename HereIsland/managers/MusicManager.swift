@@ -269,10 +269,14 @@ class MusicManager: ObservableObject {
     @Published var isLiveStream: Bool = false
     @ObservedObject var coordinator = DynamicIslandViewCoordinator.shared
     @Published var usingAppIconForArtwork: Bool = false
-    /// Last decoded cover that is not the Music app icon. A skip can enter
-    /// `.unknown` while `albumArt` is still that icon; this is what we put
-    /// back for Apple Music's ~100ms linger.
+    /// Last decoded cover that is not the Music app icon.
     private var lastRealAlbumArt: NSImage?
+    /// While active, a sticky Music icon must not replace the real cover.
+    /// Same length as Apple Music `previousCoverLinger`.
+    private var realCoverHoldActive = false
+    private var realCoverHoldGeneration: UInt = 0
+    private var realCoverHoldTask: Task<Void, Never>?
+    private static let skipRealCoverHold: Duration = .milliseconds(100)
 
     private var explicitLookupTask: Task<Void, Never>?
     private var explicitLookupKey: String?
@@ -353,6 +357,7 @@ class MusicManager: ObservableObject {
     public func destroy() {
         debounceIdleTask?.cancel()
         explicitLookupTask?.cancel()
+        realCoverHoldTask?.cancel()
         cancellables.removeAll()
         controllerCancellables.removeAll()
         transitionWorkItem?.cancel()
@@ -546,23 +551,46 @@ class MusicManager: ObservableObject {
             self.updateIdleState(state: eventIsPlaying)
         }
 
+        // Cover first, then the title. Peek observes `songTitle` and reads
+        // `albumArt` in the same turn; the icon must already be gone.
+        if hasContentChange || artworkAvailabilityChanged {
+            if hasContentChange {
+                self.triggerFlipAnimation()
+            }
+
+            if let artwork = state.artwork,
+               artworkChanged || usingAppIconForArtwork || trackIdentityChanged {
+                cancelRealCoverSkipHold()
+                self.updateArtwork(artwork, for: state.trackIdentity)
+            } else if state.artworkAvailability == .unavailable {
+                // After the hold, the logo is required. During the hold, a
+                // sticky icon (or a late `.unavailable`) must not fill the window.
+                if !deferAppIconForRealCoverHold {
+                    applyUnavailableArtwork(for: state.bundleIdentifier)
+                }
+            } else if state.artworkAvailability == .unknown, state.artwork == nil {
+                // `.unknown` does not repaint. If an earlier miss left the
+                // Music icon in `albumArt`, put the last real cover back for
+                // this track's ~100ms linger.
+                if trackIdentityChanged {
+                    beginRealCoverSkipHold()
+                }
+            }
+            self.artworkData = state.artwork
+            self.artworkAvailability = state.artworkAvailability
+
+            self.lastArtworkTitle = state.title
+            self.lastArtworkArtist = state.artist
+            self.lastArtworkAlbum = state.album
+            self.lastArtworkBundleIdentifier = state.bundleIdentifier
+            self.lastArtworkContentIdentifier = state.contentIdentifier
+            self.lastArtworkContentURL = state.contentURL
+        }
+
         let liveArtworkChanged = state.liveArtworkURL != self.videoArtworkURL
 
         if liveArtworkChanged {
-            // Expanded player draws `videoArtworkURL` above `albumArt`. Apple
-            // Music snapshots leave `liveArtworkURL` nil, so this assignment
-            // clears the previous canvas. During `.unknown` that reveal is
-            // immediate — before the 100ms linger — and shows the Music icon
-            // if a prior miss already replaced `albumArt`. Keep the canvas
-            // until `.unavailable` (or a real replacement URL) clears it.
-            let keepCanvasDuringAppleMusicLinger =
-                state.liveArtworkURL == nil
-                && self.videoArtworkURL != nil
-                && state.artworkAvailability == .unknown
-                && activeController is AppleMusicController
-            if !keepCanvasDuringAppleMusicLinger {
-                self.videoArtworkURL = state.liveArtworkURL
-            }
+            self.videoArtworkURL = state.liveArtworkURL
         }
 
         if state.title != self.songTitle {
@@ -577,40 +605,7 @@ class MusicManager: ObservableObject {
             self.album = state.album
         }
 
-        // Handle artwork and visual transitions for changed content
         if hasContentChange || artworkAvailabilityChanged {
-            if hasContentChange {
-                self.triggerFlipAnimation()
-            }
-
-            if let artwork = state.artwork,
-               artworkChanged || usingAppIconForArtwork || trackIdentityChanged {
-                self.updateArtwork(artwork, for: state.trackIdentity)
-            } else if state.artworkAvailability == .unavailable {
-                // Always replace the previous track's cover. Lingering on
-                // .unknown is intentional; once the controller says
-                // .unavailable, App Icon / defaultImage must take over even
-                // if AppIconAsNSImage fails (closed / Quick Peek otherwise
-                // stay on the old cover until expand fetches script art).
-                applyUnavailableArtwork(for: state.bundleIdentifier)
-            } else if state.artworkAvailability == .unknown, state.artwork == nil {
-                // `.unknown` does not repaint. If an earlier miss already
-                // installed the Music icon, a skip would show that logo with
-                // the new title. Put the last real cover back; Apple Music's
-                // 100ms linger still replaces it via `.unavailable`.
-                restoreLastRealCoverIfLingering(trackChanged: trackIdentityChanged)
-            }
-            self.artworkData = state.artwork
-            self.artworkAvailability = state.artworkAvailability
-
-            // Update last artwork change values
-            self.lastArtworkTitle = state.title
-            self.lastArtworkArtist = state.artist
-            self.lastArtworkAlbum = state.album
-            self.lastArtworkBundleIdentifier = state.bundleIdentifier
-            self.lastArtworkContentIdentifier = state.contentIdentifier
-            self.lastArtworkContentURL = state.contentURL
-
             if let liveArtworkURL = state.liveArtworkURL {
                 self.videoArtworkURL = liveArtworkURL
             } else {
@@ -795,20 +790,54 @@ class MusicManager: ObservableObject {
         updateAlbumArt(newAlbumArt: fallback)
     }
 
-    /// Apple Music only. Now Playing has no 100ms clear, so restoring here
-    /// would leave the previous cover up until some later artwork event.
-    private func restoreLastRealCoverIfLingering(trackChanged: Bool) {
-        guard trackChanged,
+    private var deferAppIconForRealCoverHold: Bool {
+        realCoverHoldActive && lastRealAlbumArt != nil && !usingAppIconForArtwork
+    }
+
+    /// Apple Music only. Now Playing has no 100ms clear, so holding a restored
+    /// cover there would leave it up. Snaps — `.smooth` is longer than the hold.
+    private func beginRealCoverSkipHold() {
+        guard activeController is AppleMusicController else { return }
+        if usingAppIconForArtwork, let lastRealAlbumArt {
+            usingAppIconForArtwork = false
+            albumArt = lastRealAlbumArt
+            calculateAverageColor()
+        }
+        guard lastRealAlbumArt != nil, !usingAppIconForArtwork else { return }
+        realCoverHoldActive = true
+        realCoverHoldGeneration &+= 1
+        let generation = realCoverHoldGeneration
+        realCoverHoldTask?.cancel()
+        realCoverHoldTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.skipRealCoverHold)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self?.endRealCoverSkipHold(generation: generation)
+            }
+        }
+    }
+
+    private func cancelRealCoverSkipHold() {
+        realCoverHoldGeneration &+= 1
+        realCoverHoldActive = false
+        realCoverHoldTask?.cancel()
+        realCoverHoldTask = nil
+    }
+
+    private func endRealCoverSkipHold(generation: UInt) {
+        guard realCoverHoldGeneration == generation else { return }
+        realCoverHoldActive = false
+        realCoverHoldTask = nil
+        guard artworkAvailability == .unavailable,
               activeController is AppleMusicController,
-              usingAppIconForArtwork,
-              let lastRealAlbumArt
+              !usingAppIconForArtwork
         else { return }
-        usingAppIconForArtwork = false
-        // Snap. `updateAlbumArt` animates with `.smooth`, which is longer than
-        // the 100ms linger, so the icon would still be on screen when the
-        // logo is allowed to return.
-        albumArt = lastRealAlbumArt
-        calculateAverageColor()
+        applyUnavailableArtwork(for: bundleIdentifier ?? "com.apple.Music")
+        // Expanded player stacks the canvas on `albumArt`. Drop it with the logo
+        // so the previous video does not outlive the hold.
+        if videoArtworkURL != nil {
+            videoArtworkURL = nil
+        }
     }
 
     private func updateArtwork(_ artworkData: Data, for trackIdentity: PlaybackTrackIdentity) {
@@ -1013,12 +1042,14 @@ class MusicManager: ObservableObject {
     }
 
     func nextTrack() {
+        beginRealCoverSkipHold()
         Task {
             await activeController?.nextTrack()
         }
     }
 
     func previousTrack() {
+        beginRealCoverSkipHold()
         Task {
             await activeController?.previousTrack()
         }
@@ -1084,13 +1115,6 @@ class MusicManager: ObservableObject {
                 title: title, artist: artist
             )
             await MainActor.run {
-                // A nil canvas during Apple Music's `.unknown` window would
-                // uncover `albumArt` before the 100ms linger ends.
-                if url == nil,
-                   self.artworkAvailability == .unknown,
-                   self.activeController is AppleMusicController {
-                    return
-                }
                 self.videoArtworkURL = url
             }
         }
