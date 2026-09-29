@@ -280,7 +280,7 @@ class MusicManager: ObservableObject {
     /// cover must not end a hold that is waiting for the next track.
     private var realCoverHoldIdentity: PlaybackTrackIdentity?
     private var realCoverHoldWaitsForNextIdentity = false
-    private static let skipRealCoverHold: Duration = .milliseconds(100)
+    private static let skipRealCoverHold: Duration = .milliseconds(250)
 
     private var explicitLookupTask: Task<Void, Never>?
     private var explicitLookupKey: String?
@@ -588,7 +588,7 @@ class MusicManager: ObservableObject {
             } else if state.artworkAvailability == .unknown, state.artwork == nil {
                 // `.unknown` does not repaint. If an earlier miss left the
                 // Music icon in `albumArt`, put the last real cover back for
-                // this track's ~100ms linger.
+                // this track's ~250ms linger.
                 if trackIdentityChanged {
                     beginRealCoverSkipHold()
                 }
@@ -831,10 +831,10 @@ class MusicManager: ObservableObject {
         realCoverHoldActive && lastRealAlbumArt != nil && !usingAppIconForArtwork
     }
 
-    /// Apple Music only. Now Playing has no 100ms clear, so holding a restored
+    /// Apple Music only. Now Playing has no 250ms clear, so holding a restored
     /// cover there would leave it up. Snaps — `.smooth` is longer than the hold.
     /// `waitingForNextIdentity` is the next/previous press, before the next
-    /// track exists. A later `.unknown` re-anchors the same ~100ms on that track.
+    /// track exists. A later `.unknown` re-anchors the same ~250ms on that track.
     private func beginRealCoverSkipHold(waitingForNextIdentity: Bool = false) {
         guard activeController is AppleMusicController else { return }
         snapLastRealCoverIfIcon()
