@@ -76,7 +76,7 @@ class AppleMusicController: MediaControllerProtocol {
 
     /// Max time the previous track's cover may remain on screen after a skip
     /// with no replacement art yet. After this, clear via `.unavailable`.
-    private static let previousCoverLinger: Duration = .milliseconds(100)
+    private static let previousCoverLinger: Duration = .milliseconds(250)
 
     /// Catalog + script give-up deadline, counted from track change (not
     /// linger + timeout). If still no art, Music logo sticks as fallback.
@@ -288,7 +288,7 @@ class AppleMusicController: MediaControllerProtocol {
         // ~25ms after skip, and the coalesced playerInfo behind it, AppleScript
         // `on error` often returns Not Playing before the next track exists.
         // Treating that as a content change starts `previousCoverLinger` from
-        // the sentinel, so the 100ms logo clock expires before the real title.
+        // the sentinel, so the 250ms logo clock expires before the real title.
         if Self.isNotPlayingSentinel(snapshot),
            hasConfirmedTrackIdentity,
            !acceptNotPlayingSentinel {
@@ -297,7 +297,7 @@ class AppleMusicController: MediaControllerProtocol {
         }
         // A same-track refresh must not end the wait: Music often still
         // reports the track we are leaving. Only a real next identity, or
-        // this wait's own confirming fetch, may anchor the 100ms clock.
+        // this wait's own confirming fetch, may anchor the 250ms clock.
         if acceptNotPlayingSentinel || confirmsNextTrackIdentity(snapshot) {
             cancelNotPlayingSentinelConfirm()
         }
@@ -321,9 +321,9 @@ class AppleMusicController: MediaControllerProtocol {
 
         // Script art on a brand-new track can still be the *previous* track's
         // bytes (Apple Music often lags). Identical bytes after contentChanged
-        // are treated as missing so the 100ms clear + 600ms logo path can run.
+        // are treated as missing so the 250ms clear + 600ms logo path can run.
         // Metadata-only (playerInfo) refreshes skip this AppleScript raw-data
-        // branch; catalog + 100ms/600ms still run on contentChanged below.
+        // branch; catalog + 250ms/600ms still run on contentChanged below.
         let scriptArt: Data? = {
             guard fetchedArtwork else { return nil }
             guard let artworkData = snapshot.artwork,
@@ -348,7 +348,7 @@ class AppleMusicController: MediaControllerProtocol {
             // While a cover request is in flight for this track, ignore
             // progress-only script refreshes. Apple Music often re-sends the
             // previous cover bytes after contentChanged cleared them; treating
-            // those as .available cancelled the 100ms/600ms path and left the
+            // those as .available cancelled the 250ms/600ms path and left the
             // notch stuck on the old cover (rapid skips).
             if artworkRequestID != nil && !contentChanged {
                 // Keep waiting for clear / catalog / deadline.
@@ -385,7 +385,7 @@ class AppleMusicController: MediaControllerProtocol {
         updatedState.lastUpdated = Date()
         self.playbackState = updatedState
 
-        // Catalog + 100ms/600ms: artwork-inclusive fetches (skip/seek/play),
+        // Catalog + 250ms/600ms: artwork-inclusive fetches (skip/seek/play),
         // or metadata-only playerInfo when the track actually changed.
         // Keep artworkRequestContentIdentifier after a miss so a later
         // artwork-inclusive snapshot (delayed script fetch / expand) does
@@ -403,8 +403,8 @@ class AppleMusicController: MediaControllerProtocol {
         artworkRequestContentIdentifier = snapshot.contentIdentifier
         // Cover timing (Apple Music only):
         // 1) Start catalog immediately with this generation.
-        // 2) At 100ms from skip: clear previous cover (.unavailable → logo).
-        // 3) At 600ms from skip: if still no art, logo sticks (not 100+600).
+        // 2) At 250ms from skip: clear previous cover (.unavailable → logo).
+        // 3) At 600ms from skip: if still no art, logo sticks (not 250+600).
         // Late catalog bytes for a cancelled requestID are dropped.
         artworkFetchTask = Task { [weak self] in
             let catalogTask = Task {
@@ -454,7 +454,7 @@ class AppleMusicController: MediaControllerProtocol {
                             break
                         }
                         // unavailable / transientFailure: keep waiting for
-                        // clear + deadline so we do not flash logo before 100ms.
+                        // clear + deadline so we do not flash logo before 250ms.
                     case .clearOldCover:
                         guard !appliedArt else { continue }
                         await MainActor.run {
@@ -641,7 +641,7 @@ class AppleMusicController: MediaControllerProtocol {
         guard playbackState.artworkAvailability != .available else { return }
         // Still waiting for a real track after a swallowed between-tracks
         // snapshot. Painting the logo now sticks it under the upcoming title.
-        // That track starts its own 100ms linger.
+        // That track starts its own 250ms linger.
         if awaitingTrackAfterNotPlayingSentinel { return }
         var artworkState = playbackState
         artworkState.artwork = nil
@@ -665,7 +665,7 @@ class AppleMusicController: MediaControllerProtocol {
         artworkRequestID = nil
         artworkFetchTask = nil
         // Keep artworkRequestContentIdentifier so the next includeArtwork
-        // snapshot does not restart catalog + 100ms/600ms for this track.
+        // snapshot does not restart catalog + 250ms/600ms for this track.
 
         var artworkState = playbackState
         switch result {
