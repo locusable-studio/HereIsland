@@ -67,10 +67,13 @@ struct ContentView: View {
         minimalisticOpenNotchSize()
     }
 
+    /// Persistent closed music pill follows the live-activity preference.
+    /// Quick peek still mounts that same bar while `isFlashing`, then drops it
+    /// when the flash ends so a disabled live activity stays off.
     private var showsClosedMusicActivity: Bool {
         vm.notchState == .closed
             && !vm.hideOnClosed
-            && coordinator.musicLiveActivityEnabled
+            && (coordinator.musicLiveActivityEnabled || isFlashing)
             && (musicManager.isPlaying || (!musicManager.isPlayerIdle && musicManager.bundleIdentifier != nil))
     }
 
