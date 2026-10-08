@@ -41,6 +41,12 @@ private enum CatalogArtworkResult {
     case transientFailure
 }
 
+/// Decoded cover for the track-change Quick Peek. Not the shared `albumArt`.
+struct AppleMusicPeekCoverUpdate {
+    let requestID: UUID
+    let image: NSImage
+}
+
 private struct AppleMusicPlaybackSnapshot: Sendable {
     let isPlaying: Bool
     let title: String
@@ -75,13 +81,19 @@ class AppleMusicController: MediaControllerProtocol {
     // MARK: - Properties
     private static let bundleIdentifier = "com.apple.Music"
 
-    /// Max time the previous track's cover may remain on screen after a skip
-    /// with no replacement art yet. After this, clear via `.unavailable`.
+    /// Shared `albumArt` only. Max time the previous cover stays up after a
+    /// skip with no replacement art yet. The Quick Peek does not use this.
     private static let previousCoverLinger: Duration = .milliseconds(250)
 
-    /// Catalog + script give-up deadline, counted from track change (not
-    /// linger + timeout). If still no art, Music logo sticks as fallback.
+    /// Shared `albumArt` deadline, counted from track change. If still no art,
+    /// the Music icon sticks on the persistent bar. The catalog lookup itself
+    /// keeps running for the Quick Peek and the cache.
     private static let artworkTimeoutFromTrackChange: Duration = .milliseconds(600)
+
+    /// Upper bound for one catalog lookup after it is allowed to outlive the
+    /// 600ms `albumArt` deadline. A new skip does not cancel the previous
+    /// lookup; this cap is what keeps rapid skips from piling requests up.
+    private static let catalogLookupTimeout: Duration = .seconds(4)
 
     @Published private var playbackState: PlaybackState = PlaybackState(
         bundleIdentifier: AppleMusicController.bundleIdentifier,
@@ -114,7 +126,19 @@ class AppleMusicController: MediaControllerProtocol {
     private var notificationTask: Task<Void, Never>?
     private var playbackInfoRequestGeneration: UInt = 0
     private var artworkFetchTask: Task<Void, Never>?
+    /// Catalog lookups detached from `artworkFetchTask`. The 600ms deadline and
+    /// a newer skip cancel the timers, not these tasks.
+    private var catalogTasks: [UUID: Task<Void, Never>] = [:]
     private var artworkRequestID: UUID?
+    /// Quick Peek cover for the latest track change. `albumArt` does not read it.
+    private var peekTrackKey: String?
+    private var peekArtworkRequestID: UUID?
+    private var peekCoverImage: NSImage?
+    private let peekCoverUpdates = PassthroughSubject<AppleMusicPeekCoverUpdate, Never>()
+
+    var peekCoverUpdatePublisher: AnyPublisher<AppleMusicPeekCoverUpdate, Never> {
+        peekCoverUpdates.eraseToAnyPublisher()
+    }
     private var artworkRequestContentIdentifier: String?
     /// Coalesce dense `playerInfo` notifications so we do not storm Music with
     /// full AppleScript snapshots (especially artwork raw data).
@@ -185,6 +209,7 @@ class AppleMusicController: MediaControllerProtocol {
         playbackInfoCoalesceTask?.cancel()
         delayedScriptArtworkTask?.cancel()
         artworkFetchTask?.cancel()
+        catalogTasks.values.forEach { $0.cancel() }
         notPlayingSentinelConfirmTask?.cancel()
     }
     
@@ -374,6 +399,17 @@ class AppleMusicController: MediaControllerProtocol {
                 delayedScriptArtworkTask = nil
                 updatedState.artwork = artworkData
                 updatedState.artworkAvailability = .available
+                if contentChanged {
+                    armPeekCover(
+                        requestID: UUID(),
+                        title: snapshot.title,
+                        artist: snapshot.artist,
+                        contentIdentifier: snapshot.contentIdentifier,
+                        image: Self.decodePeekImage(artworkData)
+                    )
+                } else if peekCoverImage == nil {
+                    noteDecodedPeekCover(artworkData, requestID: peekArtworkRequestID)
+                }
             }
         } else if contentChanged {
             // New track, no trustworthy script art (or a metadata-only refresh
@@ -390,9 +426,40 @@ class AppleMusicController: MediaControllerProtocol {
             artworkRequestContentIdentifier = nil
             updatedState.artwork = nil
             updatedState.artworkAvailability = .unknown
+            peekTrackKey = nil
+            peekArtworkRequestID = nil
+            peekCoverImage = nil
         }
 
         updatedState.lastUpdated = Date()
+
+        // Arm the Quick Peek cover before publishing so the title sink reads
+        // the decoded image (cache or none) for this track, not the previous one.
+        let shouldFetchArtwork =
+            updatedState.artwork == nil
+            && artworkRequestContentIdentifier != snapshot.contentIdentifier
+            && (fetchedArtwork || contentChanged)
+        if shouldFetchArtwork {
+            let requestID = UUID()
+            artworkRequestID = requestID
+            artworkRequestContentIdentifier = snapshot.contentIdentifier
+            let cachedPeekImage: NSImage? = {
+                guard let cached = cachedCatalogArtwork(
+                    artist: updatedState.artist,
+                    album: updatedState.album,
+                    title: updatedState.title
+                ) else { return nil }
+                return Self.decodePeekImage(cached)
+            }()
+            armPeekCover(
+                requestID: requestID,
+                title: updatedState.title,
+                artist: updatedState.artist,
+                contentIdentifier: snapshot.contentIdentifier,
+                image: cachedPeekImage
+            )
+        }
+
         self.playbackState = updatedState
 
         // Catalog + 250ms/600ms: artwork-inclusive fetches (skip/seek/play),
@@ -400,86 +467,32 @@ class AppleMusicController: MediaControllerProtocol {
         // Keep artworkRequestContentIdentifier after a miss so a later
         // artwork-inclusive snapshot (delayed script fetch / expand) does
         // not restart this generation.
-        guard updatedState.artwork == nil,
-              artworkRequestContentIdentifier != snapshot.contentIdentifier,
-              fetchedArtwork || contentChanged
-        else { return }
+        guard shouldFetchArtwork, let requestID = artworkRequestID else { return }
 
-        let requestID = UUID()
         let title = updatedState.title
         let artist = updatedState.artist
         let album = updatedState.album
-        artworkRequestID = requestID
-        artworkRequestContentIdentifier = snapshot.contentIdentifier
-        // Cover timing (Apple Music only):
-        // 1) Start catalog immediately with this generation.
+        // Shared albumArt timing is unchanged:
+        // 1) Catalog starts immediately and is not cancelled at 600ms.
         // 2) At 250ms from skip: clear previous cover (.unavailable → logo).
-        // 3) At 600ms from skip: if still no art, logo sticks (not 250+600).
-        // Late catalog bytes for a cancelled requestID are dropped.
+        // 3) At 600ms from skip: if still no art, the logo sticks on albumArt.
+        // A later catalog hit may cache and fill the Quick Peek. It updates
+        // albumArt only when this requestID is still current.
+        beginCatalogLookup(requestID: requestID, title: title, artist: artist, album: album)
         artworkFetchTask = Task { [weak self] in
-            let catalogTask = Task {
-                await self?.fetchArtworkFromCatalog(
-                    title: title,
-                    artist: artist,
-                    album: album
-                ) ?? .transientFailure
-            }
-
-            enum TimingEvent {
-                case clearOldCover
-                case artworkDeadline
-                case catalog(CatalogArtworkResult)
-            }
-
-            await withTaskGroup(of: TimingEvent.self) { group in
-                group.addTask {
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { [weak self] in
                     try? await Task.sleep(for: Self.previousCoverLinger)
-                    return .clearOldCover
-                }
-                group.addTask {
-                    try? await Task.sleep(for: Self.artworkTimeoutFromTrackChange)
-                    return .artworkDeadline
-                }
-                group.addTask {
-                    let result = await catalogTask.value
-                    return .catalog(result)
-                }
-
-                var appliedArt = false
-                for await event in group {
-                    guard !Task.isCancelled else {
-                        group.cancelAll()
-                        catalogTask.cancel()
-                        break
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run {
+                        self?.clearPreviousCoverIfNeeded(requestID: requestID)
                     }
-                    switch event {
-                    case .catalog(let result):
-                        if case .available = result {
-                            appliedArt = true
-                            await MainActor.run {
-                                self?.completeArtworkRequest(result, requestID: requestID)
-                            }
-                            group.cancelAll()
-                            catalogTask.cancel()
-                            break
-                        }
-                        // unavailable / transientFailure: keep waiting for
-                        // clear + deadline so we do not flash logo before 250ms.
-                    case .clearOldCover:
-                        guard !appliedArt else { continue }
-                        await MainActor.run {
-                            self?.clearPreviousCoverIfNeeded(requestID: requestID)
-                        }
-                    case .artworkDeadline:
-                        if !appliedArt {
-                            // Still no art after 600ms from track change → logo.
-                            await MainActor.run {
-                                self?.completeArtworkRequest(.unavailable, requestID: requestID)
-                            }
-                        }
-                        group.cancelAll()
-                        catalogTask.cancel()
-                        break
+                }
+                group.addTask { [weak self] in
+                    try? await Task.sleep(for: Self.artworkTimeoutFromTrackChange)
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run {
+                        self?.completeArtworkRequest(.unavailable, requestID: requestID)
                     }
                 }
             }
@@ -637,6 +650,9 @@ class AppleMusicController: MediaControllerProtocol {
         empty.artwork = nil
         empty.artworkAvailability = .unavailable
         empty.contentIdentifier = "Not Playing|Unknown|Unknown|0"
+        peekTrackKey = nil
+        peekArtworkRequestID = nil
+        peekCoverImage = nil
         empty.liveArtworkURL = nil
         empty.lastUpdated = Date()
         playbackState = empty
@@ -674,6 +690,9 @@ class AppleMusicController: MediaControllerProtocol {
         }
         artworkRequestID = nil
         artworkFetchTask = nil
+        // Leave `peekArtworkRequestID` in place. A catalog result that finishes
+        // after this deadline must not rewrite shared albumArt (the request id
+        // no longer matches) but may still fill the Quick Peek.
         // Keep artworkRequestContentIdentifier so the next includeArtwork
         // snapshot does not restart catalog + 250ms/600ms for this track.
 
@@ -798,6 +817,86 @@ class AppleMusicController: MediaControllerProtocol {
         catalogArtworkCache.setObject(NSData(data: data), forKey: key as NSString)
     }
 
+    /// Quick Peek snapshot for this track. Nil when the stored key is a newer skip.
+    func peekSnapshot(
+        title: String,
+        artist: String,
+        contentIdentifier: String?
+    ) -> (requestID: UUID, image: NSImage?)? {
+        guard peekTrackKey == Self.peekTrackKey(
+            title: title,
+            artist: artist,
+            contentIdentifier: contentIdentifier
+        ), let requestID = peekArtworkRequestID else { return nil }
+        return (requestID, peekCoverImage)
+    }
+
+    @MainActor
+    private func armPeekCover(
+        requestID: UUID,
+        title: String,
+        artist: String,
+        contentIdentifier: String?,
+        image: NSImage?
+    ) {
+        peekTrackKey = Self.peekTrackKey(
+            title: title,
+            artist: artist,
+            contentIdentifier: contentIdentifier
+        )
+        peekArtworkRequestID = requestID
+        peekCoverImage = image
+    }
+
+    private static func peekTrackKey(
+        title: String,
+        artist: String,
+        contentIdentifier: String?
+    ) -> String {
+        "\(contentIdentifier ?? "")\u{1e}\(title)\u{1e}\(artist)"
+    }
+
+    /// 16-byte placeholder guard, then a real decode. Bytes alone are not a cover.
+    private static func decodePeekImage(_ data: Data) -> NSImage? {
+        guard data.count > minimumArtworkSize else { return nil }
+        return NSImage(data: data)
+    }
+
+    @MainActor
+    private func noteDecodedPeekCover(_ data: Data, requestID: UUID?) {
+        guard let requestID, peekArtworkRequestID == requestID, peekCoverImage == nil else { return }
+        guard let image = Self.decodePeekImage(data) else { return }
+        peekCoverImage = image
+        peekCoverUpdates.send(AppleMusicPeekCoverUpdate(requestID: requestID, image: image))
+    }
+
+    @MainActor
+    private func beginCatalogLookup(requestID: UUID, title: String, artist: String, album: String) {
+        let task = Task { [weak self] in
+            let result = await self?.fetchArtworkFromCatalog(
+                title: title,
+                artist: artist,
+                album: album
+            ) ?? .transientFailure
+            await MainActor.run {
+                self?.catalogTasks[requestID] = nil
+                self?.resolveCatalogArtwork(result, requestID: requestID)
+            }
+        }
+        catalogTasks[requestID] = task
+    }
+
+    /// Cache is written inside the fetch, including when this requestID is stale.
+    /// Shared albumArt updates only while `artworkRequestID` is still this id.
+    @MainActor
+    private func resolveCatalogArtwork(_ result: CatalogArtworkResult, requestID: UUID) {
+        guard case .available(let data) = result else { return }
+        noteDecodedPeekCover(data, requestID: requestID)
+        guard artworkRequestID == requestID else { return }
+        artworkFetchTask?.cancel()
+        completeArtworkRequest(result, requestID: requestID)
+    }
+
     private func fetchArtworkFromCatalog(
         title: String,
         artist: String,
@@ -807,6 +906,35 @@ class AppleMusicController: MediaControllerProtocol {
             return .available(cached)
         }
 
+        return await catalogArtworkWithinTimeout(title: title, artist: artist, album: album)
+    }
+
+    private func catalogArtworkWithinTimeout(
+        title: String,
+        artist: String,
+        album: String
+    ) async -> CatalogArtworkResult {
+        await withTaskGroup(of: CatalogArtworkResult.self) { group in
+            group.addTask { [weak self] in
+                guard let self else { return .transientFailure }
+                return await self.fetchCatalogArtworkUncached(title: title, artist: artist, album: album)
+            }
+            group.addTask {
+                try? await Task.sleep(for: Self.catalogLookupTimeout)
+                return .transientFailure
+            }
+            let outcome = await group.next() ?? .transientFailure
+            group.cancelAll()
+            return outcome
+        }
+    }
+
+    /// Song search, optional album search, and image download.
+    private func fetchCatalogArtworkUncached(
+        title: String,
+        artist: String,
+        album: String
+    ) async -> CatalogArtworkResult {
         let (songResult, cacheSong) = await fetchSongArtworkFromCatalog(
             title: title,
             artist: artist,

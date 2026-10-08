@@ -281,6 +281,13 @@ class MusicManager: ObservableObject {
     private var realCoverHoldIdentity: PlaybackTrackIdentity?
     private var realCoverHoldWaitsForNextIdentity = false
     private static let skipRealCoverHold: Duration = .milliseconds(250)
+    /// Quick Peek artwork for the Apple Music title just published.
+    /// `albumArt` still follows the 250ms / 600ms path.
+    var appleMusicPeekRequestID: UUID?
+    var appleMusicPeekImage: NSImage?
+    @Published var appleMusicPeekRevision: UInt = 0
+    /// Written in the same turn as `songTitle`, before that publish.
+    var pendingTitleIsAppleMusic = false
 
     private var explicitLookupTask: Task<Void, Never>?
     private var explicitLookupKey: String?
@@ -402,6 +409,19 @@ class MusicManager: ObservableObject {
                     self.updateFromPlaybackState(state)
                 }
                 .store(in: &controllerCancellables)
+
+            if let appleMusic = controller as? AppleMusicController {
+                appleMusic.peekCoverUpdatePublisher
+                    .receive(on: DispatchQueue.main)
+                    .sink { [weak self] update in
+                        guard let self,
+                              update.requestID == self.appleMusicPeekRequestID
+                        else { return }
+                        self.appleMusicPeekImage = update.image
+                        self.appleMusicPeekRevision &+= 1
+                    }
+                    .store(in: &controllerCancellables)
+            }
         }
 
         return newController
@@ -630,6 +650,20 @@ class MusicManager: ObservableObject {
         // `songTitle` changes; a later decode must not be what first removes
         // the Music icon.
         if state.title != self.songTitle {
+            pendingTitleIsAppleMusic = state.bundleIdentifier == "com.apple.Music"
+            if pendingTitleIsAppleMusic,
+               let appleMusic = activeController as? AppleMusicController,
+               let snapshot = appleMusic.peekSnapshot(
+                   title: state.title,
+                   artist: state.artist,
+                   contentIdentifier: state.contentIdentifier
+               ) {
+                appleMusicPeekRequestID = snapshot.requestID
+                appleMusicPeekImage = snapshot.image
+            } else {
+                appleMusicPeekRequestID = nil
+                appleMusicPeekImage = nil
+            }
             showLastRealCoverBeforeRealTitle(state.title)
             self.songTitle = state.title
         }
