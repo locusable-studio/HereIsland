@@ -347,7 +347,9 @@ struct MinimalisticAlbumArtView: View {
     }
 
     private var albumArtCornerRadius: CGFloat {
-        musicManager.albumArt.size.width / musicManager.albumArt.size.height > 1.0 ? 4 : 12
+        let height = musicManager.albumArt.size.height
+        guard height > 0 else { return 12 }
+        return musicManager.albumArt.size.width / height > 1.0 ? 4 : 12
     }
 
     var body: some View {
@@ -358,9 +360,12 @@ struct MinimalisticAlbumArtView: View {
             albumArtButton
         }
         .onAppear {
+            guard !musicManager.albumArtSlotIsEmpty else { return }
             cachedArtBrightness = musicManager.albumArt.getBrightness()
         }
         .onChange(of: musicManager.albumArt) { _, newArt in
+            // Empty slot and a later icon must not retint the backdrop from those pixels.
+            guard !musicManager.albumArtSlotIsEmpty, !musicManager.usingAppIconForArtwork else { return }
             cachedArtBrightness = newArt.getBrightness()
         }
     }

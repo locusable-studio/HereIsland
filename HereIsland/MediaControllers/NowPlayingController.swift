@@ -245,7 +245,15 @@ final class NowPlayingController: ObservableObject, MediaControllerProtocol {
             newPlaybackState.artworkAvailability = artwork == nil ? .unknown : .available
         } else if diff {
             newPlaybackState.artwork = self.playbackState.artwork
-            newPlaybackState.artworkAvailability = self.playbackState.artworkAvailability
+            // `.pending` is an Apple Music skip slot. Now Playing never draws the
+            // app icon for it; keep the previous artwork state, but if a pending
+            // value was copied, treat it as "no image yet" rather than a miss.
+            switch self.playbackState.artworkAvailability {
+            case .pending:
+                newPlaybackState.artworkAvailability = .unknown
+            case .unknown, .available, .unavailable:
+                newPlaybackState.artworkAvailability = self.playbackState.artworkAvailability
+            }
         } else {
             newPlaybackState.artwork = nil
             newPlaybackState.artworkAvailability = payload.hasPlaybackMetadata ? .unknown : .unavailable

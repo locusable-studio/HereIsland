@@ -48,7 +48,7 @@ struct ContentView: View {
     @State private var lastFlashedTitle = ""
     @State private var flashTask: Task<Void, Never>?
     @State private var debounceTask: Task<Void, Never>?
-    /// Cover drawn by the live-activity-off peek. Never `albumArt`.
+    /// Cover drawn by an Apple Music peek. Never `albumArt` (previous cover or Music icon).
     @State private var peekArtwork: NSImage?
     @State private var peekCoverRequestID: UUID?
     @State private var peekUsesIsolatedCover = false
@@ -180,7 +180,13 @@ struct ContentView: View {
             }
         }
         .onChange(of: musicManager.avgColor) { _, newColor in
-            guard isFlashing else { return }
+            // Apple Music peeks take their color from the new cover only.
+            guard isFlashing, !peekUsesIsolatedCover else { return }
+            peekTitleColor = playerTint.resolvedColor(albumArt: newColor)
+        }
+        .onChange(of: musicManager.appleMusicPeekAccentColor) { _, newColor in
+            guard isFlashing, peekUsesIsolatedCover, peekArtwork != nil else { return }
+            guard playerTint == .albumArt else { return }
             peekTitleColor = playerTint.resolvedColor(albumArt: newColor)
         }
     }
@@ -265,9 +271,11 @@ struct ContentView: View {
         let sideGrow = isFlashing ? max(titleWidth - wing, 0) : 0
         let titleInner = max(titleWidth, 8)
         return HStack(spacing: 0) {
-            // Live activity keeps the shared cover, including its 250ms icon.
-            // The live-activity-off peek draws only a decoded cover for this
-            // request, or nothing. Never albumArt (old cover or Music icon).
+            // Apple Music peeks draw only a decoded cover for this request, or
+            // nothing. Never albumArt (previous cover or Music icon).
+            // The persistent bar uses the shared slot: a real cover, or an empty
+            // placeholder while a skip is still resolving. The Music icon is
+            // only the confirmed miss.
             if isFlashing && peekUsesIsolatedCover {
                 if let peekArtwork {
                     Image(nsImage: peekArtwork)
@@ -279,7 +287,12 @@ struct ContentView: View {
                 } else {
                     Color.clear
                         .frame(width: wing, height: height)
+                        .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
                 }
+            } else if musicManager.albumArtSlotIsEmpty {
+                Color.clear
+                    .frame(width: wing, height: height)
+                    .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
             } else {
                 Image(nsImage: musicManager.albumArt)
                     .resizable()
@@ -385,9 +398,11 @@ struct ContentView: View {
         // onChange runs. Don't pair that title with the latest cover.
         guard trimmed == normalizedTitle(musicManager.songTitle) else { return }
 
-        // Live activity off + Apple Music: don't mount the bar until the new
-        // cover is decoded, or 600ms passes. Other paths keep the old timing.
-        let isolateCover = !coordinator.musicLiveActivityEnabled && musicManager.pendingTitleIsAppleMusic
+        // Apple Music: don't mount the peek until the new cover is decoded, or
+        // 600ms passes. `musicLiveActivityEnabled` defaults true and has no UI,
+        // so the live-activity flag must not choose the shared cover here.
+        // Other sources keep the old timing.
+        let isolateCover = musicManager.pendingTitleIsAppleMusic
         if isolateCover {
             peekCoverRequestID = musicManager.appleMusicPeekRequestID
             if let image = musicManager.appleMusicPeekImage {
@@ -440,6 +455,7 @@ struct ContentView: View {
         guard let image = musicManager.appleMusicPeekImage else { return }
         if isFlashing && peekUsesIsolatedCover {
             peekArtwork = image
+            peekTitleColor = isolatedPeekTitleColor(hasCover: true)
             return
         }
         guard waitingForPeekCover else { return }
@@ -459,6 +475,17 @@ struct ContentView: View {
         return min(max(needed, wing), wing + maxSideGrow)
     }
 
+    /// Apple Music peek title. From the new cover once that sample exists;
+    /// otherwise a neutral white (album-art tint) or the non-cover tint.
+    /// Never `avgColor`, which may still be the previous cover or an icon sample.
+    private func isolatedPeekTitleColor(hasCover: Bool) -> Color {
+        if playerTint == .albumArt {
+            guard hasCover else { return .white }
+            return playerTint.resolvedColor(albumArt: musicManager.appleMusicPeekAccentColor)
+        }
+        return playerTint.resolvedColor(albumArt: .white)
+    }
+
     private func startFlash(title: String, artwork: NSImage?, isolateCover: Bool) {
         guard showTitleOnTrackChange else {
             lastFlashedTitle = title
@@ -467,10 +494,12 @@ struct ContentView: View {
         flashTask?.cancel()
         lastFlashedTitle = title
         peekTitle = title
-        peekTitleColor = playerTint.resolvedColor(albumArt: musicManager.avgColor)
-        peekSlotWidth = peekSlotWidth(for: title)
         peekUsesIsolatedCover = isolateCover
         peekArtwork = isolateCover ? artwork : nil
+        peekTitleColor = isolateCover
+            ? isolatedPeekTitleColor(hasCover: artwork != nil)
+            : playerTint.resolvedColor(albumArt: musicManager.avgColor)
+        peekSlotWidth = peekSlotWidth(for: title)
         isFlashing = true
         // Safety retract if the one-shot view never reports finished.
         flashTask = Task { @MainActor in

@@ -31,6 +31,14 @@ let defaultImage: NSImage = .init(
     accessibilityDescription: "Album Art"
 )!
 
+/// Transparent square used while a skip has cleared the previous cover and no
+/// replacement exists yet. Layout size stays put; nothing is drawn. Not the
+/// Music icon, and not a source for `avgColor`.
+let blankAlbumArt: NSImage = {
+    let image = NSImage(size: NSSize(width: 600, height: 600))
+    return image
+}()
+
 private struct ITunesExplicitnessSearchResponse: Decodable {
     let results: [ITunesExplicitnessTrack]
 }
@@ -231,6 +239,9 @@ class MusicManager: ObservableObject {
     @Published var songTitle: String = "Not Playing"
     @Published var artistName: String = ""
     @Published var albumArt: NSImage = defaultImage
+    /// True while `albumArt` is the empty skip slot. Surfaces draw nothing.
+    /// Tint is not sampled from this image.
+    @Published var albumArtSlotIsEmpty: Bool = false
     @Published var isPlaying = false
     @Published var album: String = ""
     @Published var isPlayerIdle: Bool = true
@@ -286,6 +297,11 @@ class MusicManager: ObservableObject {
     var appleMusicPeekRequestID: UUID?
     var appleMusicPeekImage: NSImage?
     @Published var appleMusicPeekRevision: UInt = 0
+    /// Accent sampled from the current Quick Peek cover only. White until that
+    /// cover's sample lands, so the peek title never takes the previous cover
+    /// or the Music icon.
+    @Published var appleMusicPeekAccentColor: NSColor = .white
+    private var peekAccentGeneration: UInt = 0
     /// Written in the same turn as `songTitle`, before that publish.
     var pendingTitleIsAppleMusic = false
 
@@ -418,6 +434,7 @@ class MusicManager: ObservableObject {
                               update.requestID == self.appleMusicPeekRequestID
                         else { return }
                         self.appleMusicPeekImage = update.image
+                        self.refreshPeekAccent(from: update.image)
                         self.appleMusicPeekRevision &+= 1
                     }
                     .store(in: &controllerCancellables)
@@ -583,34 +600,46 @@ class MusicManager: ObservableObject {
             }
 
             if let artwork = state.artwork,
-               artworkChanged || usingAppIconForArtwork || trackIdentityChanged {
+               artworkChanged || usingAppIconForArtwork || trackIdentityChanged || albumArtSlotIsEmpty {
                 // `artwork` is still encoded bytes. Decode happens off the main
-                // actor and only then writes `albumArt`. Cancelling the hold
-                // here opens a gap where `.unavailable` paints the Music icon
-                // under the new title. If that icon is already up for this new
-                // track, put the last real cover back until the decode lands
-                // or the hold times out.
+                // actor and only then writes `albumArt`. If the Music icon is
+                // already up for this new track, put the last real cover back
+                // until the decode lands or the hold times out. `.pending` is
+                // not this branch: it has no bytes and must blank the slot.
                 if trackIdentityChanged, usingAppIconForArtwork {
                     beginRealCoverSkipHold()
                 }
                 self.updateArtwork(artwork, for: state.trackIdentity)
-            } else if state.artworkAvailability == .unavailable {
-                // After the hold, the logo is required. During the hold, a
-                // sticky icon (or a late `.unavailable`) must not fill the window.
-                // A real new title must not share a frame with that icon.
-                let realTitleArriving = trackIdentityChanged
-                    && !Self.isPlaceholderTrackTitle(state.title)
-                if realTitleArriving {
-                    beginRealCoverSkipHold()
-                } else if !deferAppIconForRealCoverHold {
-                    applyUnavailableArtwork(for: state.bundleIdentifier)
-                }
-            } else if state.artworkAvailability == .unknown, state.artwork == nil {
-                // `.unknown` does not repaint. If an earlier miss left the
-                // Music icon in `albumArt`, put the last real cover back for
-                // this track's ~250ms linger.
-                if trackIdentityChanged {
-                    beginRealCoverSkipHold()
+            } else {
+                switch state.artworkAvailability {
+                case .available:
+                    break
+                case .unavailable:
+                    // Confirmed miss, or a confirmed empty player. During the
+                    // hold, a sticky icon must not fill the window under a real
+                    // new title. Not Playing still shows the icon immediately.
+                    let realTitleArriving = trackIdentityChanged
+                        && !Self.isPlaceholderTrackTitle(state.title)
+                    if realTitleArriving {
+                        beginRealCoverSkipHold()
+                    } else if Self.isPlaceholderTrackTitle(state.title) || !deferAppIconForRealCoverHold {
+                        if Self.isPlaceholderTrackTitle(state.title) {
+                            cancelRealCoverSkipHold()
+                        }
+                        applyUnavailableArtwork(for: state.bundleIdentifier)
+                    }
+                case .pending:
+                    // Empty slot now. Do not draw the icon, and do not leave
+                    // the previous track's cover under the new title.
+                    applyBlankArtwork()
+                case .unknown:
+                    // `.unknown` does not repaint. If an earlier miss left the
+                    // Music icon in `albumArt`, put the last real cover back
+                    // for this track's ~250ms linger. `.pending` is what clears
+                    // that cover; this branch must not.
+                    if state.artwork == nil, trackIdentityChanged {
+                        beginRealCoverSkipHold()
+                    }
                 }
             }
             self.artworkData = state.artwork
@@ -635,7 +664,9 @@ class MusicManager: ObservableObject {
             // replaces it. The hold's logo path clears the canvas itself.
             let waitingForAppleMusicCover =
                 state.artworkAvailability == .unknown
-                || (realCoverHoldActive && state.artworkAvailability != .available)
+                || (realCoverHoldActive
+                    && state.artworkAvailability != .available
+                    && state.artworkAvailability != .pending)
             let keepCanvasDuringAppleMusicLinger =
                 state.liveArtworkURL == nil
                 && self.videoArtworkURL != nil
@@ -660,9 +691,11 @@ class MusicManager: ObservableObject {
                ) {
                 appleMusicPeekRequestID = snapshot.requestID
                 appleMusicPeekImage = snapshot.image
+                refreshPeekAccent(from: snapshot.image)
             } else {
                 appleMusicPeekRequestID = nil
                 appleMusicPeekImage = nil
+                refreshPeekAccent(from: nil)
             }
             showLastRealCoverBeforeRealTitle(state.title)
             self.songTitle = state.title
@@ -858,7 +891,48 @@ class MusicManager: ObservableObject {
     private func applyUnavailableArtwork(for bundleIdentifier: String) {
         let fallback = AppIconAsNSImage(for: bundleIdentifier) ?? defaultImage
         usingAppIconForArtwork = true
-        updateAlbumArt(newAlbumArt: fallback)
+        albumArtSlotIsEmpty = false
+        // Do not sample the icon into `avgColor`. Keep the previous tint.
+        var transaction = Transaction()
+        transaction.animation = .smooth
+        withTransaction(transaction) {
+            albumArt = fallback
+        }
+    }
+
+    /// Empty cover slot. Layout size stays on `blankAlbumArt`; nothing is drawn.
+    /// Does not sample tint and does not keep the previous track's cover.
+    private func applyBlankArtwork() {
+        usingAppIconForArtwork = false
+        albumArtSlotIsEmpty = true
+        if realCoverHoldActive {
+            cancelRealCoverSkipHold()
+        }
+        if videoArtworkURL != nil {
+            videoArtworkURL = nil
+        }
+        guard albumArt !== blankAlbumArt else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            albumArt = blankAlbumArt
+        }
+    }
+
+    /// Sample the Quick Peek cover for its title color. White until the sample
+    /// for this image lands, and white when there is no cover. Never the
+    /// previous cover and never the Music icon.
+    private func refreshPeekAccent(from image: NSImage?) {
+        peekAccentGeneration &+= 1
+        let generation = peekAccentGeneration
+        appleMusicPeekAccentColor = .white
+        guard let image else { return }
+        image.prominentOpposingColors { [weak self] primary, _ in
+            DispatchQueue.main.async {
+                guard let self, self.peekAccentGeneration == generation else { return }
+                self.appleMusicPeekAccentColor = primary
+            }
+        }
     }
 
     private var deferAppIconForRealCoverHold: Bool {
@@ -892,6 +966,7 @@ class MusicManager: ObservableObject {
     private func snapLastRealCoverIfIcon() {
         guard usingAppIconForArtwork, let lastRealAlbumArt else { return }
         usingAppIconForArtwork = false
+        albumArtSlotIsEmpty = false
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
@@ -904,6 +979,9 @@ class MusicManager: ObservableObject {
     private func showLastRealCoverBeforeRealTitle(_ title: String) {
         guard activeController is AppleMusicController else { return }
         guard !Self.isPlaceholderTrackTitle(title) else { return }
+        // A blank slot must stay blank. Restoring `lastRealAlbumArt` here would
+        // pair the new title with the previous cover.
+        guard !albumArtSlotIsEmpty else { return }
         snapLastRealCoverIfIcon()
     }
 
@@ -931,6 +1009,13 @@ class MusicManager: ObservableObject {
         realCoverHoldWaitsForNextIdentity = false
         realCoverHoldIdentity = nil
         realCoverHoldTask = nil
+        // `.pending` means the 250ms linger is over and the previous cover must
+        // leave. `.unknown` still does not redraw; the controller's `.pending`
+        // publish is what clears it. The icon is only `.unavailable`.
+        if artworkAvailability == .pending {
+            applyBlankArtwork()
+            return
+        }
         guard artworkAvailability == .unavailable,
               activeController is AppleMusicController,
               !usingAppIconForArtwork
@@ -958,6 +1043,7 @@ class MusicManager: ObservableObject {
                     else { return }
                     self.lastRealAlbumArt = artworkImage
                     self.usingAppIconForArtwork = false
+                    self.albumArtSlotIsEmpty = false
                     self.updateAlbumArt(newAlbumArt: artworkImage)
                     self.endRealCoverSkipHoldIfImageLanded(for: trackIdentity)
                 }
@@ -1090,6 +1176,9 @@ class MusicManager: ObservableObject {
     }
 
     func calculateAverageColor() {
+        // Blank slot and the Music icon are not covers. Keep the previous tint
+        // (or the neutral default if nothing has been sampled yet).
+        guard !albumArtSlotIsEmpty, !usingAppIconForArtwork else { return }
         colorGeneration &+= 1
         let generation = colorGeneration
         let trackIdentity = currentTrackIdentity
@@ -1239,7 +1328,9 @@ class MusicManager: ObservableObject {
                 // window would uncover `albumArt` before the new cover is in.
                 let waitingForAppleMusicCover =
                     self.artworkAvailability == .unknown
-                    || (self.realCoverHoldActive && self.artworkAvailability != .available)
+                    || (self.realCoverHoldActive
+                        && self.artworkAvailability != .available
+                        && self.artworkAvailability != .pending)
                 if url == nil,
                    waitingForAppleMusicCover,
                    self.activeController is AppleMusicController {

@@ -30,6 +30,9 @@ enum RepeatMode: Int, Codable {
 
 enum ArtworkAvailability: Equatable {
     case unknown
+    /// Previous cover has been cleared. The slot is empty: nothing drawn,
+    /// not the Music icon. Only Apple Music skips publish this.
+    case pending
     case available
     case unavailable
 }

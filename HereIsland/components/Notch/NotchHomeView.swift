@@ -133,7 +133,9 @@ struct DynamicIslandArtworkSourceView: View {
 
     var body: some View {
         Group {
-            if let liveCanvasURL {
+            if musicManager.albumArtSlotIsEmpty {
+                Color.clear
+            } else if let liveCanvasURL {
                 DynamicIslandArtworkVideoView(url: liveCanvasURL, videoGravity: .resizeAspectFill)
             } else {
                 Image(nsImage: musicManager.albumArt)
