@@ -101,6 +101,14 @@ class AppleMusicController: MediaControllerProtocol {
     /// smaller is likely an empty descriptor or error string, not image data.
     private static let minimumArtworkSize = 16
 
+    /// Successful catalog images only. Key is `artist|album`, or `artist|title`
+    /// when the album is empty or `Unknown`, so album-less tracks do not share a cover.
+    private let catalogArtworkCache: NSCache<NSString, NSData> = {
+        let cache = NSCache<NSString, NSData>()
+        cache.countLimit = 32
+        return cache
+    }()
+
     private var notificationTask: Task<Void, Never>?
     private var playbackInfoRequestGeneration: UInt = 0
     private var artworkFetchTask: Task<Void, Never>?
@@ -728,7 +736,70 @@ class AppleMusicController: MediaControllerProtocol {
         )
     }
 
+    /// Empty and `Unknown` (any case, surrounding whitespace ignored) are not a real album.
+    private static func isMissingCatalogAlbum(_ album: String) -> Bool {
+        let trimmed = album.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty
+            || trimmed.compare("Unknown", options: .caseInsensitive) == .orderedSame
+    }
+
+    /// `artist|album`. Empty or `Unknown` album uses `artist|title` instead,
+    /// never `artist|` or `artist|Unknown`. Nil when that title is empty too.
+    private static func catalogArtworkCacheKey(artist: String, album: String, title: String) -> String? {
+        let artistKey = artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let second: String
+        if isMissingCatalogAlbum(album) {
+            second = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            second = album.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard !second.isEmpty else { return nil }
+        return "\(artistKey)|\(second)"
+    }
+
+    private func cachedCatalogArtwork(artist: String, album: String, title: String) -> Data? {
+        guard let key = Self.catalogArtworkCacheKey(artist: artist, album: album, title: title),
+              let cached = catalogArtworkCache.object(forKey: key as NSString)
+        else { return nil }
+        return Data(referencing: cached)
+    }
+
+    private func storeCatalogArtwork(_ data: Data, artist: String, album: String, title: String) {
+        guard let key = Self.catalogArtworkCacheKey(artist: artist, album: album, title: title) else { return }
+        catalogArtworkCache.setObject(NSData(data: data), forKey: key as NSString)
+    }
+
     private func fetchArtworkFromCatalog(
+        title: String,
+        artist: String,
+        album: String
+    ) async -> CatalogArtworkResult {
+        if let cached = cachedCatalogArtwork(artist: artist, album: album, title: title) {
+            return .available(cached)
+        }
+
+        let songResult = await fetchSongArtworkFromCatalog(title: title, artist: artist, album: album)
+        switch songResult {
+        case .available(let data):
+            storeCatalogArtwork(data, artist: artist, album: album, title: title)
+            return .available(data)
+        case .transientFailure:
+            return .transientFailure
+        case .unavailable:
+            break
+        }
+
+        // Song search missed. One album lookup, and only when the name is real.
+        guard !Self.isMissingCatalogAlbum(album) else { return .unavailable }
+
+        let albumResult = await fetchAlbumArtworkFromCatalog(artist: artist, album: album)
+        if case .available(let data) = albumResult {
+            storeCatalogArtwork(data, artist: artist, album: album, title: title)
+        }
+        return albumResult
+    }
+
+    private func fetchSongArtworkFromCatalog(
         title: String,
         artist: String,
         album: String
@@ -770,12 +841,51 @@ class AppleMusicController: MediaControllerProtocol {
             guard let artworkURLString = match?.artworkUrl100 else {
                 return .unavailable
             }
+            return await downloadCatalogArtwork(from: artworkURLString)
+        } catch {
+            return .transientFailure
+        }
+    }
 
-            let highResURL = artworkURLString.replacingOccurrences(of: "100x100", with: "600x600")
-            guard let imageURL = URL(string: highResURL) else {
+    private func fetchAlbumArtworkFromCatalog(artist: String, album: String) async -> CatalogArtworkResult {
+        let query = "\(artist) \(album)"
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty,
+              let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://itunes.apple.com/search?term=\(encoded)&media=music&entity=album&limit=5")
+        else { return .unavailable }
+
+        do {
+            let (data, urlResponse) = try await URLSession.shared.data(from: url)
+            guard let httpResponse = urlResponse as? HTTPURLResponse,
+                  (200..<300).contains(httpResponse.statusCode)
+            else {
                 return .transientFailure
             }
 
+            let searchResponse = try JSONDecoder().decode(ITunesSearchResponse.self, from: data)
+            let normalizedAlbum = canonicalMetadata(album)
+            let match = searchResponse.results.first(where: {
+                !normalizedAlbum.isEmpty
+                    && canonicalMetadata($0.collectionName) == normalizedAlbum
+                    && $0.artworkUrl100 != nil
+            }) ?? searchResponse.results.first(where: { $0.artworkUrl100 != nil })
+
+            guard let artworkURLString = match?.artworkUrl100 else {
+                return .unavailable
+            }
+            return await downloadCatalogArtwork(from: artworkURLString)
+        } catch {
+            return .transientFailure
+        }
+    }
+
+    private func downloadCatalogArtwork(from artworkURLString: String) async -> CatalogArtworkResult {
+        let highResURL = artworkURLString.replacingOccurrences(of: "100x100", with: "600x600")
+        guard let imageURL = URL(string: highResURL) else {
+            return .transientFailure
+        }
+
+        do {
             let (imageData, imageResponse) = try await URLSession.shared.data(from: imageURL)
             guard let httpResponse = imageResponse as? HTTPURLResponse,
                   (200..<300).contains(httpResponse.statusCode),
@@ -784,7 +894,6 @@ class AppleMusicController: MediaControllerProtocol {
             else {
                 return .transientFailure
             }
-
             return .available(imageData)
         } catch {
             return .transientFailure
