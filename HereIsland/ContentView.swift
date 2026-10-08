@@ -48,6 +48,11 @@ struct ContentView: View {
     @State private var lastFlashedTitle = ""
     @State private var flashTask: Task<Void, Never>?
     @State private var debounceTask: Task<Void, Never>?
+    /// Cover drawn by the live-activity-off peek. Never `albumArt`.
+    @State private var peekArtwork: NSImage?
+    @State private var peekCoverRequestID: UUID?
+    @State private var peekUsesIsolatedCover = false
+    @State private var waitingForPeekCover = false
 
     private var cornerInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) {
         (opened: minimalisticCornerRadiusInsets.opened, closed: cornerRadiusInsets.closed)
@@ -70,6 +75,7 @@ struct ContentView: View {
     /// Persistent closed music pill follows the live-activity preference.
     /// Quick peek still mounts that same bar while `isFlashing`, then drops it
     /// when the flash ends so a disabled live activity stays off.
+    /// Apple Music peeks wait for a decoded cover (or 600ms) before setting `isFlashing`.
     private var showsClosedMusicActivity: Bool {
         vm.notchState == .closed
             && !vm.hideOnClosed
@@ -90,6 +96,9 @@ struct ContentView: View {
     ]
     private static let flashTitleFontSize: CGFloat = 12
     private static let flashWidthExtraMax: CGFloat = 80
+    /// Same budget as Apple Music `artworkTimeoutFromTrackChange`.
+    /// Not the 250ms shared-`albumArt` linger.
+    private static let peekCoverWait: Duration = .milliseconds(600)
     private var flashTitleFont: Font {
         .system(size: Self.flashTitleFontSize, weight: .medium, design: .rounded)
     }
@@ -154,6 +163,9 @@ struct ContentView: View {
         }
         .onChange(of: musicManager.songTitle) { _, newTitle in
             handleSongTitleChange(newTitle)
+        }
+        .onChange(of: musicManager.appleMusicPeekRevision) { _, _ in
+            applyLateAppleMusicPeekCover()
         }
         .onChange(of: vm.notchState) { _, newState in
             if newState == .open {
@@ -253,14 +265,29 @@ struct ContentView: View {
         let sideGrow = isFlashing ? max(titleWidth - wing, 0) : 0
         let titleInner = max(titleWidth, 8)
         return HStack(spacing: 0) {
-            // Always bind live art — a flash snapshot goes stale when the
-            // track changes again before peek retracts.
-            Image(nsImage: musicManager.albumArt)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .frame(width: wing, height: height)
-                .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
+            // Live activity keeps the shared cover, including its 250ms icon.
+            // The live-activity-off peek draws only a decoded cover for this
+            // request, or nothing. Never albumArt (old cover or Music icon).
+            if isFlashing && peekUsesIsolatedCover {
+                if let peekArtwork {
+                    Image(nsImage: peekArtwork)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .frame(width: wing, height: height)
+                        .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
+                } else {
+                    Color.clear
+                        .frame(width: wing, height: height)
+                }
+            } else {
+                Image(nsImage: musicManager.albumArt)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .frame(width: wing, height: height)
+                    .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
+            }
 
             if isFlashing {
                 Rectangle()
@@ -341,6 +368,7 @@ struct ContentView: View {
         // in place — tearing down and restarting leaves title/cover out of sync.
         debounceTask?.cancel()
         debounceTask = nil
+        waitingForPeekCover = false
 
         let trimmed = normalizedTitle(newTitle)
         guard vm.notchState == .closed, !vm.hideOnClosed else {
@@ -353,6 +381,46 @@ struct ContentView: View {
         }
         guard isFlashableTitle(trimmed) else { return }
         guard trimmed != lastFlashedTitle else { return }
+        // A newer skip may already have replaced `songTitle` before this
+        // onChange runs. Don't pair that title with the latest cover.
+        guard trimmed == normalizedTitle(musicManager.songTitle) else { return }
+
+        // Live activity off + Apple Music: don't mount the bar until the new
+        // cover is decoded, or 600ms passes. Other paths keep the old timing.
+        let isolateCover = !coordinator.musicLiveActivityEnabled && musicManager.pendingTitleIsAppleMusic
+        if isolateCover {
+            peekCoverRequestID = musicManager.appleMusicPeekRequestID
+            if let image = musicManager.appleMusicPeekImage {
+                let requestID = peekCoverRequestID
+                debounceTask = Task { @MainActor in
+                    guard !Task.isCancelled else { return }
+                    guard normalizedTitle(musicManager.songTitle) == trimmed else { return }
+                    guard musicManager.appleMusicPeekRequestID == requestID else { return }
+                    startFlash(title: trimmed, artwork: image, isolateCover: true)
+                }
+                return
+            }
+            if isFlashing {
+                retractFlash()
+            }
+            let requestID = peekCoverRequestID
+            waitingForPeekCover = true
+            debounceTask = Task { @MainActor in
+                try? await Task.sleep(for: Self.peekCoverWait)
+                guard !Task.isCancelled else { return }
+                waitingForPeekCover = false
+                guard vm.notchState == .closed, !vm.hideOnClosed else { return }
+                guard !isFlashing else { return }
+                let settled = normalizedTitle(musicManager.songTitle)
+                guard settled == trimmed, isFlashableTitle(settled) else { return }
+                let image = musicManager.appleMusicPeekRequestID == requestID
+                    ? musicManager.appleMusicPeekImage
+                    : nil
+                startFlash(title: settled, artwork: image, isolateCover: true)
+            }
+            return
+        }
+
         debounceTask = Task { @MainActor in
             guard !Task.isCancelled else { return }
             guard vm.notchState == .closed, !vm.hideOnClosed else {
@@ -361,8 +429,26 @@ struct ContentView: View {
             }
             let settled = normalizedTitle(musicManager.songTitle)
             guard isFlashableTitle(settled), settled != lastFlashedTitle else { return }
-            startFlash(title: settled)
+            startFlash(title: settled, artwork: nil, isolateCover: false)
         }
+    }
+
+    /// Catalog (or delayed script art) finished while this peek is still the current request.
+    private func applyLateAppleMusicPeekCover() {
+        guard waitingForPeekCover || (isFlashing && peekUsesIsolatedCover) else { return }
+        guard musicManager.appleMusicPeekRequestID == peekCoverRequestID else { return }
+        guard let image = musicManager.appleMusicPeekImage else { return }
+        if isFlashing && peekUsesIsolatedCover {
+            peekArtwork = image
+            return
+        }
+        guard waitingForPeekCover else { return }
+        let title = normalizedTitle(musicManager.songTitle)
+        guard isFlashableTitle(title) else { return }
+        waitingForPeekCover = false
+        debounceTask?.cancel()
+        debounceTask = nil
+        startFlash(title: title, artwork: image, isolateCover: true)
     }
 
     private func peekSlotWidth(for title: String) -> CGFloat {
@@ -373,7 +459,7 @@ struct ContentView: View {
         return min(max(needed, wing), wing + maxSideGrow)
     }
 
-    private func startFlash(title: String) {
+    private func startFlash(title: String, artwork: NSImage?, isolateCover: Bool) {
         guard showTitleOnTrackChange else {
             lastFlashedTitle = title
             return
@@ -383,6 +469,8 @@ struct ContentView: View {
         peekTitle = title
         peekTitleColor = playerTint.resolvedColor(albumArt: musicManager.avgColor)
         peekSlotWidth = peekSlotWidth(for: title)
+        peekUsesIsolatedCover = isolateCover
+        peekArtwork = isolateCover ? artwork : nil
         isFlashing = true
         // Safety retract if the one-shot view never reports finished.
         flashTask = Task { @MainActor in
@@ -397,11 +485,14 @@ struct ContentView: View {
         flashTask = nil
         isFlashing = false
         peekTitle = ""
+        peekUsesIsolatedCover = false
+        peekArtwork = nil
     }
 
     private func cancelFlashForOpen() {
         debounceTask?.cancel()
         debounceTask = nil
+        waitingForPeekCover = false
         flashTask?.cancel()
         flashTask = nil
         var transaction = Transaction()
@@ -409,6 +500,8 @@ struct ContentView: View {
         withTransaction(transaction) {
             isFlashing = false
             peekTitle = ""
+            peekUsesIsolatedCover = false
+            peekArtwork = nil
         }
     }
 
