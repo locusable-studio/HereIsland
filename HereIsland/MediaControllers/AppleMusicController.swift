@@ -30,6 +30,7 @@ private struct ITunesSearchResponse: Decodable {
 
 private struct ITunesTrack: Decodable {
     let trackName: String?
+    let artistName: String?
     let collectionName: String?
     let artworkUrl100: String?
 }
@@ -101,7 +102,8 @@ class AppleMusicController: MediaControllerProtocol {
     /// smaller is likely an empty descriptor or error string, not image data.
     private static let minimumArtworkSize = 16
 
-    /// Successful catalog images only. Key is `artist|album`, or `artist|title`
+    /// Validated catalog images that passed the artist match (album too when it
+    /// is real; title when it is not). Key is `artist|album`, or `artist|title`
     /// when the album is empty or `Unknown`, so album-less tracks do not share a cover.
     private let catalogArtworkCache: NSCache<NSString, NSData> = {
         let cache = NSCache<NSString, NSData>()
@@ -736,6 +738,33 @@ class AppleMusicController: MediaControllerProtocol {
         )
     }
 
+    /// Equal or prefix after `canonicalMetadata` (case, diacritics, and width
+    /// already folded; non-alphanumerics stripped). Either side empty is not a
+    /// match: a symbol-only name collapses to "" and would otherwise prefix-match
+    /// every string. `A feat. B` vs `A` matches; `B & A` vs `A` does not.
+    private func catalogMetadataMatches(_ candidate: String?, _ expected: String) -> Bool {
+        let left = canonicalMetadata(candidate)
+        let right = canonicalMetadata(expected)
+        guard !left.isEmpty, !right.isEmpty else { return false }
+        return left == right || left.hasPrefix(right) || right.hasPrefix(left)
+    }
+
+    /// Shown song art is cached only when the artist matches and, when the album
+    /// is real, the collection does too. An empty / `Unknown` album caches on
+    /// artist + title. A title-tier hit with the wrong artist stays uncached.
+    private func songArtworkIsCacheable(
+        _ track: ITunesTrack,
+        title: String,
+        artist: String,
+        album: String
+    ) -> Bool {
+        guard catalogMetadataMatches(track.artistName, artist) else { return false }
+        if Self.isMissingCatalogAlbum(album) {
+            return catalogMetadataMatches(track.trackName, title)
+        }
+        return catalogMetadataMatches(track.collectionName, album)
+    }
+
     /// Empty and `Unknown` (any case, surrounding whitespace ignored) are not a real album.
     private static func isMissingCatalogAlbum(_ album: String) -> Bool {
         let trimmed = album.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -778,10 +807,16 @@ class AppleMusicController: MediaControllerProtocol {
             return .available(cached)
         }
 
-        let songResult = await fetchSongArtworkFromCatalog(title: title, artist: artist, album: album)
+        let (songResult, cacheSong) = await fetchSongArtworkFromCatalog(
+            title: title,
+            artist: artist,
+            album: album
+        )
         switch songResult {
         case .available(let data):
-            storeCatalogArtwork(data, artist: artist, album: album, title: title)
+            if cacheSong {
+                storeCatalogArtwork(data, artist: artist, album: album, title: title)
+            }
             return .available(data)
         case .transientFailure:
             return .transientFailure
@@ -803,47 +838,51 @@ class AppleMusicController: MediaControllerProtocol {
         title: String,
         artist: String,
         album: String
-    ) async -> CatalogArtworkResult {
+    ) async -> (CatalogArtworkResult, Bool) {
         let query = "\(title) \(artist)"
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty,
               let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://itunes.apple.com/search?term=\(encoded)&media=music&entity=song&limit=10")
-        else { return .unavailable }
+        else { return (.unavailable, false) }
 
         do {
             let (data, urlResponse) = try await URLSession.shared.data(from: url)
             guard let httpResponse = urlResponse as? HTTPURLResponse,
                   (200..<300).contains(httpResponse.statusCode)
             else {
-                return .transientFailure
+                return (.transientFailure, false)
             }
 
             let searchResponse = try JSONDecoder().decode(ITunesSearchResponse.self, from: data)
             guard !searchResponse.results.isEmpty else {
-                return .unavailable
+                return (.unavailable, false)
             }
 
-            let normalizedAlbum = canonicalMetadata(album)
-            let normalizedTitle = canonicalMetadata(title)
+            // Same tiers as before (title+album, album, title). No first-result fallback.
+            // A missing album is not a name: comparing the `Unknown` sentinel as a
+            // prefix would accept unrelated collections. Title-only still accepts a
+            // different artist so an existing cover keeps showing.
+            let comparableAlbum = Self.isMissingCatalogAlbum(album) ? "" : album
             let match = searchResponse.results.first(where: {
-                !normalizedTitle.isEmpty
-                    && !normalizedAlbum.isEmpty
-                    && canonicalMetadata($0.trackName) == normalizedTitle
-                    && canonicalMetadata($0.collectionName) == normalizedAlbum
+                catalogMetadataMatches($0.trackName, title)
+                    && catalogMetadataMatches($0.collectionName, comparableAlbum)
             }) ?? searchResponse.results.first(where: {
-                !normalizedAlbum.isEmpty
-                    && canonicalMetadata($0.collectionName) == normalizedAlbum
+                catalogMetadataMatches($0.collectionName, comparableAlbum)
             }) ?? searchResponse.results.first(where: {
-                !normalizedTitle.isEmpty
-                    && canonicalMetadata($0.trackName) == normalizedTitle
+                catalogMetadataMatches($0.trackName, title)
             })
 
-            guard let artworkURLString = match?.artworkUrl100 else {
-                return .unavailable
+            guard let match, let artworkURLString = match.artworkUrl100 else {
+                return (.unavailable, false)
             }
-            return await downloadCatalogArtwork(from: artworkURLString)
+            let downloaded = await downloadCatalogArtwork(from: artworkURLString)
+            guard case .available = downloaded else {
+                return (downloaded, false)
+            }
+            let cacheable = songArtworkIsCacheable(match, title: title, artist: artist, album: album)
+            return (downloaded, cacheable)
         } catch {
-            return .transientFailure
+            return (.transientFailure, false)
         }
     }
 
@@ -863,12 +902,13 @@ class AppleMusicController: MediaControllerProtocol {
             }
 
             let searchResponse = try JSONDecoder().decode(ITunesSearchResponse.self, from: data)
-            let normalizedAlbum = canonicalMetadata(album)
+            // Artist and collection must both match. A leftover "any album" hit
+            // was cached and then stuck on every later track of this album.
             let match = searchResponse.results.first(where: {
-                !normalizedAlbum.isEmpty
-                    && canonicalMetadata($0.collectionName) == normalizedAlbum
+                catalogMetadataMatches($0.artistName, artist)
+                    && catalogMetadataMatches($0.collectionName, album)
                     && $0.artworkUrl100 != nil
-            }) ?? searchResponse.results.first(where: { $0.artworkUrl100 != nil })
+            })
 
             guard let artworkURLString = match?.artworkUrl100 else {
                 return .unavailable
