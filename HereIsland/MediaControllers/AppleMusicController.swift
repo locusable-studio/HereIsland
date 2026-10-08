@@ -82,17 +82,27 @@ class AppleMusicController: MediaControllerProtocol {
     private static let bundleIdentifier = "com.apple.Music"
 
     /// Shared `albumArt` only. Max time the previous cover stays up after a
-    /// skip with no replacement art yet. The Quick Peek does not use this.
+    /// skip with no replacement art yet. The slot then goes `.pending` (blank),
+    /// never the Music icon. The Quick Peek does not use this.
     private static let previousCoverLinger: Duration = .milliseconds(250)
 
-    /// Shared `albumArt` deadline, counted from track change. If still no art,
-    /// the Music icon sticks on the persistent bar. The catalog lookup itself
-    /// keeps running for the Quick Peek and the cache.
+    /// Counted from the track change. Keeps the blank slot and arms the
+    /// one-shot script-art fetch. Does not pin the Music icon and does not
+    /// drop `artworkRequestID`.
     private static let artworkTimeoutFromTrackChange: Duration = .milliseconds(600)
 
-    /// Upper bound for one catalog lookup after it is allowed to outlive the
-    /// 600ms `albumArt` deadline. A new skip does not cancel the previous
-    /// lookup; this cap is what keeps rapid skips from piling requests up.
+    /// Cap for one catalog lookup, from when that lookup starts (the track
+    /// change). The blank slot ends when a decoded cover is applied, or when
+    /// both this lookup and the one-shot script fetch have settled with no
+    /// image. The script fetch is armed at 600ms and waits
+    /// `delayedScriptArtworkDelay` (300ms) before one artwork-inclusive
+    /// snapshot. If that path does not start, it counts as already settled.
+    /// Worst case is therefore max(4s catalog cap, 900ms + that script
+    /// round-trip): a fast script miss still waits out a slow catalog, and a
+    /// script slower than 4s holds the blank until the script returns.
+    /// Confirmed stop is outside this bound and shows the icon immediately.
+    /// A new skip does not cancel the previous lookup; this cap is what keeps
+    /// rapid skips from piling requests up.
     private static let catalogLookupTimeout: Duration = .seconds(4)
 
     @Published private var playbackState: PlaybackState = PlaybackState(
@@ -144,10 +154,23 @@ class AppleMusicController: MediaControllerProtocol {
     /// full AppleScript snapshots (especially artwork raw data).
     private var playbackInfoCoalesceTask: Task<Void, Never>?
     private static let playerInfoCoalesce: Duration = .milliseconds(200)
-    /// One-shot script-art fetch after catalog miss / 600ms deadline.
+    /// One-shot script-art fetch after the 600ms deadline.
     /// Not the immediate playerInfo follow-up removed in #71.
     private var delayedScriptArtworkTask: Task<Void, Never>?
+    /// `contentIdentifier` captured when that script fetch is armed.
+    /// A result may update `albumArt` only when it still equals the current track.
+    private var delayedScriptContentIdentifier: String?
     private static let delayedScriptArtworkDelay: Duration = .milliseconds(300)
+    /// Catalog + script settlement for the skip in flight. The Music icon waits
+    /// until both have settled with no image. Keyed by the request that started
+    /// them; write-back itself checks `contentIdentifier`, not `artworkRequestID`.
+    private struct InFlightCoverLookup {
+        let requestID: UUID
+        let contentIdentifier: String?
+        var catalogSettled = false
+        var scriptSettled = false
+    }
+    private var coverLookup: InFlightCoverLookup?
     /// Artwork bytes of the track we just left. Used to reject a late script
     /// snapshot that is still serving the previous cover.
     private var skippedTrackArtwork: Data?
@@ -370,12 +393,14 @@ class AppleMusicController: MediaControllerProtocol {
                 return nil
             }
             // Delayed post-deadline fetch: Music may still return the skipped
-            // track's bytes. Keep the logo rather than resticking that cover.
+            // track's bytes. Keep the slot empty rather than resticking that cover.
             if rejectArtworkMatchingSkippedTrack,
                let skipped = skippedTrackArtwork,
                skipped == artworkData {
                 return nil
             }
+            // Bytes alone are not a cover. The icon/blank decision needs a real image.
+            guard Self.decodePeekImage(artworkData) != nil else { return nil }
             return artworkData
         }()
 
@@ -385,7 +410,18 @@ class AppleMusicController: MediaControllerProtocol {
             // previous cover bytes after contentChanged cleared them; treating
             // those as .available cancelled the 250ms/600ms path and left the
             // notch stuck on the old cover (rapid skips).
-            if artworkRequestID != nil && !contentChanged {
+            // The one-shot fetch armed at 600ms is the exception: its result
+            // is accepted only when the contentIdentifier captured at arm time
+            // is still this track. A newer skip's identifier does not match,
+            // so track 1's image cannot land on track 3.
+            let acceptsDelayedScript =
+                fetchedArtwork
+                && Self.contentIdentifiersMatch(
+                    snapshot.contentIdentifier,
+                    delayedScriptContentIdentifier
+                )
+                && contentIdentifierMatchesCurrent(delayedScriptContentIdentifier)
+            if artworkRequestID != nil && !contentChanged && !acceptsDelayedScript {
                 // Keep waiting for clear / catalog / deadline.
             } else {
                 // Trusted embedded script art (new bytes on track change, or
@@ -397,6 +433,8 @@ class AppleMusicController: MediaControllerProtocol {
                 rejectArtworkMatchingSkippedTrack = false
                 delayedScriptArtworkTask?.cancel()
                 delayedScriptArtworkTask = nil
+                delayedScriptContentIdentifier = nil
+                coverLookup = nil
                 updatedState.artwork = artworkData
                 updatedState.artworkAvailability = .available
                 if contentChanged {
@@ -416,10 +454,15 @@ class AppleMusicController: MediaControllerProtocol {
             // that never asked Music for raw data). Cancel prior generation.
             // Publish .unknown so MusicManager may briefly keep the previous
             // cover — never republish stale bytes, never immediate logo.
-            skippedTrackArtwork = playbackState.artwork
+            // Keep the last real bytes when this track never received its own.
+            // Otherwise a rapid skip (blank slot, nil artwork) forgets the cover
+            // the script fetch must still reject.
+            skippedTrackArtwork = playbackState.artwork ?? skippedTrackArtwork
             rejectArtworkMatchingSkippedTrack = false
             delayedScriptArtworkTask?.cancel()
             delayedScriptArtworkTask = nil
+            delayedScriptContentIdentifier = nil
+            coverLookup = nil
             artworkFetchTask?.cancel()
             artworkFetchTask = nil
             artworkRequestID = nil
@@ -472,13 +515,25 @@ class AppleMusicController: MediaControllerProtocol {
         let title = updatedState.title
         let artist = updatedState.artist
         let album = updatedState.album
-        // Shared albumArt timing is unchanged:
+        let contentIdentifier = snapshot.contentIdentifier
+        // Shared albumArt timing:
         // 1) Catalog starts immediately and is not cancelled at 600ms.
-        // 2) At 250ms from skip: clear previous cover (.unavailable → logo).
-        // 3) At 600ms from skip: if still no art, the logo sticks on albumArt.
-        // A later catalog hit may cache and fill the Quick Peek. It updates
-        // albumArt only when this requestID is still current.
-        beginCatalogLookup(requestID: requestID, title: title, artist: artist, album: album)
+        // 2) At 250ms from skip: clear the previous cover to `.pending` (blank).
+        // 3) At 600ms from skip: stay blank, arm the one-shot script fetch, and
+        //    keep `artworkRequestID`. Do not publish `.unavailable`.
+        // A decoded cover is written only when the contentIdentifier captured
+        // as that lookup started still equals the current track.
+        coverLookup = InFlightCoverLookup(
+            requestID: requestID,
+            contentIdentifier: contentIdentifier
+        )
+        beginCatalogLookup(
+            requestID: requestID,
+            contentIdentifier: contentIdentifier,
+            title: title,
+            artist: artist,
+            album: album
+        )
         artworkFetchTask = Task { [weak self] in
             await withTaskGroup(of: Void.self) { group in
                 group.addTask { [weak self] in
@@ -492,7 +547,7 @@ class AppleMusicController: MediaControllerProtocol {
                     try? await Task.sleep(for: Self.artworkTimeoutFromTrackChange)
                     guard !Task.isCancelled else { return }
                     await MainActor.run {
-                        self?.completeArtworkRequest(.unavailable, requestID: requestID)
+                        self?.noteSharedArtworkDeadline(requestID: requestID)
                     }
                 }
             }
@@ -640,6 +695,8 @@ class AppleMusicController: MediaControllerProtocol {
         artworkRequestID = nil
         delayedScriptArtworkTask?.cancel()
         delayedScriptArtworkTask = nil
+        delayedScriptContentIdentifier = nil
+        coverLookup = nil
         var empty = playbackState
         empty.isPlaying = false
         empty.title = "Not Playing"
@@ -658,76 +715,117 @@ class AppleMusicController: MediaControllerProtocol {
         playbackState = empty
     }
 
-    /// Drop wrong-track art after the linger window. MusicManager only replaces
-    /// the on-screen cover when availability becomes `.unavailable` (Music logo)
-    /// until catalog/script upgrades to real art.
+    /// Drop the previous cover after the linger window. Publishes `.pending`
+    /// so every surface clears to an empty slot. The Music icon is not a
+    /// stand-in for "still looking".
     @MainActor
     private func clearPreviousCoverIfNeeded(requestID: UUID) {
         guard artworkRequestID == requestID else { return }
         guard playbackState.artworkAvailability != .available else { return }
         // Still waiting for a real track after a swallowed between-tracks
-        // snapshot. Painting the logo now sticks it under the upcoming title.
-        // That track starts its own 250ms linger.
+        // snapshot. Blanking now would stick an empty slot under the upcoming
+        // title. That track starts its own 250ms linger.
+        if awaitingTrackAfterNotPlayingSentinel { return }
+        var artworkState = playbackState
+        artworkState.artwork = nil
+        artworkState.artworkAvailability = .pending
+        playbackState = artworkState
+    }
+
+    /// 600ms from the skip. Split from the old `completeArtworkRequest(.unavailable)`:
+    /// arm the one-shot script fetch, but do not publish the Music icon and do
+    /// not nil `artworkRequestID`. The slot stays `.pending` while catalog and
+    /// script are still out. `rejectArtworkMatchingSkippedTrack` stays on so
+    /// the script fetch cannot put the previous track's cover back.
+    @MainActor
+    private func noteSharedArtworkDeadline(requestID: UUID) {
+        guard artworkRequestID == requestID else { return }
+        guard playbackState.artworkAvailability != .available else { return }
+        if awaitingTrackAfterNotPlayingSentinel { return }
+        let armed = scheduleDelayedScriptArtworkFetch()
+        if !armed {
+            noteScriptLookupSettled(contentIdentifier: playbackState.contentIdentifier)
+        }
+    }
+
+    /// Write a decoded cover for the track whose identifier was captured when
+    /// the lookup started. `artworkRequestID` may already have been cleared on
+    /// a finished request; it is not the write-back key. A different current
+    /// track (rapid skip) does not receive this image.
+    @MainActor
+    private func publishAvailableArtwork(_ artwork: Data, contentIdentifier: String?) {
+        guard contentIdentifierMatchesCurrent(contentIdentifier) else { return }
+        guard Self.decodePeekImage(artwork) != nil else { return }
+        guard playbackState.artworkAvailability != .available
+            || playbackState.artwork != artwork
+        else { return }
+        rejectArtworkMatchingSkippedTrack = false
+        delayedScriptArtworkTask?.cancel()
+        delayedScriptArtworkTask = nil
+        delayedScriptContentIdentifier = nil
+        artworkFetchTask?.cancel()
+        artworkFetchTask = nil
+        artworkRequestID = nil
+        coverLookup = nil
+        var artworkState = playbackState
+        artworkState.artwork = artwork
+        artworkState.artworkAvailability = .available
+        playbackState = artworkState
+    }
+
+    @MainActor
+    private func noteCatalogSettled(requestID: UUID, contentIdentifier: String?) {
+        guard var lookup = coverLookup, lookup.requestID == requestID else { return }
+        guard contentIdentifierMatchesCurrent(contentIdentifier) else { return }
+        lookup.catalogSettled = true
+        coverLookup = lookup
+        publishUnavailableIfCoverLookupsSettled()
+    }
+
+    @MainActor
+    private func noteScriptLookupSettled(contentIdentifier: String?) {
+        guard var lookup = coverLookup else { return }
+        guard Self.contentIdentifiersMatch(lookup.contentIdentifier, contentIdentifier) else { return }
+        guard contentIdentifierMatchesCurrent(contentIdentifier) else { return }
+        if playbackState.artworkAvailability == .available {
+            coverLookup = nil
+            return
+        }
+        lookup.scriptSettled = true
+        coverLookup = lookup
+        publishUnavailableIfCoverLookupsSettled()
+    }
+
+    /// Music icon only once catalog (no-match / failure / 4s cap) and the
+    /// one-shot script fetch have both settled with no image for this track.
+    @MainActor
+    private func publishUnavailableIfCoverLookupsSettled() {
+        guard let lookup = coverLookup else { return }
+        guard lookup.catalogSettled, lookup.scriptSettled else { return }
+        guard contentIdentifierMatchesCurrent(lookup.contentIdentifier) else { return }
+        guard playbackState.artworkAvailability != .available else {
+            coverLookup = nil
+            return
+        }
         if awaitingTrackAfterNotPlayingSentinel { return }
         var artworkState = playbackState
         artworkState.artwork = nil
         artworkState.artworkAvailability = .unavailable
         playbackState = artworkState
-    }
-
-    @MainActor
-    private func completeArtworkRequest(_ result: CatalogArtworkResult, requestID: UUID) {
-        guard artworkRequestID == requestID else { return }
-        if awaitingTrackAfterNotPlayingSentinel {
-            if case .available = result {
-                // Real bytes still apply below.
-            } else {
-                // Unavailable waits until the next confirmed track.
-                artworkRequestID = nil
-                artworkFetchTask = nil
-                return
-            }
-        }
         artworkRequestID = nil
         artworkFetchTask = nil
-        // Leave `peekArtworkRequestID` in place. A catalog result that finishes
-        // after this deadline must not rewrite shared albumArt (the request id
-        // no longer matches) but may still fill the Quick Peek.
-        // Keep artworkRequestContentIdentifier so the next includeArtwork
-        // snapshot does not restart catalog + 250ms/600ms for this track.
-
-        var artworkState = playbackState
-        switch result {
-        case .available(let artwork):
-            rejectArtworkMatchingSkippedTrack = false
-            delayedScriptArtworkTask?.cancel()
-            delayedScriptArtworkTask = nil
-            artworkState.artwork = artwork
-            artworkState.artworkAvailability = .available
-            playbackState = artworkState
-        case .unavailable:
-            artworkState.artwork = nil
-            artworkState.artworkAvailability = .unavailable
-            playbackState = artworkState
-            scheduleDelayedScriptArtworkFetch()
-        case .transientFailure:
-            // Network blip: if we already cleared to logo, keep it; otherwise
-            // mark unavailable so we do not hang on .unknown forever.
-            if artworkState.artworkAvailability != .available {
-                artworkState.artwork = nil
-                artworkState.artworkAvailability = .unavailable
-                playbackState = artworkState
-                scheduleDelayedScriptArtworkFetch()
-            }
-        }
+        coverLookup = nil
     }
 
-    /// After catalog miss / 600ms deadline, try one throttled raw-data fetch.
+    /// After the 600ms deadline, try one throttled raw-data fetch.
     /// playerInfo itself stays metadata-only — this is not the #71 follow-up.
+    /// Returns false when the fetch does not start; the caller treats that as settled.
     @MainActor
-    private func scheduleDelayedScriptArtworkFetch() {
-        guard playbackState.artworkAvailability != .available else { return }
+    @discardableResult
+    private func scheduleDelayedScriptArtworkFetch() -> Bool {
+        guard playbackState.artworkAvailability != .available else { return false }
         let contentID = playbackState.contentIdentifier
+        delayedScriptContentIdentifier = contentID
         rejectArtworkMatchingSkippedTrack = true
         delayedScriptArtworkTask?.cancel()
         delayedScriptArtworkTask = Task { [weak self] in
@@ -738,9 +836,31 @@ class AppleMusicController: MediaControllerProtocol {
                 self.playbackState.contentIdentifier == contentID
                     && self.playbackState.artworkAvailability != .available
             }
-            guard shouldFetch else { return }
+            guard shouldFetch else {
+                await MainActor.run {
+                    self.noteScriptLookupSettled(contentIdentifier: contentID)
+                }
+                return
+            }
             await self.updatePlaybackInfo(includeArtwork: true)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self.noteScriptLookupSettled(contentIdentifier: contentID)
+            }
         }
+        return true
+    }
+
+    /// Both sides non-empty and equal. Nil does not match nil: a lookup that
+    /// never captured an identifier must not write onto whatever is current.
+    private static func contentIdentifiersMatch(_ lhs: String?, _ rhs: String?) -> Bool {
+        guard let lhs, let rhs, !lhs.isEmpty, !rhs.isEmpty else { return false }
+        return lhs == rhs
+    }
+
+    @MainActor
+    private func contentIdentifierMatchesCurrent(_ contentIdentifier: String?) -> Bool {
+        Self.contentIdentifiersMatch(contentIdentifier, playbackState.contentIdentifier)
     }
 
     private func canonicalMetadata(_ value: String?) -> String {
@@ -871,7 +991,13 @@ class AppleMusicController: MediaControllerProtocol {
     }
 
     @MainActor
-    private func beginCatalogLookup(requestID: UUID, title: String, artist: String, album: String) {
+    private func beginCatalogLookup(
+        requestID: UUID,
+        contentIdentifier: String?,
+        title: String,
+        artist: String,
+        album: String
+    ) {
         let task = Task { [weak self] in
             let result = await self?.fetchArtworkFromCatalog(
                 title: title,
@@ -880,21 +1006,40 @@ class AppleMusicController: MediaControllerProtocol {
             ) ?? .transientFailure
             await MainActor.run {
                 self?.catalogTasks[requestID] = nil
-                self?.resolveCatalogArtwork(result, requestID: requestID)
+                self?.resolveCatalogArtwork(
+                    result,
+                    requestID: requestID,
+                    contentIdentifier: contentIdentifier
+                )
             }
         }
         catalogTasks[requestID] = task
     }
 
-    /// Cache is written inside the fetch, including when this requestID is stale.
-    /// Shared albumArt updates only while `artworkRequestID` is still this id.
+    /// Cache is written inside the fetch, including when this request is stale.
+    /// Shared `albumArt` updates only when `contentIdentifier` captured as this
+    /// lookup started is still the current track. A stale request never touches
+    /// the UI. `artworkRequestID` is not the key: the 600ms deadline used to nil
+    /// it and drop a late hit.
     @MainActor
-    private func resolveCatalogArtwork(_ result: CatalogArtworkResult, requestID: UUID) {
-        guard case .available(let data) = result else { return }
-        noteDecodedPeekCover(data, requestID: requestID)
-        guard artworkRequestID == requestID else { return }
-        artworkFetchTask?.cancel()
-        completeArtworkRequest(result, requestID: requestID)
+    private func resolveCatalogArtwork(
+        _ result: CatalogArtworkResult,
+        requestID: UUID,
+        contentIdentifier: String?
+    ) {
+        switch result {
+        case .available(let data):
+            guard contentIdentifierMatchesCurrent(contentIdentifier) else { return }
+            guard Self.decodePeekImage(data) != nil else {
+                noteCatalogSettled(requestID: requestID, contentIdentifier: contentIdentifier)
+                return
+            }
+            noteDecodedPeekCover(data, requestID: requestID)
+            publishAvailableArtwork(data, contentIdentifier: contentIdentifier)
+        case .unavailable, .transientFailure:
+            guard contentIdentifierMatchesCurrent(contentIdentifier) else { return }
+            noteCatalogSettled(requestID: requestID, contentIdentifier: contentIdentifier)
+        }
     }
 
     private func fetchArtworkFromCatalog(

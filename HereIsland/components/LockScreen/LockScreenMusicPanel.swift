@@ -68,13 +68,20 @@ struct LockScreenMusicPanel: View {
         )
     }
 
+    @ViewBuilder
     private var artwork: some View {
-        Image(nsImage: musicManager.albumArt)
-            .resizable()
-            .aspectRatio(contentMode: .fill)
-            .frame(width: 88, height: 88)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: Color(nsColor: musicManager.avgColor).opacity(0.08), radius: 4, y: 0)
+        Group {
+            if musicManager.albumArtSlotIsEmpty {
+                Color.clear
+            } else {
+                Image(nsImage: musicManager.albumArt)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            }
+        }
+        .frame(width: 88, height: 88)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: Color(nsColor: musicManager.avgColor).opacity(0.08), radius: 4, y: 0)
     }
 
     private var controls: some View {
