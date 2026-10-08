@@ -491,8 +491,9 @@ jobs:
             if [ "$old" = "$TAG" ]; then
               continue
             fi
-            echo "Deleting older beta release/tag: $old"
-            gh release delete "$old" --repo "$REPO" --yes --cleanup-tag || true
+            echo "Deleting older beta release: $old"
+            # Release and assets only; keep the v*-beta* git tag.
+            gh release delete "$old" --repo "$REPO" --yes || true
           done
 
       - name: Update Homebrew tap
