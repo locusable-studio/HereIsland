@@ -52,7 +52,7 @@ struct DynamicNotchApp: App {
 
     var body: some Scene {
         MenuBarExtra("Here Island", systemImage: "inset.filled.capsule") {
-            Section(String(localized: "General")) {
+            Section {
                 LaunchAtLogin.Toggle {
                     Text(String(localized: "Launch at login"))
                 }
@@ -71,7 +71,7 @@ struct DynamicNotchApp: App {
                 }
             }
 
-            Section(String(localized: "Appearance")) {
+            Section {
                 Toggle(String(localized: "Quick peek"), isOn: $showTitleOnTrackChange)
                 Toggle(String(localized: "Lock screen widget"), isOn: $enableLockScreenMediaPanel)
                 Menu(String(localized: "Effects")) {
@@ -86,7 +86,7 @@ struct DynamicNotchApp: App {
                 }
             }
 
-            Section(String(localized: "Media")) {
+            Section {
                 Picker(String(localized: "Source"), selection: $mediaController) {
                     ForEach(availableMediaControllers) { type in
                         Text(type.localizedName).tag(type)
@@ -94,7 +94,7 @@ struct DynamicNotchApp: App {
                 }
             }
 
-            Section(String(localized: "Updates")) {
+            Section {
                 CheckForUpdatesView(updater: updaterController.updater, updaterDelegate: updaterDelegate)
                 Picker(String(localized: "Channel"), selection: $updateChannel) {
                     ForEach(UpdateChannel.allCases) { channel in
