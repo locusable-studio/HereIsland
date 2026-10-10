@@ -69,23 +69,6 @@
         }
       }
     },
-    "Appearance": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Appearance"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "外观"
-          }
-        }
-      }
-    },
     "Apple Music": {
       "extractionState": "manual",
       "localizations": {
@@ -232,23 +215,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "跟随系统"
-          }
-        }
-      }
-    },
-    "General": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "General"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通用"
           }
         }
       }
@@ -485,23 +451,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "匹配专辑封面"
-          }
-        }
-      }
-    },
-    "Media": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Media"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "媒体"
           }
         }
       }
@@ -957,23 +906,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "更新设置"
-          }
-        }
-      }
-    },
-    "Updates": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Updates"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "更新"
           }
         }
       }
