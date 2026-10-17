@@ -1,3 +1,5 @@
+> **Discontinued** — Here Island is no longer actively maintained. The code remains available under GPL-3.0; feel free to fork it.
+
 # Here Island
 
 [![Release](https://img.shields.io/github/v/release/locusable-studio/HereIsland)](https://github.com/locusable-studio/HereIsland/releases/latest)
